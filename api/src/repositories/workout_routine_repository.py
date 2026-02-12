@@ -89,3 +89,44 @@ class SQLiteWorkoutRoutineRepository:
         await self.db.commit()
 
         return cursor.rowcount > 0
+
+    async def add_exercise(
+        self, routine_id: int, exercise_id: int, sets: int = 3, reps: int = 10
+    ) -> dict:
+        """Add an exercise to a routine."""
+        # Get current max order_index
+        cursor = await self.db.execute(
+            "SELECT MAX(order_index) FROM routine_exercises WHERE routine_id = ?",
+            (routine_id,),
+        )
+        row = await cursor.fetchone()
+        next_order = (row[0] or 0) + 1
+
+        await self.db.execute(
+            """INSERT INTO routine_exercises (routine_id, exercise_id, sets, reps, order_index)
+               VALUES (?, ?, ?, ?, ?)""",
+            (routine_id, exercise_id, sets, reps, next_order),
+        )
+        await self.db.commit()
+        return {"routine_id": routine_id, "exercise_id": exercise_id, "sets": sets, "reps": reps}
+
+    async def get_exercises(self, routine_id: int) -> list[dict]:
+        """Get all exercises in a routine."""
+        cursor = await self.db.execute(
+            """SELECT e.*, re.sets, re.reps, re.order_index
+               FROM routine_exercises re
+                        JOIN exercises e ON re.exercise_id = e.id
+               WHERE re.routine_id = ?
+               ORDER BY re.order_index""",
+            (routine_id,),
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def remove_exercise(self, routine_id: int, exercise_id: int) -> bool:
+        """Remove an exercise from a routine."""
+        cursor = await self.db.execute(
+            "DELETE FROM routine_exercises WHERE routine_id = ? AND exercise_id = ?",
+            (routine_id, exercise_id),
+        )
+        await self.db.commit()
+        return cursor.rowcount > 0

@@ -65,3 +65,33 @@ async def delete_workout_routine(
     deleted = await repo.delete(workout_routine_id)
     if not deleted:
         raise NotFoundError("workout routine not found")
+
+
+@router.post("/{routine_id}/exercises")
+async def add_exercise_to_routine(
+    routine_id: int,
+    exercise_id: int,
+    sets: int = 3,
+    reps: int = 10,
+    repo=Depends(get_workout_routine_repository),
+):
+    return await repo.add_exercise(routine_id, exercise_id, sets, reps)
+
+
+@router.get("/{routine_id}/exercises")
+async def get_routine_exercises(
+    routine_id: int,
+    repo=Depends(get_workout_routine_repository),
+):
+    return await repo.get_exercises(routine_id)
+
+
+@router.delete("/{routine_id}/exercises/{exercise_id}", status_code=204)
+async def remove_exercise_from_routine(
+    routine_id: int,
+    exercise_id: int,
+    repo=Depends(get_workout_routine_repository),
+):
+    removed = await repo.remove_exercise(routine_id, exercise_id)
+    if not removed:
+        raise NotFoundError("Exercise not in routine")

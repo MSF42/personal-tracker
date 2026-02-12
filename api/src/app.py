@@ -12,6 +12,7 @@ from src.routes.exercises import router as exercise_router
 from src.routes.health import router
 from src.routes.running import router as running_router
 from src.routes.tasks import router as tasks_router
+from src.routes.workout_logs import router as workout_logs_router
 from src.routes.workout_routines import router as workout_routine_router
 
 
@@ -59,4 +60,5 @@ def create_app():
     app.include_router(running_router)
     app.include_router(exercise_router)
     app.include_router(workout_routine_router)
+    app.include_router(workout_logs_router)
     return app

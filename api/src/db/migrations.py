@@ -97,6 +97,56 @@ MIGRATIONS = [
                   );
         """,
     },
+    {
+        "version": 9,
+        "name": "create_routine_exercises_table",
+        "sql": """
+               CREATE TABLE IF NOT EXISTS routine_exercises
+               (
+                   id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                   routine_id  INTEGER NOT NULL,
+                   exercise_id INTEGER NOT NULL,
+                   sets        INTEGER NOT NULL DEFAULT 3,
+                   reps        INTEGER NOT NULL DEFAULT 10,
+                   order_index INTEGER NOT NULL DEFAULT 0,
+                   FOREIGN KEY (routine_id) REFERENCES workout_routines (id) ON DELETE CASCADE,
+                   FOREIGN KEY (exercise_id) REFERENCES exercises (id) ON DELETE CASCADE,
+                   UNIQUE (routine_id, exercise_id)
+               );
+               """,
+    },
+    {
+        "version": 10,
+        "name": "create_workout_logs_table",
+        "sql": """
+               CREATE TABLE IF NOT EXISTS workout_logs
+               (
+                   id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                   routine_id INTEGER NOT NULL,
+                   date       TEXT    NOT NULL,
+                   notes      TEXT,
+                   created_at TEXT    NOT NULL,
+                   FOREIGN KEY (routine_id) REFERENCES workout_routines (id) ON DELETE CASCADE
+               );
+               """,
+    },
+    {
+        "version": 11,
+        "name": "create_set_logs_table",
+        "sql": """
+               CREATE TABLE IF NOT EXISTS set_logs
+               (
+                   id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                   workout_log_id INTEGER NOT NULL,
+                   exercise_id    INTEGER NOT NULL,
+                   set_number     INTEGER NOT NULL,
+                   reps           INTEGER NOT NULL,
+                   weight         REAL,
+                   FOREIGN KEY (workout_log_id) REFERENCES workout_logs (id) ON DELETE CASCADE,
+                   FOREIGN KEY (exercise_id) REFERENCES exercises (id) ON DELETE CASCADE
+               );
+               """,
+    },
 ]
 
 

@@ -31,6 +31,21 @@ async def list_runs(
     return await repo.find_all()
 
 
+@router.get("/stats/{year}")
+async def get_yearly_stats(
+    year: int,
+    repo: SQLiteRunningRepository = Depends(get_running_repository),
+):
+    return await repo.get_stats_by_month(year)
+
+
+@router.get("/personal-bests")
+async def get_personal_bests(
+    repo: SQLiteRunningRepository = Depends(get_running_repository),
+):
+    return await repo.get_personal_bests()
+
+
 @router.get("/{run_id}", response_model=RunningActivityResponse)
 async def get_run(
     run_id: int,

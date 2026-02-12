@@ -1,0 +1,66 @@
+from datetime import datetime, timezone
+
+from aiosqlite import Connection
+
+
+class SQLiteWorkoutLogRepository:
+    def __init__(self, db: Connection):
+        self.db = db
+
+    async def create(self, routine_id: int, date: str, notes: str | None = None) -> dict:
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = await self.db.execute(
+            "INSERT INTO workout_logs (routine_id, date, notes, created_at) VALUES (?, ?, ?, ?)",
+            (routine_id, date, notes, now),
+        )
+        await self.db.commit()
+        return {"id": cursor.lastrowid, "routine_id": routine_id, "date": date, "notes": notes}
+
+    async def log_set(
+        self,
+        workout_log_id: int,
+        exercise_id: int,
+        set_number: int,
+        reps: int,
+        weight: float | None = None,
+    ) -> dict:
+        await self.db.execute(
+            "INSERT INTO set_logs (workout_log_id, exercise_id, set_number, reps, weight) VALUES (?, ?, ?, ?, ?)",
+            (workout_log_id, exercise_id, set_number, reps, weight),
+        )
+        await self.db.commit()
+        return {
+            "workout_log_id": workout_log_id,
+            "exercise_id": exercise_id,
+            "set_number": set_number,
+            "reps": reps,
+            "weight": weight,
+        }
+
+    async def get_workout_with_sets(self, workout_log_id: int) -> dict | None:
+        # Get workout log
+        cursor = await self.db.execute("SELECT * FROM workout_logs WHERE id = ?", (workout_log_id,))
+        workout = await cursor.fetchone()
+        if not workout:
+            return None
+
+            # Get sets
+        sets_cursor = await self.db.execute(
+            """SELECT sl.*, e.name as exercise_name
+               FROM set_logs sl
+                        JOIN exercises e ON sl.exercise_id = e.id
+               WHERE sl.workout_log_id = ?
+               ORDER BY sl.exercise_id, sl.set_number""",
+            (workout_log_id,),
+        )
+        sets = [dict(row) for row in await sets_cursor.fetchall()]
+
+        return {**dict(workout), "sets": sets}
+
+    async def find_by_routine(self, routine_id: int) -> list[dict]:
+        """Get all workout logs for a routine."""
+        cursor = await self.db.execute(
+            "SELECT * FROM workout_logs WHERE routine_id = ? ORDER BY date DESC",
+            (routine_id,),
+        )
+        return [dict(row) for row in await cursor.fetchall()]

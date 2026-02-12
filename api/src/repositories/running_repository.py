@@ -91,3 +91,45 @@ class SQLiteRunningRepository:
         await self.db.commit()
 
         return await self.find_by_id(activity_id)
+
+    async def get_stats_by_month(self, year: int) -> list[dict]:
+        """Get monthly running statistics for a given year."""
+        cursor = await self.db.execute(
+            """
+            SELECT strftime('%Y-%m', date) as month,
+                   COUNT(*)                as total_runs,
+                   SUM(distance_km)        as total_distance,
+                   SUM(duration_seconds)   as total_duration,
+                   AVG(distance_km)        as avg_distance,
+                   MAX(distance_km)        as longest_run
+            FROM running_activities
+            WHERE strftime('%Y', date) = ?
+            GROUP BY month
+            ORDER BY month DESC
+            """,
+            (str(year),),
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_personal_bests(self) -> dict:
+        """Get personal best records."""
+        # Longest run
+        longest = await self.db.execute(
+            "SELECT * FROM running_activities ORDER BY distance_km DESC LIMIT 1"
+        )
+        longest_row = await longest.fetchone()
+
+        # Fastest pace (best time per km)
+        fastest = await self.db.execute(
+            """SELECT *
+               FROM running_activities
+               WHERE distance_km > 0
+               ORDER BY (CAST(duration_seconds AS REAL) / distance_km) ASC
+               LIMIT 1"""
+        )
+        fastest_row = await fastest.fetchone()
+
+        return {
+            "longest_run": dict(longest_row) if longest_row else None,
+            "fastest_pace": dict(fastest_row) if fastest_row else None,
+        }
