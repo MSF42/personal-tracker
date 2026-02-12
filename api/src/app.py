@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from src.config.settings import get_settings
 from src.db.database import DATABASE_PATH
 from src.db.migrations import run_migrations
 from src.errors import AppError
@@ -28,7 +29,15 @@ async def lifespan(app: FastAPI):
 
 
 def create_app():
-    app = FastAPI(lifespan=lifespan)  # Pass lifespan here
+    settings = get_settings()
+
+    app = FastAPI(
+        title=settings.api_title,
+        version=settings.api_version,
+        docs_url="/docs" if settings.enable_docs else None,
+        redoc_url="/redoc" if settings.enable_docs else None,
+        lifespan=lifespan,
+    )
     app.add_middleware(RequestLoggingMiddleware)
 
     # Exception handlers

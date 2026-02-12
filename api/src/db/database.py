@@ -1,6 +1,9 @@
 import aiosqlite
 
-DATABASE_PATH = "data/tracker.db"
+from src.config.settings import get_settings
+
+settings = get_settings()
+DATABASE_PATH = settings.database_path
 
 
 async def get_db():
