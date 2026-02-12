@@ -1,0 +1,21 @@
+[tool.ruff]
+# Set the line length for both the linter and formatter
+line-length = 100
+# Specify the minimum Python version the code targets
+target-version = "py314"
+
+[tool.ruff.lint]
+# Enable all 'E' (pycodestyle errors) and 'F' (Pyflakes errors) rules by default
+select = ["E", "F", "I"]
+# Disable specific rules (e.g., ignore line length warnings if Black is used)
+ignore = ["E501"]
+# Exclude files or directories from linting
+exclude = ["build", "venv", ".venv"]
+
+[tool.ruff.format]
+# Use single quotes for strings (default is double quotes)
+quote-style = "double"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]  
