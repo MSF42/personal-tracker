@@ -1,0 +1,8 @@
+# IDE
+.idea/
+
+# macOS
+.DS_Store
+
+# Learning guides (personal reference)
+python-*.md

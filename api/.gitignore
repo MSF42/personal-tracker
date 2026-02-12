@@ -163,3 +163,15 @@ cython_debug/
 #.idea/
 
 data/
+
+# IDE
+.idea/
+
+# macOS
+.DS_Store
+
+# Local database files
+*.sqlite
+
+# Learning guides
+python-*.md
