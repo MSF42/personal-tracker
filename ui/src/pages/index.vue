@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useTaskApi } from '@/composables/api/useTaskApi';
@@ -13,6 +14,7 @@ const { getActivities, createActivity } = useRunningApi();
 const { getTasks, createTask } = useTaskApi();
 const { getWorkoutLogs } = useWorkoutLogApi();
 const toast = useToast();
+const router = useRouter();
 
 const runs = ref<RunningActivity[]>([]);
 const tasks = ref<Task[]>([]);
@@ -37,58 +39,48 @@ onMounted(async () => {
 
 // --- Summary computations ---
 
-const runningSummary = computed(() => {
-    const monthStart = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-    const monthEnd = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-31`;
-    const monthRuns = runs.value.filter(
-        (r) => r.date >= monthStart && r.date <= monthEnd,
+function getMonday(d: Date): Date {
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.getFullYear(), d.getMonth(), diff);
+}
+
+const tasksDueToday = computed(() => {
+    const dueToday = tasks.value.filter(
+        (t) => !t.completed && t.due_date === todayStr,
     );
-    const totalDistance = monthRuns.reduce((sum, r) => sum + r.distance_km, 0);
-    const avgPace =
-        monthRuns.length > 0
-            ? monthRuns.reduce((sum, r) => sum + r.pace, 0) / monthRuns.length
-            : 0;
-    const avgMin = Math.floor(avgPace);
-    const avgSec = Math.round((avgPace - avgMin) * 60);
+    const overdue = tasks.value.filter(
+        (t) => !t.completed && t.due_date && t.due_date < todayStr,
+    );
+    return { dueCount: dueToday.length, overdueCount: overdue.length };
+});
+
+const weeklyRunning = computed(() => {
+    const monday = getMonday(new Date());
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const monStr = monday.toISOString().split('T')[0] as string;
+    const sunStr = sunday.toISOString().split('T')[0] as string;
+    const weekRuns = runs.value.filter(
+        (r) => r.date >= monStr && r.date <= sunStr,
+    );
     return {
-        count: monthRuns.length,
-        totalDistance: totalDistance.toFixed(1),
-        avgPace: `${avgMin}:${String(avgSec).padStart(2, '0')}`,
+        distance: weekRuns.reduce((s, r) => s + r.distance_km, 0).toFixed(1),
+        count: weekRuns.length,
     };
 });
 
-const workoutSummary = computed(() => {
-    const recentLogs = workoutLogs.value.slice(0, 5);
-    const lastDate =
-        workoutLogs.value.length > 0
-            ? (workoutLogs.value[0] as WorkoutLog).date
-            : 'N/A';
-    return {
-        totalLogs: workoutLogs.value.length,
-        recentCount: recentLogs.length,
-        lastDate,
-    };
-});
-
-const taskSummary = computed(() => {
-    const incomplete = tasks.value.filter((t) => !t.completed);
-    const overdue = incomplete.filter(
-        (t) => t.due_date && t.due_date < todayStr,
-    );
-    const completedToday = tasks.value.filter(
-        (t) => t.completed && t.updated_at.startsWith(todayStr),
-    );
-    return {
-        incomplete: incomplete.length,
-        overdue: overdue.length,
-        completedToday: completedToday.length,
-    };
+const lastWorkout = computed(() => {
+    if (workoutLogs.value.length === 0) return null;
+    const log = workoutLogs.value[0] as WorkoutLog;
+    return { date: log.date, routineName: log.routine_name };
 });
 
 // --- Add Run dialog ---
 const showAddRun = ref(false);
 const runForm = reactive({
     date: todayStr,
+    title: '',
     minutes: 0,
     seconds: 0,
     distance_km: 0,
@@ -97,6 +89,7 @@ const runForm = reactive({
 
 function openAddRun() {
     runForm.date = todayStr;
+    runForm.title = '';
     runForm.minutes = 0;
     runForm.seconds = 0;
     runForm.distance_km = 0;
@@ -110,6 +103,7 @@ async function saveRun() {
         duration_seconds: runForm.minutes * 60 + runForm.seconds,
         distance_km: runForm.distance_km,
         notes: runForm.notes || null,
+        title: runForm.title || null,
     });
     if (res.success) {
         toast.showSuccess('Run added');
@@ -278,125 +272,102 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
         </h1>
 
         <!-- Summary Cards -->
-        <div class="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <!-- Running Summary -->
-            <AppCard class="group">
+        <div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <!-- Tasks Due Today -->
+            <AppCard>
                 <template #title>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <i class="pi pi-bolt text-blue-500"></i>
-                            <span>Running</span>
-                        </div>
-                        <AppButton
-                            class="opacity-0 transition-opacity group-hover:opacity-100"
-                            icon="pi pi-plus"
-                            rounded
-                            size="small"
-                            text
-                            @click="openAddRun"
-                        />
+                    <div class="flex items-center gap-2">
+                        <i class="pi pi-check-square text-orange-500"></i>
+                        <span>Tasks Due Today</span>
                     </div>
                 </template>
                 <template #content>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-surface-500">
-                                Runs this month
-                            </span>
-                            <span class="font-semibold">
-                                {{ runningSummary.count }}
-                            </span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-surface-500">
-                                Total distance
-                            </span>
-                            <span class="font-semibold">
-                                {{ runningSummary.totalDistance }} km
-                            </span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-surface-500">Avg pace</span>
-                            <span class="font-semibold">
-                                {{ runningSummary.avgPace }} /km
-                            </span>
-                        </div>
+                    <div class="text-2xl font-bold">
+                        {{ tasksDueToday.dueCount }}
+                    </div>
+                    <div
+                        v-if="tasksDueToday.overdueCount > 0"
+                        class="text-sm font-semibold text-red-500"
+                    >
+                        {{ tasksDueToday.overdueCount }} overdue
+                    </div>
+                    <div v-else class="text-surface-500 text-sm">
+                        none overdue
                     </div>
                 </template>
             </AppCard>
 
-            <!-- Workouts Summary -->
+            <!-- Running This Week -->
+            <AppCard>
+                <template #title>
+                    <div class="flex items-center gap-2">
+                        <i class="pi pi-bolt text-blue-500"></i>
+                        <span>Running This Week</span>
+                    </div>
+                </template>
+                <template #content>
+                    <div class="text-2xl font-bold">
+                        {{ weeklyRunning.distance }} km
+                    </div>
+                    <div class="text-surface-500 text-sm">
+                        {{ weeklyRunning.count }}
+                        {{ weeklyRunning.count === 1 ? 'run' : 'runs' }}
+                    </div>
+                </template>
+            </AppCard>
+
+            <!-- Last Workout -->
             <AppCard>
                 <template #title>
                     <div class="flex items-center gap-2">
                         <i class="pi pi-heart text-green-500"></i>
-                        <span>Workouts</span>
+                        <span>Last Workout</span>
                     </div>
                 </template>
                 <template #content>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-surface-500">Total logs</span>
-                            <span class="font-semibold">
-                                {{ workoutSummary.totalLogs }}
-                            </span>
+                    <template v-if="lastWorkout">
+                        <div class="text-2xl font-bold">
+                            {{ lastWorkout.date }}
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-surface-500">Recent</span>
-                            <span class="font-semibold">
-                                {{ workoutSummary.recentCount }}
-                            </span>
+                        <div class="text-surface-500 text-sm">
+                            {{ lastWorkout.routineName }}
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-surface-500"> Last workout </span>
-                            <span class="font-semibold">
-                                {{ workoutSummary.lastDate }}
-                            </span>
-                        </div>
+                    </template>
+                    <div v-else class="text-surface-400 text-2xl font-bold">
+                        &mdash;
                     </div>
                 </template>
             </AppCard>
 
-            <!-- Tasks Summary -->
-            <AppCard class="group">
-                <template #title>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <i class="pi pi-check-square text-orange-500"></i>
-                            <span>Tasks</span>
-                        </div>
+            <!-- Quick Actions -->
+            <AppCard>
+                <template #title>Quick Actions</template>
+                <template #content>
+                    <div class="flex flex-col gap-2">
                         <AppButton
-                            class="opacity-0 transition-opacity group-hover:opacity-100"
+                            class="w-full"
                             icon="pi pi-plus"
-                            rounded
+                            label="Add Task"
+                            outlined
                             size="small"
-                            text
                             @click="openAddTask"
                         />
-                    </div>
-                </template>
-                <template #content>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-surface-500">Incomplete</span>
-                            <span class="font-semibold">
-                                {{ taskSummary.incomplete }}
-                            </span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-surface-500">Overdue</span>
-                            <span class="font-semibold text-red-500">
-                                {{ taskSummary.overdue }}
-                            </span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-surface-500">
-                                Completed today
-                            </span>
-                            <span class="font-semibold">
-                                {{ taskSummary.completedToday }}
-                            </span>
-                        </div>
+                        <AppButton
+                            class="w-full"
+                            icon="pi pi-plus"
+                            label="Add Run"
+                            outlined
+                            size="small"
+                            @click="openAddRun"
+                        />
+                        <AppButton
+                            class="w-full"
+                            icon="pi pi-list"
+                            label="Log Workout"
+                            outlined
+                            size="small"
+                            @click="router.push('/workout-routines')"
+                        />
                     </div>
                 </template>
             </AppCard>
@@ -606,6 +577,16 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                         v-model="runForm.date"
                         class="w-full"
                         type="date"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Title
+                    </label>
+                    <AppInputText
+                        v-model="runForm.title"
+                        class="w-full"
+                        placeholder="e.g. Morning Run"
                     />
                 </div>
                 <div>

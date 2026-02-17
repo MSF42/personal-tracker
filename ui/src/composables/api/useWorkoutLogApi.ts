@@ -4,6 +4,7 @@ import type {
     SetLog,
     WorkoutLog,
     WorkoutLogDetail,
+    WorkoutLogUpdate,
 } from '@/types/WorkoutLog';
 
 export function useWorkoutLogApi() {
@@ -45,6 +46,12 @@ export function useWorkoutLogApi() {
             `workout-logs/exercise/${exerciseId}/history`,
         );
 
+    const updateWorkoutLog = async (id: number, data: WorkoutLogUpdate) =>
+        api.put<WorkoutLogUpdate, WorkoutLog>(`workout-logs/${id}`, data);
+
+    const deleteWorkoutLog = async (id: number) =>
+        api.remove(`workout-logs/${id}`);
+
     const getExerciseLastPerformed = async () =>
         api.getData<Record<number, string>>(
             'workout-logs/exercise-last-performed',
@@ -54,6 +61,8 @@ export function useWorkoutLogApi() {
         getWorkoutLogs,
         getWorkoutLog,
         createWorkoutLog,
+        updateWorkoutLog,
+        deleteWorkoutLog,
         logSet,
         getExerciseHistory,
         getExerciseLastPerformed,

@@ -178,6 +178,23 @@ MIGRATIONS = [
                ALTER TABLE running_activities ADD COLUMN has_gpx INTEGER NOT NULL DEFAULT 0;
                """,
     },
+    {
+        "version": 15,
+        "name": "add_title_to_running_activities",
+        "sql": """
+               ALTER TABLE running_activities ADD COLUMN title TEXT;
+               """,
+    },
+    {
+        "version": 16,
+        "name": "create_user_settings_table",
+        "sql": """
+               CREATE TABLE IF NOT EXISTS user_settings (
+                   key TEXT PRIMARY KEY,
+                   value TEXT NOT NULL
+               );
+               """,
+    },
 ]
 
 

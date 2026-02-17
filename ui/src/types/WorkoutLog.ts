@@ -26,6 +26,11 @@ export interface ExerciseHistoryEntry {
     weight: number | null;
 }
 
+export interface WorkoutLogUpdate {
+    date?: string | null;
+    notes?: string | null;
+}
+
 export interface WorkoutLogDetail {
     id: number;
     routine_id: number;

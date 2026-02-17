@@ -20,15 +20,16 @@ class SQLiteRunningRepository:
 
         cursor = await self.db.execute(
             """
-            INSERT INTO running_activities (date, duration_seconds, distance_km, notes, created_at,
-                                            updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO running_activities (date, duration_seconds, distance_km, notes, title,
+                                            created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 activity.date,
                 activity.duration_seconds,
                 activity.distance_km,
                 activity.notes,
+                activity.title,
                 now,
                 now,
             ),
@@ -112,16 +113,21 @@ class SQLiteRunningRepository:
         return [dict(row) for row in await cursor.fetchall()]
 
     async def create_with_gpx(
-        self, date: str, distance_km: float, duration_seconds: int, notes: str | None
+        self,
+        date: str,
+        distance_km: float,
+        duration_seconds: int,
+        notes: str | None,
+        title: str | None = None,
     ) -> RunningActivityResponse:
         now = datetime.now(timezone.utc).isoformat()
         cursor = await self.db.execute(
             """
             INSERT INTO running_activities (date, duration_seconds, distance_km, notes, has_gpx,
-                                            created_at, updated_at)
-            VALUES (?, ?, ?, ?, 1, ?, ?)
+                                            title, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 1, ?, ?, ?)
             """,
-            (date, duration_seconds, distance_km, notes, now, now),
+            (date, duration_seconds, distance_km, notes, title, now, now),
         )
         await self.db.commit()
         return await self.find_by_id(cursor.lastrowid)

@@ -65,6 +65,7 @@ async def import_gpx(
         distance_km=result.distance_km,
         duration_seconds=result.duration_seconds,
         notes=None,
+        title=result.title,
     )
 
     segment_dicts = [

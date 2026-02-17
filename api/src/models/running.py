@@ -8,6 +8,7 @@ class RunningActivityInDB(BaseModel):
     distance_km: float
     notes: str | None
     has_gpx: int = 0
+    title: str | None = None
     created_at: str
     updated_at: str
 
@@ -19,6 +20,7 @@ class RunningActivityResponse(BaseModel):
     distance_km: float
     notes: str | None = None
     has_gpx: bool = False
+    title: str | None = None
     created_at: str
     updated_at: str
     # Computed fields
@@ -32,6 +34,7 @@ class CreateRunningActivityRequest(BaseModel):
     duration_seconds: int = Field(gt=0)
     distance_km: float = Field(gt=0)
     notes: str | None = None
+    title: str | None = None
 
 
 class UpdateRunningActivityRequest(BaseModel):
@@ -39,6 +42,7 @@ class UpdateRunningActivityRequest(BaseModel):
     duration_seconds: int | None = Field(default=None, gt=0)
     distance_km: float | None = Field(default=None, gt=0)
     notes: str | None = None
+    title: str | None = None
 
 
 def running_from_db(row: RunningActivityInDB) -> RunningActivityResponse:

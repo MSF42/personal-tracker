@@ -99,3 +99,40 @@ class SQLiteWorkoutLogRepository:
             (routine_id,),
         )
         return [dict(row) for row in await cursor.fetchall()]
+
+    async def delete(self, workout_log_id: int) -> bool:
+        cursor = await self.db.execute("DELETE FROM workout_logs WHERE id = ?", (workout_log_id,))
+        await self.db.commit()
+        return cursor.rowcount > 0
+
+    async def update(
+        self, workout_log_id: int, date: str | None = None, notes: str | None = None
+    ) -> dict | None:
+        existing = await self.db.execute(
+            "SELECT * FROM workout_logs WHERE id = ?", (workout_log_id,)
+        )
+        row = await existing.fetchone()
+        if not row:
+            return None
+
+        updates = {}
+        if date is not None:
+            updates["date"] = date
+        if notes is not None:
+            updates["notes"] = notes
+
+        if updates:
+            set_clause = ", ".join(f"{key} = ?" for key in updates)
+            values = list(updates.values()) + [workout_log_id]
+            await self.db.execute(f"UPDATE workout_logs SET {set_clause} WHERE id = ?", values)
+            await self.db.commit()
+
+        cursor = await self.db.execute(
+            """SELECT wl.*, wr.name as routine_name
+               FROM workout_logs wl
+               JOIN workout_routines wr ON wl.routine_id = wr.id
+               WHERE wl.id = ?""",
+            (workout_log_id,),
+        )
+        updated = await cursor.fetchone()
+        return dict(updated) if updated else None

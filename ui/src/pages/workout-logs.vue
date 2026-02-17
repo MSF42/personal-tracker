@@ -3,14 +3,21 @@ import { computed, onMounted, reactive, ref } from 'vue';
 
 import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
+import { useToast } from '@/composables/useToast';
 import type {
     ExerciseHistoryEntry,
     WorkoutLog,
     WorkoutLogDetail,
 } from '@/types/WorkoutLog';
 
-const { getWorkoutLogs, getWorkoutLog, getExerciseHistory } =
-    useWorkoutLogApi();
+const {
+    getWorkoutLogs,
+    getWorkoutLog,
+    getExerciseHistory,
+    updateWorkoutLog,
+    deleteWorkoutLog,
+} = useWorkoutLogApi();
+const toast = useToast();
 
 const logs = ref<WorkoutLog[]>([]);
 
@@ -119,6 +126,55 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
         historyEntries.value = res.data;
         showHistory.value = true;
     }
+}
+
+// --- Edit Dialog ---
+const showEdit = ref(false);
+const editingLog = ref<WorkoutLog | null>(null);
+const editForm = reactive({
+    date: '',
+    notes: '',
+});
+
+function openEditDialog(log: WorkoutLog) {
+    editingLog.value = log;
+    editForm.date = log.date;
+    editForm.notes = log.notes ?? '';
+    showEdit.value = true;
+}
+
+async function saveEdit() {
+    if (!editingLog.value) return;
+    const res = await updateWorkoutLog(editingLog.value.id, {
+        date: editForm.date,
+        notes: editForm.notes || null,
+    });
+    if (res.success) {
+        toast.showSuccess('Workout log updated');
+        showEdit.value = false;
+        await loadData();
+    }
+}
+
+// --- Delete Confirmation ---
+const showDeleteConfirm = ref(false);
+const deletingId = ref<number | null>(null);
+
+function confirmDelete(id: number) {
+    deletingId.value = id;
+    showDeleteConfirm.value = true;
+}
+
+async function executeDelete() {
+    if (deletingId.value) {
+        const res = await deleteWorkoutLog(deletingId.value);
+        if (res.success) {
+            toast.showSuccess('Workout log deleted');
+        }
+    }
+    showDeleteConfirm.value = false;
+    deletingId.value = null;
+    await loadData();
 }
 
 // --- Data loading ---
@@ -254,16 +310,31 @@ onMounted(loadData);
                     <span v-else class="text-surface-400">&mdash;</span>
                 </template>
             </AppColumn>
-            <AppColumn header="Actions" style="width: 6rem">
+            <AppColumn header="Actions" style="width: 10rem">
                 <template #body="{ data }">
-                    <AppButton
-                        class="row-actions"
-                        icon="pi pi-eye"
-                        rounded
-                        severity="info"
-                        text
-                        @click="openDetail(data as WorkoutLog)"
-                    />
+                    <div class="row-actions flex gap-2">
+                        <AppButton
+                            icon="pi pi-eye"
+                            rounded
+                            severity="info"
+                            text
+                            @click="openDetail(data as WorkoutLog)"
+                        />
+                        <AppButton
+                            icon="pi pi-pencil"
+                            rounded
+                            severity="info"
+                            text
+                            @click="openEditDialog(data as WorkoutLog)"
+                        />
+                        <AppButton
+                            icon="pi pi-trash"
+                            rounded
+                            severity="danger"
+                            text
+                            @click="confirmDelete((data as WorkoutLog).id)"
+                        />
+                    </div>
                 </template>
             </AppColumn>
         </AppDataTable>
@@ -343,5 +414,60 @@ onMounted(loadData);
             :entries="historyEntries"
             :exercise-name="historyExerciseName"
         />
+
+        <!-- Edit Workout Log Dialog -->
+        <AppDialog
+            v-model:visible="showEdit"
+            header="Edit Workout Log"
+            modal
+            :style="{ width: '28rem' }"
+        >
+            <div class="flex flex-col gap-4">
+                <div>
+                    <label class="mb-1 block text-sm font-medium"> Date </label>
+                    <AppInputText
+                        v-model="editForm.date"
+                        class="w-full"
+                        type="date"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Notes
+                    </label>
+                    <AppTextarea
+                        v-model="editForm.notes"
+                        class="w-full"
+                        rows="2"
+                    />
+                </div>
+                <div class="flex justify-end gap-2">
+                    <AppButton label="Cancel" text @click="showEdit = false" />
+                    <AppButton label="Save" @click="saveEdit" />
+                </div>
+            </div>
+        </AppDialog>
+
+        <!-- Delete Confirmation Dialog -->
+        <AppDialog
+            v-model:visible="showDeleteConfirm"
+            header="Confirm Delete"
+            modal
+            :style="{ width: '24rem' }"
+        >
+            <p>Are you sure you want to delete this workout log?</p>
+            <div class="mt-4 flex justify-end gap-2">
+                <AppButton
+                    label="Cancel"
+                    text
+                    @click="showDeleteConfirm = false"
+                />
+                <AppButton
+                    label="Delete"
+                    severity="danger"
+                    @click="executeDelete"
+                />
+            </div>
+        </AppDialog>
     </div>
 </template>

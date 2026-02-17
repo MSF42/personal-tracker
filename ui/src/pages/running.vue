@@ -14,6 +14,7 @@ import {
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import { useRunningApi } from '@/composables/api/useRunningApi';
+import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useToast } from '@/composables/useToast';
 import type { GpxSegment, RunningActivity } from '@/types/Running';
 
@@ -37,6 +38,7 @@ const {
     importGpx,
     getSegments,
 } = useRunningApi();
+const { getSetting, setSetting } = useSettingsApi();
 const toast = useToast();
 
 const activities = ref<RunningActivity[]>([]);
@@ -114,6 +116,7 @@ const deletingId = ref<number | null>(null);
 
 const form = reactive({
     date: today.toISOString().split('T')[0] as string,
+    title: '',
     minutes: 0,
     seconds: 0,
     distance_km: 0,
@@ -122,6 +125,7 @@ const form = reactive({
 
 function resetForm() {
     form.date = today.toISOString().split('T')[0] as string;
+    form.title = '';
     form.minutes = 0;
     form.seconds = 0;
     form.distance_km = 0;
@@ -137,6 +141,7 @@ function openAddDialog() {
 function openEditDialog(run: RunningActivity) {
     editingId.value = run.id;
     form.date = run.date;
+    form.title = run.title ?? '';
     form.minutes = Math.floor(run.duration_seconds / 60);
     form.seconds = run.duration_seconds % 60;
     form.distance_km = run.distance_km;
@@ -152,6 +157,7 @@ async function saveRun() {
             duration_seconds: durationSeconds,
             distance_km: form.distance_km,
             notes: form.notes || null,
+            title: form.title || null,
         });
         if (res.success) {
             toast.showSuccess('Run updated');
@@ -162,6 +168,7 @@ async function saveRun() {
             duration_seconds: durationSeconds,
             distance_km: form.distance_km,
             notes: form.notes || null,
+            title: form.title || null,
         });
         if (res.success) {
             toast.showSuccess('Run added');
@@ -238,13 +245,56 @@ async function viewSegments(runId: number) {
     }
 }
 
+// --- Weekly Goal ---
+const weeklyGoalKm = ref<number | null>(null);
+const showGoalDialog = ref(false);
+const goalFormValue = ref<number>(0);
+
+const weeklyGoalProgress = computed(() => {
+    if (!weeklyGoalKm.value || weeklyGoalKm.value <= 0) return null;
+    const current = parseFloat(weekStats.value.distance);
+    const pct = Math.min((current / weeklyGoalKm.value) * 100, 100);
+    return {
+        percentage: Math.round(pct),
+        current,
+        goal: weeklyGoalKm.value,
+    };
+});
+
+function openGoalDialog() {
+    goalFormValue.value = weeklyGoalKm.value ?? 0;
+    showGoalDialog.value = true;
+}
+
+async function saveGoal() {
+    if (goalFormValue.value > 0) {
+        await setSetting('running_weekly_goal_km', String(goalFormValue.value));
+        weeklyGoalKm.value = goalFormValue.value;
+    } else {
+        await setSetting('running_weekly_goal_km', '0');
+        weeklyGoalKm.value = null;
+    }
+    showGoalDialog.value = false;
+}
+
 // --- Data loading ---
 async function loadData() {
     const runsRes = await getActivities();
     if (runsRes.success && runsRes.data) activities.value = runsRes.data;
 }
 
-onMounted(loadData);
+async function loadGoal() {
+    const res = await getSetting('running_weekly_goal_km');
+    if (res.success && res.data?.value) {
+        const val = parseFloat(res.data.value);
+        if (val > 0) weeklyGoalKm.value = val;
+    }
+}
+
+onMounted(() => {
+    loadData();
+    loadGoal();
+});
 
 // --- Computed stats ---
 function getMonday(d: Date): Date {
@@ -414,7 +464,19 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
         <!-- Stats Cards -->
         <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <AppCard>
-                <template #title>This Week</template>
+                <template #title>
+                    <div class="flex items-center justify-between">
+                        <span>This Week</span>
+                        <AppButton
+                            icon="pi pi-cog"
+                            rounded
+                            severity="secondary"
+                            size="small"
+                            text
+                            @click="openGoalDialog"
+                        />
+                    </div>
+                </template>
                 <template #content>
                     <div class="text-2xl font-bold">
                         {{ weekStats.distance }} km
@@ -422,6 +484,27 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                     <div class="text-surface-500 text-sm">
                         {{ weekStats.count }}
                         {{ weekStats.count === 1 ? 'run' : 'runs' }}
+                    </div>
+                    <div v-if="weeklyGoalProgress" class="mt-2">
+                        <div class="text-surface-500 mb-1 text-xs">
+                            {{ weeklyGoalProgress.current.toFixed(1) }} /
+                            {{ weeklyGoalProgress.goal }} km
+                        </div>
+                        <div
+                            class="bg-surface-200 dark:bg-surface-700 h-2 w-full overflow-hidden rounded-full"
+                        >
+                            <div
+                                class="h-full rounded-full transition-all"
+                                :class="
+                                    weeklyGoalProgress.percentage >= 100
+                                        ? 'bg-green-500'
+                                        : 'bg-blue-500'
+                                "
+                                :style="{
+                                    width: `${weeklyGoalProgress.percentage}%`,
+                                }"
+                            ></div>
+                        </div>
                     </div>
                 </template>
             </AppCard>
@@ -697,6 +780,14 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                     {{ formatDate((data as RunningActivity).date) }}
                 </template>
             </AppColumn>
+            <AppColumn field="title" header="Title">
+                <template #body="{ data }">
+                    <span v-if="(data as RunningActivity).title">
+                        {{ (data as RunningActivity).title }}
+                    </span>
+                    <span v-else class="text-surface-400">&mdash;</span>
+                </template>
+            </AppColumn>
             <AppColumn field="distance_km" header="Distance" sortable>
                 <template #body="{ data }">
                     {{ (data as RunningActivity).distance_km }} km
@@ -770,6 +861,16 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
+                        Title
+                    </label>
+                    <AppInputText
+                        v-model="form.title"
+                        class="w-full"
+                        placeholder="e.g. Morning Run"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
                         Distance (km)
                     </label>
                     <AppInputNumber
@@ -837,6 +938,38 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                     severity="danger"
                     @click="executeDelete"
                 />
+            </div>
+        </AppDialog>
+
+        <!-- Weekly Goal Dialog -->
+        <AppDialog
+            v-model:visible="showGoalDialog"
+            header="Weekly Distance Goal"
+            modal
+            :style="{ width: '24rem' }"
+        >
+            <div class="flex flex-col gap-4">
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Goal (km per week)
+                    </label>
+                    <AppInputNumber
+                        v-model="goalFormValue"
+                        class="w-full"
+                        :max-fraction-digits="1"
+                        :min="0"
+                        :step="5"
+                        suffix=" km"
+                    />
+                </div>
+                <div class="flex justify-end gap-2">
+                    <AppButton
+                        label="Cancel"
+                        text
+                        @click="showGoalDialog = false"
+                    />
+                    <AppButton label="Save" @click="saveGoal" />
+                </div>
             </div>
         </AppDialog>
 

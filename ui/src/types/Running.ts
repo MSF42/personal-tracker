@@ -5,6 +5,7 @@ export interface RunningActivity {
     distance_km: number;
     notes: string | null;
     has_gpx: boolean;
+    title: string | null;
     created_at: string;
     updated_at: string;
     pace: number;
@@ -31,6 +32,7 @@ export interface RunningActivityCreate {
     duration_seconds: number;
     distance_km: number;
     notes?: string | null;
+    title?: string | null;
 }
 
 export interface RunningActivityUpdate {
@@ -38,6 +40,7 @@ export interface RunningActivityUpdate {
     duration_seconds?: number | null;
     distance_km?: number | null;
     notes?: string | null;
+    title?: string | null;
 }
 
 export interface MonthlyRunStats {

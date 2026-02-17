@@ -31,6 +31,7 @@ class GpxParseResult:
     distance_km: float
     duration_seconds: int
     segments: list[SegmentResult]
+    title: str | None = None
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -95,6 +96,20 @@ def _compute_segments(
 def parse_gpx(xml_bytes: bytes) -> GpxParseResult:
     root = ET.fromstring(xml_bytes)
 
+    # Extract title: try <trk><name> first, then <metadata><name>
+    title: str | None = None
+    trk_el = root.find(f"{GPX_NS}trk")
+    if trk_el is not None:
+        name_el = trk_el.find(f"{GPX_NS}name")
+        if name_el is not None and name_el.text:
+            title = name_el.text.strip()
+    if not title:
+        metadata_el = root.find(f"{GPX_NS}metadata")
+        if metadata_el is not None:
+            name_el = metadata_el.find(f"{GPX_NS}name")
+            if name_el is not None and name_el.text:
+                title = name_el.text.strip()
+
     trackpoints: list[tuple[float, float, datetime]] = []
     for trkpt in root.iter(f"{GPX_NS}trkpt"):
         lat = float(trkpt.attrib["lat"])
@@ -132,4 +147,5 @@ def parse_gpx(xml_bytes: bytes) -> GpxParseResult:
         distance_km=round(total_distance, 2),
         duration_seconds=int(total_time),
         segments=segments,
+        title=title,
     )
