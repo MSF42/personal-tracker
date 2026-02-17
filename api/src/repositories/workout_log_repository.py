@@ -57,6 +57,41 @@ class SQLiteWorkoutLogRepository:
 
         return {**dict(workout), "sets": sets}
 
+    async def find_all(self) -> list[dict]:
+        """Get all workout logs."""
+        cursor = await self.db.execute(
+            """SELECT wl.*, wr.name as routine_name
+               FROM workout_logs wl
+               JOIN workout_routines wr ON wl.routine_id = wr.id
+               ORDER BY wl.date DESC"""
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_exercise_history(self, exercise_id: int) -> list[dict]:
+        """Get history of a specific exercise across all workout logs."""
+        cursor = await self.db.execute(
+            """SELECT sl.set_number, sl.reps, sl.weight,
+                      wl.id as workout_log_id, wl.date,
+                      wr.name as routine_name
+               FROM set_logs sl
+               JOIN workout_logs wl ON sl.workout_log_id = wl.id
+               JOIN workout_routines wr ON wl.routine_id = wr.id
+               WHERE sl.exercise_id = ?
+               ORDER BY wl.date DESC, sl.set_number ASC""",
+            (exercise_id,),
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_exercise_last_performed(self) -> dict[int, str]:
+        """Get the most recent workout date for each exercise."""
+        cursor = await self.db.execute(
+            """SELECT sl.exercise_id, MAX(wl.date) as last_date
+               FROM set_logs sl
+               JOIN workout_logs wl ON sl.workout_log_id = wl.id
+               GROUP BY sl.exercise_id"""
+        )
+        return {row["exercise_id"]: row["last_date"] for row in await cursor.fetchall()}
+
     async def find_by_routine(self, routine_id: int) -> list[dict]:
         """Get all workout logs for a routine."""
         cursor = await self.db.execute(

@@ -111,6 +111,64 @@ class SQLiteRunningRepository:
         )
         return [dict(row) for row in await cursor.fetchall()]
 
+    async def create_with_gpx(
+        self, date: str, distance_km: float, duration_seconds: int, notes: str | None
+    ) -> RunningActivityResponse:
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = await self.db.execute(
+            """
+            INSERT INTO running_activities (date, duration_seconds, distance_km, notes, has_gpx,
+                                            created_at, updated_at)
+            VALUES (?, ?, ?, ?, 1, ?, ?)
+            """,
+            (date, duration_seconds, distance_km, notes, now, now),
+        )
+        await self.db.commit()
+        return await self.find_by_id(cursor.lastrowid)
+
+    async def save_segments(self, activity_id: int, segments: list[dict]) -> list[dict]:
+        saved = []
+        for seg in segments:
+            cursor = await self.db.execute(
+                """
+                INSERT INTO gpx_segments (running_activity_id, segment_name, distance_km,
+                                          duration_seconds, pace, pace_formatted)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    activity_id,
+                    seg["name"],
+                    seg["distance_km"],
+                    seg["duration_seconds"],
+                    seg["pace"],
+                    seg["pace_formatted"],
+                ),
+            )
+            saved.append(
+                {
+                    "id": cursor.lastrowid,
+                    "segment_name": seg["name"],
+                    "distance_km": seg["distance_km"],
+                    "duration_seconds": seg["duration_seconds"],
+                    "pace": seg["pace"],
+                    "pace_formatted": seg["pace_formatted"],
+                }
+            )
+        await self.db.commit()
+        return saved
+
+    async def get_segments(self, activity_id: int) -> list[dict]:
+        cursor = await self.db.execute(
+            """
+            SELECT id, segment_name, distance_km, duration_seconds, pace, pace_formatted
+            FROM gpx_segments
+            WHERE running_activity_id = ?
+            ORDER BY distance_km ASC
+            """,
+            (activity_id,),
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
     async def get_personal_bests(self) -> dict:
         """Get personal best records."""
         # Longest run
@@ -130,6 +188,10 @@ class SQLiteRunningRepository:
         fastest_row = await fastest.fetchone()
 
         return {
-            "longest_run": dict(longest_row) if longest_row else None,
-            "fastest_pace": dict(fastest_row) if fastest_row else None,
+            "longest_run": running_from_db(RunningActivityInDB(**dict(longest_row)))
+            if longest_row
+            else None,
+            "fastest_pace": running_from_db(RunningActivityInDB(**dict(fastest_row)))
+            if fastest_row
+            else None,
         }

@@ -1,0 +1,347 @@
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue';
+
+import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
+import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
+import type {
+    ExerciseHistoryEntry,
+    WorkoutLog,
+    WorkoutLogDetail,
+} from '@/types/WorkoutLog';
+
+const { getWorkoutLogs, getWorkoutLog, getExerciseHistory } =
+    useWorkoutLogApi();
+
+const logs = ref<WorkoutLog[]>([]);
+
+const todayStr = new Date().toISOString().split('T')[0] as string;
+const currentMonthPrefix = todayStr.slice(0, 7);
+
+// --- Stats ---
+const stats = computed(() => {
+    const thisMonth = logs.value.filter((l) =>
+        l.date.startsWith(currentMonthPrefix),
+    ).length;
+    const sorted = [...logs.value].sort((a, b) => b.date.localeCompare(a.date));
+    const lastWorkout = sorted.length > 0 ? sorted[0]!.date : null;
+    return {
+        total: logs.value.length,
+        thisMonth,
+        lastWorkout,
+    };
+});
+
+// --- Filters ---
+const showFilters = ref(false);
+
+const filters = reactive({
+    routineName: '',
+    dateFrom: '',
+    dateTo: '',
+});
+
+const hasActiveFilters = computed(() =>
+    Boolean(filters.routineName || filters.dateFrom || filters.dateTo),
+);
+
+function clearFilters() {
+    filters.routineName = '';
+    filters.dateFrom = '';
+    filters.dateTo = '';
+}
+
+const uniqueRoutineNames = computed(() => {
+    const names = new Set(logs.value.map((l) => l.routine_name));
+    return [...names].sort();
+});
+
+const routineOptions = computed(() => [
+    { label: 'All', value: '' },
+    ...uniqueRoutineNames.value.map((name) => ({
+        label: name,
+        value: name,
+    })),
+]);
+
+const filteredLogs = computed(() => {
+    return logs.value.filter((l) => {
+        if (filters.routineName && l.routine_name !== filters.routineName)
+            return false;
+        if (filters.dateFrom && l.date < filters.dateFrom) return false;
+        if (filters.dateTo && l.date > filters.dateTo) return false;
+        return true;
+    });
+});
+
+// --- Detail Dialog ---
+const showDetail = ref(false);
+const detail = ref<WorkoutLogDetail | null>(null);
+
+const detailRoutineName = ref('');
+
+async function openDetail(log: WorkoutLog) {
+    detailRoutineName.value = log.routine_name;
+    const res = await getWorkoutLog(log.id);
+    if (res.success && res.data) {
+        detail.value = res.data;
+        showDetail.value = true;
+    }
+}
+
+interface SetGroup {
+    exerciseName: string;
+    sets: WorkoutLogDetail['sets'];
+}
+
+const setGroups = computed<SetGroup[]>(() => {
+    if (!detail.value) return [];
+    const groups: SetGroup[] = [];
+    for (const set of detail.value.sets) {
+        let group = groups.find((g) => g.exerciseName === set.exercise_name);
+        if (!group) {
+            group = { exerciseName: set.exercise_name, sets: [] };
+            groups.push(group);
+        }
+        group.sets.push(set);
+    }
+    return groups;
+});
+
+// --- Exercise History Dialog ---
+const showHistory = ref(false);
+const historyExerciseName = ref('');
+const historyEntries = ref<ExerciseHistoryEntry[]>([]);
+
+async function openExerciseHistory(exerciseId: number, exerciseName: string) {
+    historyExerciseName.value = exerciseName;
+    const res = await getExerciseHistory(exerciseId);
+    if (res.success && res.data) {
+        historyEntries.value = res.data;
+        showHistory.value = true;
+    }
+}
+
+// --- Data loading ---
+async function loadData() {
+    const res = await getWorkoutLogs();
+    if (res.success && res.data) logs.value = res.data;
+}
+
+onMounted(loadData);
+</script>
+
+<template>
+    <div class="mx-auto max-w-6xl p-6">
+        <h1 class="mb-6 text-2xl font-bold">Workout Logs</h1>
+
+        <!-- Stats Cards -->
+        <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <AppCard>
+                <template #title>Total Workouts</template>
+                <template #content>
+                    <div class="text-2xl font-bold">{{ stats.total }}</div>
+                    <div class="text-surface-500 text-sm">all time</div>
+                </template>
+            </AppCard>
+
+            <AppCard>
+                <template #title>This Month</template>
+                <template #content>
+                    <div class="text-2xl font-bold">
+                        {{ stats.thisMonth }}
+                    </div>
+                    <div class="text-surface-500 text-sm">
+                        {{ stats.thisMonth === 1 ? 'workout' : 'workouts' }}
+                    </div>
+                </template>
+            </AppCard>
+
+            <AppCard>
+                <template #title>Last Workout</template>
+                <template #content>
+                    <div class="text-2xl font-bold">
+                        {{ stats.lastWorkout ?? '—' }}
+                    </div>
+                    <div class="text-surface-500 text-sm">most recent</div>
+                </template>
+            </AppCard>
+        </div>
+
+        <!-- Table Header -->
+        <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-xl font-semibold">Logs</h2>
+            <AppButton
+                :icon="showFilters ? 'pi pi-filter-slash' : 'pi pi-filter'"
+                :label="showFilters ? 'Hide Filters' : 'Filters'"
+                outlined
+                :severity="hasActiveFilters ? 'warn' : 'secondary'"
+                @click="showFilters = !showFilters"
+            />
+        </div>
+
+        <!-- Filters Panel -->
+        <div
+            v-if="showFilters"
+            class="border-surface-200 dark:border-surface-700 mb-4 rounded-lg border p-4"
+        >
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Routine
+                    </label>
+                    <AppSelect
+                        v-model="filters.routineName"
+                        class="w-full"
+                        option-label="label"
+                        option-value="value"
+                        :options="routineOptions"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Date From
+                    </label>
+                    <AppInputText
+                        v-model="filters.dateFrom"
+                        class="w-full"
+                        type="date"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Date To
+                    </label>
+                    <AppInputText
+                        v-model="filters.dateTo"
+                        class="w-full"
+                        type="date"
+                    />
+                </div>
+            </div>
+            <div class="mt-3 flex items-center justify-between">
+                <span class="text-surface-500 text-sm">
+                    {{ filteredLogs.length }} of {{ logs.length }} workouts
+                </span>
+                <AppButton
+                    v-if="hasActiveFilters"
+                    icon="pi pi-times"
+                    label="Clear Filters"
+                    severity="secondary"
+                    size="small"
+                    text
+                    @click="clearFilters"
+                />
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <AppDataTable
+            sort-field="date"
+            :sort-order="-1"
+            striped-rows
+            :value="filteredLogs"
+        >
+            <AppColumn field="date" header="Date" sortable />
+            <AppColumn field="routine_name" header="Routine" sortable />
+            <AppColumn field="notes" header="Notes">
+                <template #body="{ data }">
+                    <span
+                        v-if="(data as WorkoutLog).notes"
+                        class="line-clamp-1"
+                    >
+                        {{ (data as WorkoutLog).notes }}
+                    </span>
+                    <span v-else class="text-surface-400">&mdash;</span>
+                </template>
+            </AppColumn>
+            <AppColumn header="Actions" style="width: 6rem">
+                <template #body="{ data }">
+                    <AppButton
+                        class="row-actions"
+                        icon="pi pi-eye"
+                        rounded
+                        severity="info"
+                        text
+                        @click="openDetail(data as WorkoutLog)"
+                    />
+                </template>
+            </AppColumn>
+        </AppDataTable>
+
+        <!-- Detail Dialog -->
+        <AppDialog
+            v-model:visible="showDetail"
+            :header="`Workout on ${detail?.date ?? ''}`"
+            modal
+            :style="{ width: '36rem' }"
+        >
+            <div v-if="detail" class="flex flex-col gap-4">
+                <div class="text-surface-600 dark:text-surface-400 text-sm">
+                    <span class="font-medium">Routine:</span>
+                    {{ detailRoutineName }}
+                </div>
+                <div
+                    v-if="detail.notes"
+                    class="text-surface-600 dark:text-surface-400 text-sm"
+                >
+                    <span class="font-medium">Notes:</span>
+                    {{ detail.notes }}
+                </div>
+
+                <div
+                    v-if="setGroups.length === 0"
+                    class="text-surface-500 text-center text-sm"
+                >
+                    No sets logged for this workout.
+                </div>
+
+                <div
+                    v-for="group in setGroups"
+                    :key="group.exerciseName"
+                    class="border-surface-200 dark:border-surface-700 rounded-lg border p-3"
+                >
+                    <button
+                        class="text-primary mb-2 cursor-pointer font-medium hover:underline"
+                        @click="
+                            openExerciseHistory(
+                                group.sets[0]!.exercise_id,
+                                group.exerciseName,
+                            )
+                        "
+                    >
+                        {{ group.exerciseName }}
+                    </button>
+                    <div class="flex flex-col gap-1">
+                        <div
+                            v-for="set in group.sets"
+                            :key="set.id"
+                            class="text-surface-600 dark:text-surface-400 flex items-center gap-3 text-sm"
+                        >
+                            <span class="text-surface-500 w-12">
+                                Set {{ set.set_number }}
+                            </span>
+                            <span>{{ set.reps }} reps</span>
+                            <span>
+                                {{
+                                    set.weight !== null
+                                        ? `${set.weight} lbs`
+                                        : '—'
+                                }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <AppButton label="Close" text @click="showDetail = false" />
+                </div>
+            </div>
+        </AppDialog>
+        <!-- Exercise History Dialog -->
+        <ExerciseHistoryDialog
+            v-model:visible="showHistory"
+            :entries="historyEntries"
+            :exercise-name="historyExerciseName"
+        />
+    </div>
+</template>

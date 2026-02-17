@@ -7,6 +7,7 @@ class RunningActivityInDB(BaseModel):
     duration_seconds: int
     distance_km: float
     notes: str | None
+    has_gpx: int = 0
     created_at: str
     updated_at: str
 
@@ -17,6 +18,7 @@ class RunningActivityResponse(BaseModel):
     duration_seconds: int
     distance_km: float
     notes: str | None = None
+    has_gpx: bool = False
     created_at: str
     updated_at: str
     # Computed fields
@@ -58,8 +60,23 @@ def running_from_db(row: RunningActivityInDB) -> RunningActivityResponse:
     pace_formatted = f"{pace_minutes}:{pace_seconds:02d}"
 
     return RunningActivityResponse(
-        **row.model_dump(),
+        **{k: v for k, v in row.model_dump().items() if k != "has_gpx"},
+        has_gpx=bool(row.has_gpx),
         pace=round(pace, 2),
         speed=round(speed, 2),
         pace_formatted=pace_formatted,
     )
+
+
+class GpxSegmentResponse(BaseModel):
+    id: int
+    segment_name: str
+    distance_km: float
+    duration_seconds: int
+    pace: float
+    pace_formatted: str
+
+
+class GpxImportResponse(BaseModel):
+    activity: RunningActivityResponse
+    segments: list[GpxSegmentResponse]

@@ -1,0 +1,874 @@
+<script setup lang="ts">
+import {
+    CategoryScale,
+    Chart,
+    Filler,
+    Legend,
+    LinearScale,
+    LineController,
+    LineElement,
+    PointElement,
+    Title,
+    Tooltip,
+} from 'chart.js';
+import { computed, onMounted, reactive, ref } from 'vue';
+
+import { useRunningApi } from '@/composables/api/useRunningApi';
+import { useToast } from '@/composables/useToast';
+import type { GpxSegment, RunningActivity } from '@/types/Running';
+
+Chart.register(
+    CategoryScale,
+    Filler,
+    Legend,
+    LinearScale,
+    LineController,
+    LineElement,
+    PointElement,
+    Title,
+    Tooltip,
+);
+
+const {
+    getActivities,
+    createActivity,
+    updateActivity,
+    deleteActivity,
+    importGpx,
+    getSegments,
+} = useRunningApi();
+const toast = useToast();
+
+const activities = ref<RunningActivity[]>([]);
+
+const today = new Date();
+const currentYear = today.getFullYear();
+
+// --- Filters ---
+const filters = reactive({
+    dateFrom: '',
+    dateTo: '',
+    distanceMin: null as number | null,
+    distanceMax: null as number | null,
+    durationMin: null as number | null,
+    durationMax: null as number | null,
+    paceMin: null as number | null,
+    paceMax: null as number | null,
+});
+
+const hasActiveFilters = computed(() =>
+    Boolean(
+        filters.dateFrom ||
+        filters.dateTo ||
+        filters.distanceMin !== null ||
+        filters.distanceMax !== null ||
+        filters.durationMin !== null ||
+        filters.durationMax !== null ||
+        filters.paceMin !== null ||
+        filters.paceMax !== null,
+    ),
+);
+
+function clearFilters() {
+    filters.dateFrom = '';
+    filters.dateTo = '';
+    filters.distanceMin = null;
+    filters.distanceMax = null;
+    filters.durationMin = null;
+    filters.durationMax = null;
+    filters.paceMin = null;
+    filters.paceMax = null;
+}
+
+const filteredActivities = computed(() => {
+    return activities.value.filter((r) => {
+        if (filters.dateFrom && r.date < filters.dateFrom) return false;
+        if (filters.dateTo && r.date > filters.dateTo) return false;
+        if (filters.distanceMin !== null && r.distance_km < filters.distanceMin)
+            return false;
+        if (filters.distanceMax !== null && r.distance_km > filters.distanceMax)
+            return false;
+        const durationMin = filters.durationMin
+            ? filters.durationMin * 60
+            : null;
+        const durationMax = filters.durationMax
+            ? filters.durationMax * 60
+            : null;
+        if (durationMin !== null && r.duration_seconds < durationMin)
+            return false;
+        if (durationMax !== null && r.duration_seconds > durationMax)
+            return false;
+        if (filters.paceMin !== null && r.pace < filters.paceMin) return false;
+        if (filters.paceMax !== null && r.pace > filters.paceMax) return false;
+        return true;
+    });
+});
+
+const showFilters = ref(false);
+
+// --- Dialog state ---
+const showDialog = ref(false);
+const editingId = ref<number | null>(null);
+const showDeleteConfirm = ref(false);
+const deletingId = ref<number | null>(null);
+
+const form = reactive({
+    date: today.toISOString().split('T')[0] as string,
+    minutes: 0,
+    seconds: 0,
+    distance_km: 0,
+    notes: '',
+});
+
+function resetForm() {
+    form.date = today.toISOString().split('T')[0] as string;
+    form.minutes = 0;
+    form.seconds = 0;
+    form.distance_km = 0;
+    form.notes = '';
+    editingId.value = null;
+}
+
+function openAddDialog() {
+    resetForm();
+    showDialog.value = true;
+}
+
+function openEditDialog(run: RunningActivity) {
+    editingId.value = run.id;
+    form.date = run.date;
+    form.minutes = Math.floor(run.duration_seconds / 60);
+    form.seconds = run.duration_seconds % 60;
+    form.distance_km = run.distance_km;
+    form.notes = run.notes ?? '';
+    showDialog.value = true;
+}
+
+async function saveRun() {
+    const durationSeconds = form.minutes * 60 + form.seconds;
+    if (editingId.value) {
+        const res = await updateActivity(editingId.value, {
+            date: form.date,
+            duration_seconds: durationSeconds,
+            distance_km: form.distance_km,
+            notes: form.notes || null,
+        });
+        if (res.success) {
+            toast.showSuccess('Run updated');
+        }
+    } else {
+        const res = await createActivity({
+            date: form.date,
+            duration_seconds: durationSeconds,
+            distance_km: form.distance_km,
+            notes: form.notes || null,
+        });
+        if (res.success) {
+            toast.showSuccess('Run added');
+        }
+    }
+    showDialog.value = false;
+    await loadData();
+}
+
+function confirmDelete(id: number) {
+    deletingId.value = id;
+    showDeleteConfirm.value = true;
+}
+
+async function executeDelete() {
+    if (deletingId.value) {
+        const res = await deleteActivity(deletingId.value);
+        if (res.success) {
+            toast.showSuccess('Run deleted');
+        }
+    }
+    showDeleteConfirm.value = false;
+    deletingId.value = null;
+    await loadData();
+}
+
+// --- GPX Import ---
+const gpxFileInput = ref<HTMLInputElement | null>(null);
+const showSegmentsDialog = ref(false);
+const selectedSegments = ref<GpxSegment[]>([]);
+
+function triggerGpxUpload() {
+    gpxFileInput.value?.click();
+}
+
+async function handleGpxFiles(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const files = input.files;
+    if (!files || files.length === 0) return;
+
+    let imported = 0;
+    let lastSegments: GpxSegment[] = [];
+
+    for (const file of files) {
+        const res = await importGpx(file);
+        if (res.success && res.data) {
+            imported++;
+            lastSegments = res.data.segments;
+        } else {
+            toast.showError(
+                `${file.name}: ${res.error?.message ?? 'Import failed'}`,
+            );
+        }
+    }
+
+    if (imported > 0) {
+        toast.showSuccess(
+            `Imported ${imported} file${imported > 1 ? 's' : ''}`,
+        );
+        if (imported === 1 && lastSegments.length > 0) {
+            selectedSegments.value = lastSegments;
+            showSegmentsDialog.value = true;
+        }
+        await loadData();
+    }
+    input.value = '';
+}
+
+async function viewSegments(runId: number) {
+    const res = await getSegments(runId);
+    if (res.success && res.data) {
+        selectedSegments.value = res.data;
+        showSegmentsDialog.value = true;
+    }
+}
+
+// --- Data loading ---
+async function loadData() {
+    const runsRes = await getActivities();
+    if (runsRes.success && runsRes.data) activities.value = runsRes.data;
+}
+
+onMounted(loadData);
+
+// --- Computed stats ---
+function getMonday(d: Date): Date {
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.getFullYear(), d.getMonth(), diff);
+}
+
+const weekStats = computed(() => {
+    const monday = getMonday(new Date());
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const monStr = monday.toISOString().split('T')[0] as string;
+    const sunStr = sunday.toISOString().split('T')[0] as string;
+    const weekRuns = filteredActivities.value.filter(
+        (r) => r.date >= monStr && r.date <= sunStr,
+    );
+    return {
+        distance: weekRuns.reduce((s, r) => s + r.distance_km, 0).toFixed(1),
+        count: weekRuns.length,
+    };
+});
+
+const monthStats = computed(() => {
+    const prefix = `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const monthRuns = filteredActivities.value.filter((r) =>
+        r.date.startsWith(prefix),
+    );
+    return {
+        distance: monthRuns.reduce((s, r) => s + r.distance_km, 0).toFixed(1),
+        count: monthRuns.length,
+    };
+});
+
+const yearStats = computed(() => {
+    const yearPrefix = `${currentYear}-`;
+    const yearRuns = filteredActivities.value.filter((r) =>
+        r.date.startsWith(yearPrefix),
+    );
+    return {
+        distance: yearRuns.reduce((s, r) => s + r.distance_km, 0).toFixed(1),
+        count: yearRuns.length,
+    };
+});
+
+const allTimeBests = computed(() => {
+    const runs = activities.value;
+    if (runs.length === 0) {
+        return { longest: null, totalDistance: '0.0' };
+    }
+    const longest = runs.reduce((best, r) =>
+        r.distance_km > best.distance_km ? r : best,
+    );
+    const totalDistance = runs
+        .reduce((s, r) => s + r.distance_km, 0)
+        .toFixed(1);
+    return { longest, totalDistance };
+});
+
+// --- Distance-Bracket Personal Bests ---
+const distanceBrackets = [
+    { label: '1 km+', min: 1 },
+    { label: '3 km+', min: 3 },
+    { label: '5 km+', min: 5 },
+    { label: '10 km+', min: 10 },
+    { label: '15 km+', min: 15 },
+    { label: 'Half', min: 21.1 },
+];
+
+const bracketPBs = computed(() =>
+    distanceBrackets
+        .map((bracket) => {
+            const qualifying = activities.value.filter(
+                (r) => r.distance_km >= bracket.min && r.pace > 0,
+            );
+            if (!qualifying.length) return null;
+            const best = qualifying.reduce((a, c) => (a.pace < c.pace ? a : c));
+            return { ...bracket, run: best };
+        })
+        .filter(
+            (
+                b,
+            ): b is {
+                label: string;
+                min: number;
+                run: RunningActivity;
+            } => b !== null,
+        ),
+);
+
+// --- Pace Over Time Chart ---
+const chartData = computed(() => {
+    const sorted = [...filteredActivities.value]
+        .filter((r) => r.pace > 0)
+        .sort((a, b) => a.date.localeCompare(b.date));
+    return {
+        labels: sorted.map((r) => formatDate(r.date)),
+        datasets: [
+            {
+                label: 'Pace (min/km)',
+                data: sorted.map((r) => r.pace),
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true,
+                tension: 0.3,
+            },
+        ],
+    };
+});
+
+const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+        y: {
+            reverse: true,
+            title: { display: true, text: 'Pace (min/km)' },
+        },
+    },
+};
+
+// --- Formatting helpers ---
+function formatDuration(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) {
+        return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function formatPace(pace: number): string {
+    const mins = Math.floor(pace);
+    const secs = Math.round((pace - mins) * 60);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+const monthAbbrs = [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC',
+];
+
+function formatDate(isoDate: string): string {
+    const [year, month, day] = isoDate.split('-');
+    return `${year}-${monthAbbrs[parseInt(month!, 10) - 1]}-${day}`;
+}
+
+const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
+</script>
+
+<template>
+    <div class="mx-auto max-w-6xl p-6">
+        <h1 class="mb-6 text-2xl font-bold">Running</h1>
+
+        <!-- Stats Cards -->
+        <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <AppCard>
+                <template #title>This Week</template>
+                <template #content>
+                    <div class="text-2xl font-bold">
+                        {{ weekStats.distance }} km
+                    </div>
+                    <div class="text-surface-500 text-sm">
+                        {{ weekStats.count }}
+                        {{ weekStats.count === 1 ? 'run' : 'runs' }}
+                    </div>
+                </template>
+            </AppCard>
+
+            <AppCard>
+                <template #title>This Month</template>
+                <template #content>
+                    <div class="text-2xl font-bold">
+                        {{ monthStats.distance }} km
+                    </div>
+                    <div class="text-surface-500 text-sm">
+                        {{ monthStats.count }}
+                        {{ monthStats.count === 1 ? 'run' : 'runs' }}
+                    </div>
+                </template>
+            </AppCard>
+
+            <AppCard>
+                <template #title>This Year</template>
+                <template #content>
+                    <div class="text-2xl font-bold">
+                        {{ yearStats.distance }} km
+                    </div>
+                    <div class="text-surface-500 text-sm">
+                        {{ yearStats.count }}
+                        {{ yearStats.count === 1 ? 'run' : 'runs' }}
+                    </div>
+                </template>
+            </AppCard>
+
+            <AppCard>
+                <template #title>All Time</template>
+                <template #content>
+                    <div class="space-y-1">
+                        <div>
+                            <span class="text-surface-500 text-sm">
+                                Longest:
+                            </span>
+                            <span class="font-semibold">
+                                {{
+                                    allTimeBests.longest
+                                        ? `${allTimeBests.longest.distance_km} km`
+                                        : '—'
+                                }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-surface-500 text-sm">
+                                Total:
+                            </span>
+                            <span class="font-semibold">
+                                {{ allTimeBests.totalDistance }} km
+                            </span>
+                        </div>
+                    </div>
+                </template>
+            </AppCard>
+        </div>
+
+        <!-- Distance-Bracket Personal Bests -->
+        <div v-if="bracketPBs.length" class="mb-6">
+            <h2 class="mb-3 text-xl font-semibold">Fastest Pace by Distance</h2>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <div
+                    v-for="pb in bracketPBs"
+                    :key="pb.label"
+                    class="border-surface-200 dark:border-surface-700 rounded-lg border p-3 text-center"
+                >
+                    <div class="text-surface-500 mb-1 text-sm font-medium">
+                        {{ pb.label }}
+                    </div>
+                    <div class="text-xl font-bold">
+                        {{ formatPace(pb.run.pace) }}
+                        <span class="text-surface-400 text-sm font-normal">
+                            /km
+                        </span>
+                    </div>
+                    <div class="text-surface-400 mt-1 text-xs">
+                        {{ pb.run.distance_km }} km &middot;
+                        {{ formatDate(pb.run.date) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pace Over Time Chart -->
+        <div v-if="filteredActivities.length > 1" class="mb-6">
+            <h2 class="mb-3 text-xl font-semibold">Pace Over Time</h2>
+            <div class="h-64">
+                <AppChart
+                    :data="chartData"
+                    :options="chartOptions"
+                    type="line"
+                />
+            </div>
+        </div>
+
+        <!-- Table Header -->
+        <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-xl font-semibold">Running Log</h2>
+            <div class="flex gap-2">
+                <AppButton
+                    :icon="showFilters ? 'pi pi-filter-slash' : 'pi pi-filter'"
+                    :label="showFilters ? 'Hide Filters' : 'Filters'"
+                    outlined
+                    :severity="hasActiveFilters ? 'warn' : 'secondary'"
+                    @click="showFilters = !showFilters"
+                />
+                <AppButton
+                    icon="pi pi-upload"
+                    label="Import GPX"
+                    outlined
+                    @click="triggerGpxUpload"
+                />
+                <input
+                    ref="gpxFileInput"
+                    accept=".gpx"
+                    hidden
+                    multiple
+                    type="file"
+                    @change="handleGpxFiles"
+                />
+                <AppButton
+                    icon="pi pi-plus"
+                    label="Add Run"
+                    @click="openAddDialog"
+                />
+            </div>
+        </div>
+
+        <!-- Filters Panel -->
+        <div
+            v-if="showFilters"
+            class="border-surface-200 dark:border-surface-700 mb-4 rounded-lg border p-4"
+        >
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <!-- Date Range -->
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Date From
+                    </label>
+                    <AppInputText
+                        v-model="filters.dateFrom"
+                        class="w-full"
+                        type="date"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Date To
+                    </label>
+                    <AppInputText
+                        v-model="filters.dateTo"
+                        class="w-full"
+                        type="date"
+                    />
+                </div>
+
+                <!-- Distance Range -->
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Min Distance (km)
+                    </label>
+                    <AppInputNumber
+                        v-model="filters.distanceMin"
+                        class="w-full"
+                        :max-fraction-digits="1"
+                        :min="0"
+                        placeholder="Min"
+                        show-buttons
+                        :step="0.5"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Max Distance (km)
+                    </label>
+                    <AppInputNumber
+                        v-model="filters.distanceMax"
+                        class="w-full"
+                        :max-fraction-digits="1"
+                        :min="0"
+                        placeholder="Max"
+                        show-buttons
+                        :step="0.5"
+                    />
+                </div>
+
+                <!-- Duration Range (in minutes) -->
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Min Duration (min)
+                    </label>
+                    <AppInputNumber
+                        v-model="filters.durationMin"
+                        class="w-full"
+                        :min="0"
+                        placeholder="Min"
+                        show-buttons
+                        :step="5"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Max Duration (min)
+                    </label>
+                    <AppInputNumber
+                        v-model="filters.durationMax"
+                        class="w-full"
+                        :min="0"
+                        placeholder="Max"
+                        show-buttons
+                        :step="5"
+                    />
+                </div>
+
+                <!-- Pace Range (min/km) -->
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Min Pace (min/km)
+                    </label>
+                    <AppInputNumber
+                        v-model="filters.paceMin"
+                        class="w-full"
+                        :max-fraction-digits="1"
+                        :min="0"
+                        placeholder="Min"
+                        show-buttons
+                        :step="0.5"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Max Pace (min/km)
+                    </label>
+                    <AppInputNumber
+                        v-model="filters.paceMax"
+                        class="w-full"
+                        :max-fraction-digits="1"
+                        :min="0"
+                        placeholder="Max"
+                        show-buttons
+                        :step="0.5"
+                    />
+                </div>
+            </div>
+            <div class="mt-3 flex items-center justify-between">
+                <span class="text-surface-500 text-sm">
+                    {{ filteredActivities.length }} of
+                    {{ activities.length }} runs
+                </span>
+                <AppButton
+                    v-if="hasActiveFilters"
+                    icon="pi pi-times"
+                    label="Clear Filters"
+                    severity="secondary"
+                    size="small"
+                    text
+                    @click="clearFilters"
+                />
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <AppDataTable
+            sort-field="date"
+            :sort-order="-1"
+            striped-rows
+            :value="filteredActivities"
+        >
+            <AppColumn field="date" header="Date" sortable>
+                <template #body="{ data }">
+                    {{ formatDate((data as RunningActivity).date) }}
+                </template>
+            </AppColumn>
+            <AppColumn field="distance_km" header="Distance" sortable>
+                <template #body="{ data }">
+                    {{ (data as RunningActivity).distance_km }} km
+                </template>
+            </AppColumn>
+            <AppColumn field="duration_seconds" header="Duration" sortable>
+                <template #body="{ data }">
+                    {{
+                        formatDuration(
+                            (data as RunningActivity).duration_seconds,
+                        )
+                    }}
+                </template>
+            </AppColumn>
+            <AppColumn field="pace_formatted" header="Pace">
+                <template #body="{ data }">
+                    {{ (data as RunningActivity).pace_formatted }} /km
+                </template>
+            </AppColumn>
+            <AppColumn field="notes" header="Notes" />
+            <AppColumn header="Actions" style="width: 8rem">
+                <template #body="{ data }">
+                    <div class="row-actions flex gap-2">
+                        <AppButton
+                            :disabled="!(data as RunningActivity).has_gpx"
+                            icon="pi pi-chart-bar"
+                            rounded
+                            severity="secondary"
+                            :style="
+                                !(data as RunningActivity).has_gpx
+                                    ? { visibility: 'hidden' }
+                                    : {}
+                            "
+                            text
+                            @click="viewSegments((data as RunningActivity).id)"
+                        />
+                        <AppButton
+                            icon="pi pi-pencil"
+                            rounded
+                            severity="info"
+                            text
+                            @click="openEditDialog(data as RunningActivity)"
+                        />
+                        <AppButton
+                            icon="pi pi-trash"
+                            rounded
+                            severity="danger"
+                            text
+                            @click="confirmDelete((data as RunningActivity).id)"
+                        />
+                    </div>
+                </template>
+            </AppColumn>
+        </AppDataTable>
+
+        <!-- Add/Edit Dialog -->
+        <AppDialog
+            v-model:visible="showDialog"
+            :header="dialogHeader"
+            modal
+            :style="{ width: '28rem' }"
+        >
+            <div class="flex flex-col gap-4">
+                <div>
+                    <label class="mb-1 block text-sm font-medium"> Date </label>
+                    <AppInputText
+                        v-model="form.date"
+                        class="w-full"
+                        type="date"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Distance (km)
+                    </label>
+                    <AppInputNumber
+                        v-model="form.distance_km"
+                        class="w-full"
+                        :max-fraction-digits="2"
+                        :min-fraction-digits="1"
+                        :step="0.1"
+                        suffix=" km"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Duration
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <AppInputNumber
+                            v-model="form.minutes"
+                            class="w-full"
+                            :min="0"
+                            suffix=" min"
+                        />
+                        <AppInputNumber
+                            v-model="form.seconds"
+                            class="w-full"
+                            :max="59"
+                            :min="0"
+                            suffix=" sec"
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Notes
+                    </label>
+                    <AppTextarea v-model="form.notes" class="w-full" rows="2" />
+                </div>
+                <div class="flex justify-end gap-2">
+                    <AppButton
+                        label="Cancel"
+                        text
+                        @click="showDialog = false"
+                    />
+                    <AppButton label="Save" @click="saveRun" />
+                </div>
+            </div>
+        </AppDialog>
+
+        <!-- Delete Confirmation Dialog -->
+        <AppDialog
+            v-model:visible="showDeleteConfirm"
+            header="Confirm Delete"
+            modal
+            :style="{ width: '24rem' }"
+        >
+            <p>Are you sure you want to delete this run?</p>
+            <div class="mt-4 flex justify-end gap-2">
+                <AppButton
+                    label="Cancel"
+                    text
+                    @click="showDeleteConfirm = false"
+                />
+                <AppButton
+                    label="Delete"
+                    severity="danger"
+                    @click="executeDelete"
+                />
+            </div>
+        </AppDialog>
+
+        <!-- GPX Segments Dialog -->
+        <AppDialog
+            v-model:visible="showSegmentsDialog"
+            header="GPX Segments"
+            modal
+            :style="{ width: '40rem' }"
+        >
+            <AppDataTable :value="selectedSegments">
+                <AppColumn field="segment_name" header="Segment" />
+                <AppColumn header="Distance">
+                    <template #body="{ data }">
+                        {{ (data as GpxSegment).distance_km.toFixed(2) }} km
+                    </template>
+                </AppColumn>
+                <AppColumn header="Duration">
+                    <template #body="{ data }">
+                        {{
+                            formatDuration(
+                                (data as GpxSegment).duration_seconds,
+                            )
+                        }}
+                    </template>
+                </AppColumn>
+                <AppColumn header="Pace">
+                    <template #body="{ data }">
+                        {{ (data as GpxSegment).pace_formatted }} /km
+                    </template>
+                </AppColumn>
+            </AppDataTable>
+        </AppDialog>
+    </div>
+</template>

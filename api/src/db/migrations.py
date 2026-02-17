@@ -147,6 +147,37 @@ MIGRATIONS = [
                );
                """,
     },
+    {
+        "version": 12,
+        "name": "rename_exercise_routines_to_workout_routines",
+        "sql": """
+               ALTER TABLE exercise_routines RENAME TO workout_routines;
+               """,
+    },
+    {
+        "version": 13,
+        "name": "create_gpx_segments_table",
+        "sql": """
+               CREATE TABLE IF NOT EXISTS gpx_segments (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   running_activity_id INTEGER NOT NULL,
+                   segment_name TEXT NOT NULL,
+                   distance_km REAL NOT NULL,
+                   duration_seconds INTEGER NOT NULL,
+                   pace REAL NOT NULL,
+                   pace_formatted TEXT NOT NULL,
+                   FOREIGN KEY (running_activity_id) REFERENCES running_activities (id) ON DELETE CASCADE
+               );
+               CREATE INDEX IF NOT EXISTS idx_gpx_segments_activity ON gpx_segments (running_activity_id);
+               """,
+    },
+    {
+        "version": 14,
+        "name": "add_has_gpx_to_running_activities",
+        "sql": """
+               ALTER TABLE running_activities ADD COLUMN has_gpx INTEGER NOT NULL DEFAULT 0;
+               """,
+    },
 ]
 
 

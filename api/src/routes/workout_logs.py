@@ -21,6 +21,28 @@ async def create_workout_log(
     return await repo.create(routine_id, date, notes)
 
 
+@router.get("")
+async def list_workout_logs(
+    repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
+):
+    return await repo.find_all()
+
+
+@router.get("/exercise-last-performed")
+async def get_exercise_last_performed(
+    repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
+):
+    return await repo.get_exercise_last_performed()
+
+
+@router.get("/exercise/{exercise_id}/history")
+async def get_exercise_history(
+    exercise_id: int,
+    repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
+):
+    return await repo.get_exercise_history(exercise_id)
+
+
 @router.get("/{workout_log_id}")
 async def get_workout_log(
     workout_log_id: int,
