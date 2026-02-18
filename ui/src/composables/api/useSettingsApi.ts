@@ -16,5 +16,13 @@ export function useSettingsApi() {
             value,
         });
 
-    return { getSetting, setSetting };
+    const deleteSetting = async (key: string) => api.remove(`settings/${key}`);
+
+    const resetAllData = async () =>
+        api.post<Record<string, never>, { message: string }>(
+            'settings/reset',
+            {},
+        );
+
+    return { getSetting, setSetting, deleteSetting, resetAllData };
 }

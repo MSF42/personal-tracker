@@ -7,6 +7,7 @@ export interface Task {
     completed: boolean;
     repeat_type: string | null;
     repeat_interval: number | null;
+    repeat_days: number[] | null;
     created_at: string;
     updated_at: string;
 }
@@ -19,6 +20,7 @@ export interface TaskCreate {
     completed?: boolean;
     repeat_type?: 'daily' | 'weekly' | 'monthly' | null;
     repeat_interval?: number | null;
+    repeat_days?: number[] | null;
 }
 
 export interface TaskUpdate {
@@ -29,4 +31,5 @@ export interface TaskUpdate {
     completed?: boolean | null;
     repeat_type?: 'daily' | 'weekly' | 'monthly' | null;
     repeat_interval?: number | null;
+    repeat_days?: number[] | null;
 }

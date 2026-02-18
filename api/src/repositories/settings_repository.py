@@ -16,3 +16,23 @@ class SQLiteSettingsRepository:
             (key, value, value),
         )
         await self.db.commit()
+
+    async def delete(self, key: str) -> None:
+        await self.db.execute("DELETE FROM user_settings WHERE key = ?", (key,))
+        await self.db.commit()
+
+    async def delete_all_data(self) -> None:
+        tables = [
+            "set_logs",
+            "workout_logs",
+            "gpx_segments",
+            "routine_exercises",
+            "workout_routines",
+            "exercises",
+            "running_activities",
+            "tasks",
+            "user_settings",
+        ]
+        for table in tables:
+            await self.db.execute(f"DELETE FROM {table}")  # noqa: S608
+        await self.db.commit()

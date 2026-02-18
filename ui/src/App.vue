@@ -1,7 +1,13 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue';
 import { RouterLink, RouterView, useRoute } from 'vue-router';
 
+import { useSettingsApi } from '@/composables/api/useSettingsApi';
+
 const route = useRoute();
+const { getSetting } = useSettingsApi();
+
+const profilePicture = ref<string | null>(null);
 
 const navItems = [
     { label: 'Home', to: '/', icon: 'pi pi-home' },
@@ -14,7 +20,15 @@ const navItems = [
         icon: 'pi pi-list',
     },
     { label: 'Logs', to: '/workout-logs', icon: 'pi pi-history' },
+    { label: 'Settings', to: '/settings', icon: 'pi pi-cog' },
 ];
+
+onMounted(async () => {
+    const res = await getSetting('profile_picture');
+    if (res.success && res.data?.value) {
+        profilePicture.value = res.data.value;
+    }
+});
 </script>
 
 <template>
@@ -23,7 +37,17 @@ const navItems = [
         class="border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900 border-b px-6 py-3"
     >
         <div class="mx-auto flex max-w-6xl items-center gap-6">
-            <span class="text-primary-500 text-lg font-bold">PT</span>
+            <RouterLink class="shrink-0" to="/settings">
+                <img
+                    v-if="profilePicture"
+                    alt="Profile"
+                    class="h-8 w-8 rounded-full object-cover"
+                    :src="profilePicture"
+                />
+                <span v-else class="text-primary-500 text-lg font-bold"
+                    >PT</span
+                >
+            </RouterLink>
             <div class="flex gap-1">
                 <RouterLink
                     v-for="item in navItems"

@@ -40,14 +40,7 @@ const filteredTasks = computed(() => {
     return tasks.value.filter((t) => {
         if (filters.status === 'incomplete' && t.completed) return false;
         if (filters.status === 'completed' && !t.completed) return false;
-        if (
-            filters.category &&
-            (!t.category ||
-                !t.category
-                    .toLowerCase()
-                    .includes(filters.category.toLowerCase()))
-        )
-            return false;
+        if (filters.category && t.category !== filters.category) return false;
         if (filters.dateFrom && (!t.due_date || t.due_date < filters.dateFrom))
             return false;
         if (filters.dateTo && (!t.due_date || t.due_date > filters.dateTo))
@@ -81,6 +74,7 @@ const form = reactive({
     due_date: '',
     repeat_type: null as 'daily' | 'weekly' | 'monthly' | null,
     repeat_interval: 1,
+    repeat_days: [] as number[],
 });
 
 function resetForm() {
@@ -90,6 +84,7 @@ function resetForm() {
     form.due_date = '';
     form.repeat_type = null;
     form.repeat_interval = 1;
+    form.repeat_days = [];
     editingId.value = null;
 }
 
@@ -106,6 +101,7 @@ function openEditDialog(task: Task) {
     form.due_date = task.due_date ?? '';
     form.repeat_type = task.repeat_type as typeof form.repeat_type;
     form.repeat_interval = task.repeat_interval ?? 1;
+    form.repeat_days = task.repeat_days ?? [];
     showDialog.value = true;
 }
 
@@ -118,6 +114,10 @@ async function saveTask() {
             due_date: form.due_date || null,
             repeat_type: form.repeat_type,
             repeat_interval: form.repeat_type ? form.repeat_interval : null,
+            repeat_days:
+                form.repeat_type === 'weekly' && form.repeat_days.length
+                    ? form.repeat_days
+                    : null,
         };
         const res = await updateTask(editingId.value, payload);
         if (res.success) {
@@ -131,6 +131,10 @@ async function saveTask() {
             due_date: form.due_date || null,
             repeat_type: form.repeat_type,
             repeat_interval: form.repeat_type ? form.repeat_interval : null,
+            repeat_days:
+                form.repeat_type === 'weekly' && form.repeat_days.length
+                    ? form.repeat_days
+                    : null,
         };
         const res = await createTask(payload);
         if (res.success) {
@@ -178,10 +182,31 @@ function isOverdue(task: Task): boolean {
     return !task.completed && !!task.due_date && task.due_date < todayStr;
 }
 
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function toggleDay(day: number) {
+    const idx = form.repeat_days.indexOf(day);
+    if (idx === -1) {
+        form.repeat_days.push(day);
+        form.repeat_days.sort();
+    } else {
+        form.repeat_days.splice(idx, 1);
+    }
+}
+
 function formatRepeat(task: Task): string {
     if (!task.repeat_type) return '\u2014';
     const interval = task.repeat_interval ?? 1;
-    return `Every ${interval} ${task.repeat_type.replace(/ly$/, '')}${interval > 1 ? 's' : ''}`;
+    const base =
+        interval === 1
+            ? task.repeat_type.charAt(0).toUpperCase() +
+              task.repeat_type.slice(1)
+            : `Every ${interval} ${task.repeat_type.replace(/ly$/, '')}${interval > 1 ? 's' : ''}`;
+    if (task.repeat_type === 'weekly' && task.repeat_days?.length) {
+        const days = task.repeat_days.map((d) => DAY_LABELS[d]).join(', ');
+        return `${base}: ${days}`;
+    }
+    return base;
 }
 
 const statusOptions = [
@@ -203,6 +228,11 @@ const categoryOptions = computed(() => {
     );
     return [...cats].sort();
 });
+
+const filterCategoryOptions = computed(() => [
+    { label: 'All', value: '' },
+    ...categoryOptions.value.map((c) => ({ label: c, value: c })),
+]);
 
 const dialogHeader = computed(() =>
     editingId.value ? 'Edit Task' : 'Add Task',
@@ -295,10 +325,12 @@ const dialogHeader = computed(() =>
                     <label class="mb-1 block text-sm font-medium">
                         Category
                     </label>
-                    <AppInputText
+                    <AppSelect
                         v-model="filters.category"
                         class="w-full"
-                        placeholder="Search category..."
+                        option-label="label"
+                        option-value="value"
+                        :options="filterCategoryOptions"
                     />
                 </div>
                 <div>
@@ -482,6 +514,32 @@ const dialogHeader = computed(() =>
                         :min="1"
                         show-buttons
                     />
+                </div>
+                <div v-if="form.repeat_type === 'weekly'">
+                    <label class="mb-1 block text-sm font-medium">
+                        Days of Week
+                        <span class="text-surface-400 font-normal">
+                            (optional)
+                        </span>
+                    </label>
+                    <div class="flex gap-1">
+                        <AppButton
+                            v-for="(label, idx) in DAY_LABELS"
+                            :key="idx"
+                            :label="label"
+                            :outlined="!form.repeat_days.includes(idx)"
+                            :severity="
+                                form.repeat_days.includes(idx)
+                                    ? 'primary'
+                                    : 'secondary'
+                            "
+                            size="small"
+                            @click="toggleDay(idx)"
+                        />
+                    </div>
+                    <p class="text-surface-400 mt-1 text-xs">
+                        If no days selected, advances by interval weeks
+                    </p>
                 </div>
                 <div class="flex justify-end gap-2">
                     <AppButton

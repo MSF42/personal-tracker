@@ -195,6 +195,13 @@ MIGRATIONS = [
                );
                """,
     },
+    {
+        "version": 17,
+        "name": "add_repeat_days_to_tasks",
+        "sql": """
+               ALTER TABLE tasks ADD COLUMN repeat_days TEXT;
+               """,
+    },
 ]
 
 

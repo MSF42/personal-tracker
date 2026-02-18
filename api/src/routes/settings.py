@@ -32,3 +32,20 @@ async def update_setting(
 ):
     await repo.set(key, body.value)
     return {"key": key, "value": body.value}
+
+
+@router.delete("/{key}")
+async def delete_setting(
+    key: str,
+    repo: SQLiteSettingsRepository = Depends(get_settings_repository),
+):
+    await repo.delete(key)
+    return {"key": key, "value": None}
+
+
+@router.post("/reset")
+async def reset_all_data(
+    repo: SQLiteSettingsRepository = Depends(get_settings_repository),
+):
+    await repo.delete_all_data()
+    return {"message": "All data has been deleted"}

@@ -20,20 +20,26 @@ class SQLiteTaskRepository:
     async def create(self, task: CreateTaskRequest) -> TaskResponse:
         now = datetime.now(timezone.utc).isoformat()
 
+        repeat_days_str = (
+            ",".join(str(d) for d in task.repeat_days) if task.repeat_days else None
+        )
+
         cursor = await self.db.execute(
             """
             INSERT INTO tasks (title, description, category, due_date, completed,
-                               repeat_type, repeat_interval, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               repeat_type, repeat_interval, repeat_days,
+                               created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task.title,
                 task.description,
                 task.category,
                 task.due_date,
-                1 if task.completed else 0,  # Convert bool to int
-                task.repeat_type.value if task.repeat_type else None,  # Enum to string
+                1 if task.completed else 0,
+                task.repeat_type.value if task.repeat_type else None,
                 task.repeat_interval,
+                repeat_days_str,
                 now,
                 now,
             ),
@@ -87,6 +93,7 @@ class SQLiteTaskRepository:
                 existing.due_date,
                 RepeatType(existing.repeat_type),
                 existing.repeat_interval or 1,
+                existing.repeat_days,
             )
             update_data["completed"] = False  # Reset to incomplete for next occurrence
 
@@ -100,6 +107,15 @@ class SQLiteTaskRepository:
         # Handle enum conversion
         if "repeat_type" in update_data and update_data["repeat_type"] is not None:
             update_data["repeat_type"] = update_data["repeat_type"].value
+
+        # Serialize repeat_days list to comma-separated string
+        if "repeat_days" in update_data:
+            if update_data["repeat_days"] is not None:
+                update_data["repeat_days"] = ",".join(
+                    str(d) for d in update_data["repeat_days"]
+                )
+            else:
+                update_data["repeat_days"] = None
 
         # Always update updated_at
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
