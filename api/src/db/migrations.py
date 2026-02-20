@@ -202,6 +202,54 @@ MIGRATIONS = [
                ALTER TABLE tasks ADD COLUMN repeat_days TEXT;
                """,
     },
+    {
+        "version": 18,
+        "name": "create_notes_table",
+        "sql": """
+               CREATE TABLE IF NOT EXISTS notes (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   parent_id INTEGER,
+                   content TEXT NOT NULL DEFAULT '',
+                   sort_order INTEGER NOT NULL DEFAULT 0,
+                   collapsed INTEGER NOT NULL DEFAULT 0,
+                   created_at TEXT NOT NULL,
+                   updated_at TEXT NOT NULL,
+                   FOREIGN KEY (parent_id) REFERENCES notes (id) ON DELETE CASCADE
+               );
+               CREATE INDEX IF NOT EXISTS idx_notes_parent_id ON notes (parent_id);
+               CREATE INDEX IF NOT EXISTS idx_notes_parent_sort ON notes (parent_id, sort_order);
+               """,
+    },
+    {
+        "version": 19,
+        "name": "create_measurements_tables",
+        "sql": """
+               CREATE TABLE measurements (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   name TEXT NOT NULL UNIQUE,
+                   unit TEXT NOT NULL DEFAULT '',
+                   sort_order INTEGER NOT NULL DEFAULT 0,
+                   created_at TEXT NOT NULL,
+                   updated_at TEXT NOT NULL
+               );
+
+               CREATE TABLE measurement_entries (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   measurement_id INTEGER NOT NULL REFERENCES measurements(id) ON DELETE CASCADE,
+                   date TEXT NOT NULL,
+                   value REAL NOT NULL,
+                   notes TEXT,
+                   created_at TEXT NOT NULL,
+                   updated_at TEXT NOT NULL
+               );
+
+               CREATE INDEX idx_measurement_entries_lookup
+                   ON measurement_entries (measurement_id, date DESC);
+
+               INSERT INTO measurements (name, unit, sort_order, created_at, updated_at)
+               VALUES ('Weight', 'lbs', 0, datetime('now'), datetime('now'));
+               """,
+    },
 ]
 
 

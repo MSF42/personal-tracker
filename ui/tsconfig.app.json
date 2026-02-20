@@ -4,7 +4,11 @@
         "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
         "types": ["unplugin-vue-router/client"],
         "paths": {
-            "@/*": ["./src/*"]
+            "@/*": ["./src/*"],
+            "@api-backend/*": [
+                "./src/composables/api/backends/http/*",
+                "./src/composables/api/backends/local/*"
+            ]
         },
         "strict": true,
         "noUnusedLocals": true,

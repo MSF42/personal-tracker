@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     # Database
     database_path: str = "data/tracker.db"
 
+    # Uploads
+    uploads_path: str = "data/uploads"
+
     # Logging
     log_level: str = "info"
 

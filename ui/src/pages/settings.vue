@@ -10,16 +10,31 @@ const toast = useToast();
 
 const profilePicture = ref<string | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
+const displayName = ref('');
 const confirmText = ref('');
 const showResetDialog = ref(false);
 const resetting = ref(false);
 
 onMounted(async () => {
-    const res = await getSetting('profile_picture');
-    if (res.success && res.data?.value) {
-        profilePicture.value = res.data.value;
+    const [profileRes, nameRes] = await Promise.all([
+        getSetting('profile_picture'),
+        getSetting('user_name'),
+    ]);
+    if (profileRes.success && profileRes.data?.value) {
+        profilePicture.value = profileRes.data.value;
+    }
+    if (nameRes.success && nameRes.data?.value) {
+        displayName.value = nameRes.data.value;
     }
 });
+
+async function saveDisplayName() {
+    if (displayName.value.trim()) {
+        await setSetting('user_name', displayName.value.trim());
+    } else {
+        await deleteSetting('user_name');
+    }
+}
 
 function triggerUpload() {
     fileInput.value?.click();
@@ -84,7 +99,7 @@ async function confirmReset() {
             <h2
                 class="text-surface-800 dark:text-surface-100 mb-4 text-lg font-semibold"
             >
-                Profile Picture
+                Profile
             </h2>
             <div class="flex items-center gap-6">
                 <div
@@ -121,6 +136,17 @@ async function confirmReset() {
                         @click="removePicture"
                     />
                 </div>
+            </div>
+            <div class="mt-4">
+                <label class="mb-1 block text-sm font-medium">
+                    Display Name
+                </label>
+                <AppInputText
+                    v-model="displayName"
+                    class="w-full max-w-xs"
+                    placeholder="Your name"
+                    @blur="saveDisplayName"
+                />
             </div>
         </section>
 

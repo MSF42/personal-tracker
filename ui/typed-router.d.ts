@@ -37,6 +37,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/measurements': RouteRecordInfo<
+      '/measurements',
+      '/measurements',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/notes': RouteRecordInfo<
+      '/notes',
+      '/notes',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/running': RouteRecordInfo<
       '/running',
       '/running',
@@ -94,6 +108,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/exercises.vue': {
       routes:
         | '/exercises'
+      views:
+        | never
+    }
+    'src/pages/measurements.vue': {
+      routes:
+        | '/measurements'
+      views:
+        | never
+    }
+    'src/pages/notes.vue': {
+      routes:
+        | '/notes'
       views:
         | never
     }

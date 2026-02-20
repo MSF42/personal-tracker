@@ -12,38 +12,12 @@ const tasks = ref<Task[]>([]);
 const todayStr = new Date().toISOString().split('T')[0] as string;
 
 // --- Filters ---
-const showFilters = ref(false);
-const filters = reactive({
-    status: 'all' as 'all' | 'incomplete' | 'completed',
-    category: '',
-    dateFrom: '',
-    dateTo: '',
-});
-
-const hasActiveFilters = computed(() =>
-    Boolean(
-        filters.status !== 'all' ||
-        filters.category ||
-        filters.dateFrom ||
-        filters.dateTo,
-    ),
-);
-
-function clearFilters() {
-    filters.status = 'all';
-    filters.category = '';
-    filters.dateFrom = '';
-    filters.dateTo = '';
-}
-
+const showCompleted = ref(false);
+const selectedCategory = ref('');
 const filteredTasks = computed(() => {
     return tasks.value.filter((t) => {
-        if (filters.status === 'incomplete' && t.completed) return false;
-        if (filters.status === 'completed' && !t.completed) return false;
-        if (filters.category && t.category !== filters.category) return false;
-        if (filters.dateFrom && (!t.due_date || t.due_date < filters.dateFrom))
-            return false;
-        if (filters.dateTo && (!t.due_date || t.due_date > filters.dateTo))
+        if (!showCompleted.value && t.completed) return false;
+        if (selectedCategory.value && t.category !== selectedCategory.value)
             return false;
         return true;
     });
@@ -51,11 +25,11 @@ const filteredTasks = computed(() => {
 
 // --- Stats ---
 const stats = computed(() => {
-    const incomplete = filteredTasks.value.filter((t) => !t.completed).length;
-    const overdue = filteredTasks.value.filter(
+    const incomplete = tasks.value.filter((t) => !t.completed).length;
+    const overdue = tasks.value.filter(
         (t) => !t.completed && t.due_date && t.due_date < todayStr,
     ).length;
-    const completedToday = filteredTasks.value.filter(
+    const completedToday = tasks.value.filter(
         (t) => t.completed && t.updated_at.startsWith(todayStr),
     ).length;
     return { incomplete, overdue, completedToday };
@@ -175,7 +149,9 @@ async function loadData() {
     if (res.success && res.data) tasks.value = res.data;
 }
 
-onMounted(loadData);
+onMounted(() => {
+    loadData();
+});
 
 // --- Helpers ---
 function isOverdue(task: Task): boolean {
@@ -209,12 +185,6 @@ function formatRepeat(task: Task): string {
     return base;
 }
 
-const statusOptions = [
-    { label: 'All', value: 'all' },
-    { label: 'Incomplete', value: 'incomplete' },
-    { label: 'Completed', value: 'completed' },
-];
-
 const repeatTypeOptions = [
     { label: 'None', value: null },
     { label: 'Daily', value: 'daily' },
@@ -230,7 +200,7 @@ const categoryOptions = computed(() => {
 });
 
 const filterCategoryOptions = computed(() => [
-    { label: 'All', value: '' },
+    { label: 'All categories', value: '' },
     ...categoryOptions.value.map((c) => ({ label: c, value: c })),
 ]);
 
@@ -286,88 +256,28 @@ const dialogHeader = computed(() =>
 
         <!-- Table Header -->
         <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-xl font-semibold">Task List</h2>
-            <div class="flex gap-2">
-                <AppButton
-                    :icon="showFilters ? 'pi pi-filter-slash' : 'pi pi-filter'"
-                    :label="showFilters ? 'Hide Filters' : 'Filters'"
-                    outlined
-                    :severity="hasActiveFilters ? 'warn' : 'secondary'"
-                    @click="showFilters = !showFilters"
-                />
-                <AppButton
-                    icon="pi pi-plus"
-                    label="Add Task"
-                    @click="openAddDialog"
-                />
-            </div>
-        </div>
-
-        <!-- Filters Panel -->
-        <div
-            v-if="showFilters"
-            class="border-surface-200 dark:border-surface-700 mb-4 rounded-lg border p-4"
-        >
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Status
-                    </label>
-                    <AppSelect
-                        v-model="filters.status"
-                        class="w-full"
-                        option-label="label"
-                        option-value="value"
-                        :options="statusOptions"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Category
-                    </label>
-                    <AppSelect
-                        v-model="filters.category"
-                        class="w-full"
-                        option-label="label"
-                        option-value="value"
-                        :options="filterCategoryOptions"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Due Date From
-                    </label>
-                    <AppInputText
-                        v-model="filters.dateFrom"
-                        class="w-full"
-                        type="date"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Due Date To
-                    </label>
-                    <AppInputText
-                        v-model="filters.dateTo"
-                        class="w-full"
-                        type="date"
-                    />
-                </div>
-            </div>
-            <div class="mt-3 flex items-center justify-between">
-                <span class="text-surface-500 text-sm">
-                    {{ filteredTasks.length }} of {{ tasks.length }} tasks
-                </span>
-                <AppButton
-                    v-if="hasActiveFilters"
-                    icon="pi pi-times"
-                    label="Clear Filters"
-                    severity="secondary"
+            <div class="flex items-center gap-4">
+                <h2 class="text-xl font-semibold">Task List</h2>
+                <AppSelect
+                    v-model="selectedCategory"
+                    class="min-w-44"
+                    option-label="label"
+                    option-value="value"
+                    :options="filterCategoryOptions"
                     size="small"
-                    text
-                    @click="clearFilters"
                 />
+                <label
+                    class="text-surface-600 dark:text-surface-400 flex cursor-pointer items-center gap-2 text-sm"
+                >
+                    <AppToggleSwitch v-model="showCompleted" />
+                    Show completed
+                </label>
             </div>
+            <AppButton
+                icon="pi pi-plus"
+                label="Add Task"
+                @click="openAddDialog"
+            />
         </div>
 
         <!-- Data Table -->

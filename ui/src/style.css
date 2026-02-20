@@ -1,11 +1,17 @@
 @import 'tailwindcss';
 @import 'tailwindcss-primeui';
 @import 'primeicons/primeicons.css';
+@import 'highlight.js/styles/github-dark-dimmed.css';
+@plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 html,
 body {
     margin: 0;
     padding: 0;
+    color: var(--p-surface-900);
+    background-color: var(--p-surface-0);
     font-family:
         Inter,
         -apple-system,
@@ -35,4 +41,70 @@ body {
 
 tr:hover .row-actions {
     opacity: 1;
+}
+
+/* Compact markdown rendering for outliner notes */
+.note-prose {
+    line-height: 1.4;
+}
+
+.note-prose p {
+    margin: 0;
+}
+
+.note-prose h1,
+.note-prose h2,
+.note-prose h3,
+.note-prose h4,
+.note-prose h5,
+.note-prose h6 {
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+}
+
+.note-prose ul,
+.note-prose ol {
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+}
+
+.note-prose pre {
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+    padding: 0.5em;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+}
+
+.note-prose blockquote {
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+}
+
+.note-prose code:not(pre code) {
+    padding: 0.125em 0.25em;
+    border-radius: 0.25rem;
+    font-size: 0.85em;
+    background-color: var(--p-surface-100);
+}
+
+.dark .note-prose code:not(pre code) {
+    background-color: var(--p-surface-800);
+}
+
+/* Darken light-mode surface text so labels/secondary text aren't washed out */
+html:not(.dark) {
+    --p-surface-400: #6b6b74;
+    --p-surface-500: #52525b;
+    --p-surface-600: #3f3f46;
+}
+
+.dark body {
+    color: var(--p-surface-0);
+    background-color: var(--p-surface-900);
+}
+
+/* Give PrimeVue cards a visible border in dark mode */
+.dark .p-card {
+    border: 1px solid var(--p-surface-700);
 }

@@ -10,12 +10,14 @@ import DataTable from 'primevue/datatable';
 import Dialog from 'primevue/dialog';
 import InputNumber from 'primevue/inputnumber';
 import InputText from 'primevue/inputtext';
+import Popover from 'primevue/popover';
 import Select from 'primevue/select';
 import SelectButton from 'primevue/selectbutton';
 import Tag from 'primevue/tag';
 import Textarea from 'primevue/textarea';
 import Toast from 'primevue/toast';
 import ToastService from 'primevue/toastservice';
+import ToggleSwitch from 'primevue/toggleswitch';
 import Tooltip from 'primevue/tooltip';
 import { createApp } from 'vue';
 
@@ -27,6 +29,7 @@ const app = createApp(App);
 app.use(PrimeVue, {
     theme: {
         preset: Aura,
+        options: { darkModeSelector: '.dark' },
     },
 });
 app.use(ToastService);
@@ -40,12 +43,23 @@ app.component('AppDataTable', DataTable);
 app.component('AppDialog', Dialog);
 app.component('AppInputNumber', InputNumber);
 app.component('AppInputText', InputText);
+app.component('AppPopover', Popover);
 app.component('AppSelect', Select);
 app.component('AppSelectButton', SelectButton);
 app.component('AppTag', Tag);
 app.component('AppTextarea', Textarea);
 app.component('AppToast', Toast);
+app.component('AppToggleSwitch', ToggleSwitch);
 
 app.directive('tooltip', Tooltip);
 
-app.mount('#app');
+async function bootstrap() {
+    if (import.meta.env.VITE_BACKEND === 'local') {
+        const { initializeDb } =
+            await import('./composables/api/backends/local/useDb');
+        await initializeDb();
+    }
+    app.mount('#app');
+}
+
+bootstrap();
