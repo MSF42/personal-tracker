@@ -124,7 +124,10 @@ function goToSettings() {
 </script>
 
 <template>
-    <AppToast position="top-center" style="margin-top: env(safe-area-inset-top, 0px)" />
+    <AppToast
+        position="top-center"
+        style="margin-top: env(safe-area-inset-top, 0px)"
+    />
     <nav
         class="border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900 sticky top-0 z-50 border-b px-4 pb-3"
         style="padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem)"

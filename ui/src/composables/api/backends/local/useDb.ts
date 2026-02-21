@@ -70,8 +70,7 @@ export async function initializeDb(): Promise<void> {
     const tables = db.exec(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version';",
     );
-    const hasVersion =
-        tables.length > 0 && tables[0]!.values.length > 0;
+    const hasVersion = tables.length > 0 && tables[0]!.values.length > 0;
     if (!hasVersion) {
         db.exec(
             `INSERT INTO schema_version (version) VALUES (${SCHEMA_VERSION});`,
@@ -162,9 +161,7 @@ export function useDb() {
             d.exec(finalSql);
             const result = d.exec('SELECT last_insert_rowid() as id');
             const id =
-                result.length > 0
-                    ? (result[0]!.values[0]![0] as number)
-                    : 0;
+                result.length > 0 ? (result[0]!.values[0]![0] as number) : 0;
             scheduleSave();
             return success({ id });
         } catch (err) {
@@ -182,9 +179,7 @@ export function useDb() {
             scheduleSave();
             return success(undefined as void);
         } catch (err) {
-            return fail(
-                err instanceof Error ? err.message : 'Execute failed',
-            );
+            return fail(err instanceof Error ? err.message : 'Execute failed');
         }
     };
 
