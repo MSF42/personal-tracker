@@ -6,9 +6,7 @@ from aiosqlite import Connection
 from src.models.workout_routine import (
     CreateWorkoutRoutineRequest,
     UpdateWorkoutRoutineRequest,
-    WorkoutRoutineInDB,
     WorkoutRoutineResponse,
-    workout_routine_from_db,
 )
 from src.repositories.utils import execute_update
 
@@ -46,15 +44,14 @@ class SQLiteWorkoutRoutineRepository:
         if row is None:
             return None
 
-        routine_in_db = WorkoutRoutineInDB(**dict(row))
-        return workout_routine_from_db(routine_in_db)
+        return WorkoutRoutineResponse(**dict(row))
 
     # find all
     async def find_all(self) -> list[WorkoutRoutineResponse]:
         cursor = await self.db.execute("SELECT * FROM workout_routines")
         rows = await cursor.fetchall()
 
-        return [workout_routine_from_db(WorkoutRoutineInDB(**dict(row))) for row in rows]
+        return [WorkoutRoutineResponse(**dict(row)) for row in rows]
 
     # update
     async def update(
