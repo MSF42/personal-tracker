@@ -9,6 +9,7 @@ from src.models.running import (
     UpdateRunningActivityRequest,
     running_from_db,
 )
+from src.repositories.utils import execute_update
 
 
 class SQLiteRunningRepository:
@@ -80,17 +81,7 @@ class SQLiteRunningRepository:
         if not update_data:
             return existing
 
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        set_clause = ", ".join(f"{key} = ?" for key in update_data.keys())
-        values = list(update_data.values()) + [activity_id]
-
-        await self.db.execute(
-            f"UPDATE running_activities SET {set_clause} WHERE id = ?",
-            values,
-        )
-        await self.db.commit()
-
+        await execute_update(self.db, "running_activities", update_data, activity_id)
         return await self.find_by_id(activity_id)
 
     async def get_stats_by_month(self, year: int) -> list[dict]:
