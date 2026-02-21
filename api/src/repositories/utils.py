@@ -7,7 +7,6 @@ _ALLOWED_TABLES = frozenset({
     "running_activities",
     "exercises",
     "workout_routines",
-    "workout_logs",
     "measurements",
     "measurement_entries",
     "notes",
