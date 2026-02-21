@@ -14,6 +14,7 @@ from src.models.measurement import (
     entry_from_db,
     measurement_from_db,
 )
+from src.repositories.utils import execute_update
 
 
 class SQLiteMeasurementRepository:
@@ -65,17 +66,7 @@ class SQLiteMeasurementRepository:
         if not update_data:
             return existing
 
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        set_clause = ", ".join(f"{key} = ?" for key in update_data.keys())
-        values = list(update_data.values()) + [measurement_id]
-
-        await self.db.execute(
-            f"UPDATE measurements SET {set_clause} WHERE id = ?",
-            values,
-        )
-        await self.db.commit()
-
+        await execute_update(self.db, "measurements", update_data, measurement_id)
         return await self.find_measurement_by_id(measurement_id)
 
     async def delete_measurement(self, measurement_id: int) -> bool:
@@ -131,17 +122,7 @@ class SQLiteMeasurementRepository:
         if not update_data:
             return existing
 
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        set_clause = ", ".join(f"{key} = ?" for key in update_data.keys())
-        values = list(update_data.values()) + [entry_id]
-
-        await self.db.execute(
-            f"UPDATE measurement_entries SET {set_clause} WHERE id = ?",
-            values,
-        )
-        await self.db.commit()
-
+        await execute_update(self.db, "measurement_entries", update_data, entry_id)
         return await self.find_entry_by_id(entry_id)
 
     async def delete_entry(self, entry_id: int) -> bool:
