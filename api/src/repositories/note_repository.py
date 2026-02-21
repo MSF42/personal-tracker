@@ -11,6 +11,7 @@ from src.models.note import (
     UpdateNoteRequest,
     note_from_db,
 )
+from src.repositories.utils import execute_update
 
 
 class SQLiteNoteRepository:
@@ -80,16 +81,7 @@ class SQLiteNoteRepository:
         if "collapsed" in update_data:
             update_data["collapsed"] = 1 if update_data["collapsed"] else 0
 
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        set_clause = ", ".join(f"{key} = ?" for key in update_data)
-        values = list(update_data.values()) + [note_id]
-
-        await self.db.execute(
-            f"UPDATE notes SET {set_clause} WHERE id = ?",
-            values,
-        )
-        await self.db.commit()
+        await execute_update(self.db, "notes", update_data, note_id)
         return await self.find_by_id(note_id)
 
     async def move(self, note_id: int, data: MoveNoteRequest) -> NoteResponse | None:
