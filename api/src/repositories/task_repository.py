@@ -10,6 +10,7 @@ from src.models.task import (
     UpdateTaskRequest,
     task_from_db,
 )
+from src.repositories.utils import execute_update
 from src.services.task_recurrence import calculate_next_due_date
 
 
@@ -117,19 +118,7 @@ class SQLiteTaskRepository:
             else:
                 update_data["repeat_days"] = None
 
-        # Always update updated_at
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # Build dynamic SQL
-        set_clause = ", ".join(f"{key} = ?" for key in update_data.keys())
-        values = list(update_data.values()) + [task_id]
-
-        await self.db.execute(
-            f"UPDATE tasks SET {set_clause} WHERE id = ?",
-            values,
-        )
-        await self.db.commit()
-
+        await execute_update(self.db, "tasks", update_data, task_id)
         return await self.find_by_id(task_id)
 
     async def find_with_filters(
