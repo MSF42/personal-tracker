@@ -123,6 +123,55 @@ async function request<T>(
     }
 }
 
+async function requestFormData<T>(
+    endpoint: string,
+    formData: FormData,
+): Promise<ApiResponse<T>> {
+    const url = buildUrl(endpoint);
+    try {
+        const response = await fetch(url, {
+            method: HttpMethod.POST,
+            body: formData,
+        });
+
+        if (!isSuccessStatus(response.status)) {
+            let backendError: BackendError | undefined;
+            try {
+                backendError = await response.json();
+            } catch {
+                // Response body isn't JSON
+            }
+            return {
+                data: null,
+                error: handleHttpError(response.status, backendError, endpoint),
+                success: false,
+            };
+        }
+
+        if (isNoContent(response.status)) {
+            return { data: null, error: null, success: true };
+        }
+
+        const data = (await response.json()) as T;
+        return { data, error: null, success: true };
+    } catch (err) {
+        const apiError: ApiError = {
+            message:
+                err instanceof Error
+                    ? err.message
+                    : 'An unexpected error occurred',
+            endpoint,
+        };
+
+        const toast = getToast();
+        if (toast) {
+            toast.showApiError(apiError);
+        }
+
+        return { data: null, error: apiError, success: false };
+    }
+}
+
 export function useApi() {
     const getData = async <T>(
         endpoint: string,
@@ -180,6 +229,13 @@ export function useApi() {
         return request<void>(endpoint, { method: HttpMethod.DELETE });
     };
 
+    const postFormData = async <T>(
+        endpoint: string,
+        formData: FormData,
+    ): Promise<ApiResponse<T>> => {
+        return requestFormData<T>(endpoint, formData);
+    };
+
     return {
         getData,
         getDataArray,
@@ -188,5 +244,6 @@ export function useApi() {
         postWithParams,
         put,
         remove,
+        postFormData,
     };
 }
