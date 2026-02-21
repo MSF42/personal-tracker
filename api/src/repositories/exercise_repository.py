@@ -10,6 +10,7 @@ from src.models.exercise import (
     UpdateExerciseRequest,
     exercise_from_db,
 )
+from src.repositories.utils import execute_update
 
 
 class SQLiteExerciseRepository:
@@ -73,16 +74,7 @@ class SQLiteExerciseRepository:
             return existing
         if "muscle_group" in update_data and update_data["muscle_group"] is not None:
             update_data["muscle_group"] = update_data["muscle_group"].value
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        set_clause = ", ".join(f"{key} = ?" for key in update_data.keys())
-        values = list(update_data.values()) + [exercise_id]
-        await self.db.execute(
-            f"UPDATE exercises SET {set_clause} WHERE id = ?",
-            values,
-        )
-        await self.db.commit()
-
+        await execute_update(self.db, "exercises", update_data, exercise_id)
         return await self.find_by_id(exercise_id)
 
     # delete
