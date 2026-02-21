@@ -5,14 +5,10 @@ from aiosqlite import Connection
 from src.models.measurement import (
     CreateMeasurementEntryRequest,
     CreateMeasurementRequest,
-    MeasurementEntryInDB,
     MeasurementEntryResponse,
-    MeasurementInDB,
     MeasurementResponse,
     UpdateMeasurementEntryRequest,
     UpdateMeasurementRequest,
-    entry_from_db,
-    measurement_from_db,
 )
 from src.repositories.utils import execute_update
 
@@ -48,12 +44,12 @@ class SQLiteMeasurementRepository:
         row = await cursor.fetchone()
         if row is None:
             return None
-        return measurement_from_db(MeasurementInDB(**dict(row)))
+        return MeasurementResponse(**dict(row))
 
     async def find_all_measurements(self) -> list[MeasurementResponse]:
         cursor = await self.db.execute("SELECT * FROM measurements ORDER BY sort_order ASC")
         rows = await cursor.fetchall()
-        return [measurement_from_db(MeasurementInDB(**dict(row))) for row in rows]
+        return [MeasurementResponse(**dict(row)) for row in rows]
 
     async def update_measurement(
         self, measurement_id: int, data: UpdateMeasurementRequest
@@ -101,7 +97,7 @@ class SQLiteMeasurementRepository:
         row = await cursor.fetchone()
         if row is None:
             return None
-        return entry_from_db(MeasurementEntryInDB(**dict(row)))
+        return MeasurementEntryResponse(**dict(row))
 
     async def find_entries(self, measurement_id: int) -> list[MeasurementEntryResponse]:
         cursor = await self.db.execute(
@@ -109,7 +105,7 @@ class SQLiteMeasurementRepository:
             (measurement_id,),
         )
         rows = await cursor.fetchall()
-        return [entry_from_db(MeasurementEntryInDB(**dict(row))) for row in rows]
+        return [MeasurementEntryResponse(**dict(row)) for row in rows]
 
     async def update_entry(
         self, entry_id: int, data: UpdateMeasurementEntryRequest
