@@ -12,17 +12,6 @@ class MuscleGroup(str, Enum):
     legs = "legs"
 
 
-class ExerciseInDB(BaseModel):
-    id: int
-    name: str
-    description: str | None = None
-    muscle_group: MuscleGroup
-    equipment: str | None = None
-    instructions: str | None = None
-    created_at: str
-    updated_at: str
-
-
 class ExerciseResponse(BaseModel):
     id: int
     name: str
@@ -48,7 +37,3 @@ class UpdateExerciseRequest(BaseModel):
     muscle_group: MuscleGroup | None = None
     equipment: str | None = None
     instructions: str | None = None
-
-
-def exercise_from_db(row: ExerciseInDB) -> ExerciseResponse:
-    return ExerciseResponse(**row.model_dump())

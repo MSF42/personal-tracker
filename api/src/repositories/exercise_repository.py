@@ -5,10 +5,8 @@ from aiosqlite import Connection
 
 from src.models.exercise import (
     CreateExerciseRequest,
-    ExerciseInDB,
     ExerciseResponse,
     UpdateExerciseRequest,
-    exercise_from_db,
 )
 from src.repositories.utils import execute_update
 
@@ -51,15 +49,14 @@ class SQLiteExerciseRepository:
         if row is None:
             return None
 
-        exercise_in_db = ExerciseInDB(**dict(row))
-        return exercise_from_db(exercise_in_db)
+        return ExerciseResponse(**dict(row))
 
     # find all
     async def find_all(self) -> list[ExerciseResponse]:
         cursor = await self.db.execute("SELECT * FROM exercises ORDER BY created_at DESC")
         rows = await cursor.fetchall()
 
-        return [exercise_from_db(ExerciseInDB(**dict(row))) for row in rows]
+        return [ExerciseResponse(**dict(row)) for row in rows]
 
     # update
     async def update(
