@@ -10,6 +10,7 @@ from src.models.workout_routine import (
     WorkoutRoutineResponse,
     workout_routine_from_db,
 )
+from src.repositories.utils import execute_update
 
 
 class SQLiteWorkoutRoutineRepository:
@@ -67,17 +68,7 @@ class SQLiteWorkoutRoutineRepository:
         if not update_data:
             return existing
 
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        set_clause = ", ".join(f"{key} = ?" for key in update_data.keys())
-        values = list(update_data.values()) + [workout_routine_id]
-
-        await self.db.execute(
-            f"UPDATE workout_routines SET {set_clause} WHERE id = ?",
-            values,
-        )
-        await self.db.commit()
-
+        await execute_update(self.db, "workout_routines", update_data, workout_routine_id)
         return await self.find_by_id(workout_routine_id)
 
     # delete
