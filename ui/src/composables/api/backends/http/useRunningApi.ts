@@ -41,39 +41,7 @@ export function useRunningApi() {
     ): Promise<ApiResponse<GpxImportResponse>> => {
         const formData = new FormData();
         formData.append('file', file);
-        try {
-            const response = await fetch(
-                `${window.location.origin}/api/v1/runs/import-gpx`,
-                { method: 'POST', body: formData },
-            );
-            if (!response.ok) {
-                let errorMsg = 'Import failed';
-                try {
-                    const err = await response.json();
-                    errorMsg = err.error || err.detail || errorMsg;
-                } catch {
-                    // ignore parse error
-                }
-                return {
-                    data: null,
-                    error: { message: errorMsg, statusCode: response.status },
-                    success: false,
-                };
-            }
-            const data = (await response.json()) as GpxImportResponse;
-            return { data, error: null, success: true };
-        } catch (err) {
-            return {
-                data: null,
-                error: {
-                    message:
-                        err instanceof Error
-                            ? err.message
-                            : 'An unexpected error occurred',
-                },
-                success: false,
-            };
-        }
+        return api.postFormData<GpxImportResponse>('runs/import-gpx', formData);
     };
 
     const getSegments = async (runId: number) =>
