@@ -44,7 +44,7 @@ class SQLiteWorkoutLogRepository:
         if not workout:
             return None
 
-            # Get sets
+        # Get sets
         sets_cursor = await self.db.execute(
             """SELECT sl.*, e.name as exercise_name
                FROM set_logs sl

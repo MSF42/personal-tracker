@@ -52,13 +52,13 @@ def running_from_db(row: RunningActivityInDB) -> RunningActivityResponse:
     else:
         pace = 0.0
 
-        # Calculate speed (km per hour)
+    # Calculate speed (km per hour)
     if row.duration_seconds > 0:
         speed = row.distance_km / (row.duration_seconds / 3600)
     else:
         speed = 0.0
 
-        # Format pace as "M:SS"
+    # Format pace as "M:SS"
     pace_minutes = int(pace)
     pace_seconds = int((pace - pace_minutes) * 60)
     pace_formatted = f"{pace_minutes}:{pace_seconds:02d}"
