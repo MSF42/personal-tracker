@@ -31,37 +31,7 @@ export function useNoteApi() {
     ): Promise<ApiResponse<NoteImageUpload>> => {
         const formData = new FormData();
         formData.append('file', file);
-        try {
-            const response = await fetch(
-                `${window.location.origin}/api/v1/notes/images`,
-                { method: 'POST', body: formData },
-            );
-            if (!response.ok) {
-                let errorMsg = 'Upload failed';
-                try {
-                    const err = await response.json();
-                    if (err.error) errorMsg = err.error;
-                } catch {
-                    /* ignore parse error */
-                }
-                return {
-                    data: null,
-                    error: { message: errorMsg },
-                    success: false,
-                };
-            }
-            const data = (await response.json()) as NoteImageUpload;
-            return { data, error: null, success: true };
-        } catch (err) {
-            return {
-                data: null,
-                error: {
-                    message:
-                        err instanceof Error ? err.message : 'Upload failed',
-                },
-                success: false,
-            };
-        }
+        return api.postFormData<NoteImageUpload>('notes/images', formData);
     };
 
     return {
