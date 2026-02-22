@@ -149,7 +149,7 @@ MIGRATIONS = [
     },
     {
         "version": 12,
-        "name": "rename_exercise_routines_to_workout_routines",
+        "name": "no_op_rename_exercise_routines",  # was broken; workout_routines already existed in migration 8
         "sql": "SELECT 1;",  # no-op: workout_routines already created correctly in migration 8
     },
     {

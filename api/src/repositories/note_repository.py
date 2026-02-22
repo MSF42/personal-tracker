@@ -19,7 +19,7 @@ class SQLiteNoteRepository:
         self.db = db
 
     async def get_tree(self) -> list[NoteTreeNode]:
-        cursor = await self.db.execute("SELECT * FROM notes ORDER BY sort_order ASC, id ASC")
+        cursor = await self.db.execute("SELECT * FROM notes ORDER BY sort_order, id")
         rows = await cursor.fetchall()
 
         nodes: dict[int, NoteTreeNode] = {}

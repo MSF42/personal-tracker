@@ -1,15 +1,9 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
 from src.db.database import get_db
 from src.errors import NotFoundError
+from src.models.workout_log import CreateWorkoutLogRequest, LogSetRequest, UpdateWorkoutLogRequest
 from src.repositories.workout_log_repository import SQLiteWorkoutLogRepository
-
-
-class UpdateWorkoutLogRequest(BaseModel):
-    date: str | None = None
-    notes: str | None = None
-
 
 router = APIRouter(prefix="/api/v1/workout-logs", tags=["Workout Logs"])
 
@@ -20,12 +14,10 @@ async def get_workout_log_repository(db=Depends(get_db)):
 
 @router.post("", status_code=201)
 async def create_workout_log(
-    routine_id: int,
-    date: str,
-    notes: str | None = None,
+    data: CreateWorkoutLogRequest,
     repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
 ):
-    return await repo.create(routine_id, date, notes)
+    return await repo.create(data.routine_id, data.date, data.notes)
 
 
 @router.get("")
@@ -64,13 +56,10 @@ async def get_workout_log(
 @router.post("/{workout_log_id}/sets", status_code=201)
 async def log_set(
     workout_log_id: int,
-    exercise_id: int,
-    set_number: int,
-    reps: int,
-    weight: float | None = None,
+    data: LogSetRequest,
     repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
 ):
-    return await repo.log_set(workout_log_id, exercise_id, set_number, reps, weight)
+    return await repo.log_set(workout_log_id, data.exercise_id, data.set_number, data.reps, data.weight)
 
 
 @router.put("/{workout_log_id}")

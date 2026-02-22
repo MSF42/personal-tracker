@@ -49,13 +49,14 @@ export function useSettingsApi() {
             `${window.location.origin}/api/v1/settings/restore`,
             { method: 'POST', body: formData },
         );
-        const data = await response.json();
         if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
             return {
                 success: false as const,
-                error: data.error ?? 'Restore failed',
+                error: (data as { error?: string }).error ?? 'Restore failed',
             };
         }
+        const data = await response.json();
         return { success: true as const, data };
     };
 

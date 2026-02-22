@@ -32,6 +32,8 @@ class SQLiteSettingsRepository:
             "running_activities",
             "tasks",
             "notes",
+            "measurement_entries",
+            "measurements",
             "user_settings",
         ]
         for table in tables:

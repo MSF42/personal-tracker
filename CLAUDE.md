@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Rules
+
+- Never commit or push code unless explicitly requested.
+
 ## Project Overview
 
 Personal Tracker — a FastAPI backend with a Vue 3 frontend for tracking tasks, running activities, exercises, and workout routines. The API code lives in `api/`, the frontend in `ui/`.
