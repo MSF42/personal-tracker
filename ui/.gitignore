@@ -25,3 +25,7 @@ dist-ssr
 
 # Capacitor
 ios/App/Pods
+
+# Tauri
+src-tauri/binaries/
+src-tauri/target/

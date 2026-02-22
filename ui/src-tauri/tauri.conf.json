@@ -1,0 +1,41 @@
+{
+    "productName": "Personal Tracker",
+    "version": "0.1.0",
+    "identifier": "com.stevefurches.personaltracker",
+    "build": {
+        "beforeBuildCommand": "npm run build-only",
+        "beforeDevCommand": "npm run dev",
+        "devUrl": "http://localhost:3099",
+        "frontendDist": "../dist"
+    },
+    "app": {
+        "windows": [
+            {
+                "title": "Personal Tracker",
+                "width": 1280,
+                "height": 800,
+                "resizable": true
+            }
+        ],
+        "security": {
+            "csp": null
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": "all",
+        "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/128x128@2x.png",
+            "icons/icon.icns",
+            "icons/icon.ico"
+        ],
+        "externalBin": ["binaries/personal-tracker-api"]
+    },
+    "plugins": {
+        "shell": {
+            "open": false
+        }
+    }
+}

@@ -26,7 +26,8 @@ function getToast() {
 }
 
 function getBaseUrl(): string {
-    return `${window.location.origin}/api/v1/`;
+    const base = import.meta.env.VITE_API_BASE_URL ?? window.location.origin;
+    return `${base}/api/v1/`;
 }
 
 function buildUrl(

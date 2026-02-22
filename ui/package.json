@@ -12,7 +12,9 @@
         "format": "prettier --write src/",
         "verify": "npm run format && npm run lint && npm run type-check",
         "preview": "vite preview",
-        "build-ios": "VITE_BACKEND=local npm run build && npx cap sync ios"
+        "build-ios": "VITE_BACKEND=local npm run build && npx cap sync ios",
+        "tauri": "tauri",
+        "build-macos": "bash scripts/build-macos.sh"
     },
     "dependencies": {
         "@capacitor-community/sqlite": "^8.0.0",
@@ -22,6 +24,7 @@
         "@primevue/auto-import-resolver": "^4.5.4",
         "@tailwindcss/typography": "^0.5.19",
         "@tailwindcss/vite": "^4.1.18",
+        "@tauri-apps/api": "^2.10.1",
         "chart.js": "^4.5.1",
         "highlight.js": "^11.11.1",
         "marked": "^17.0.3",
@@ -37,6 +40,7 @@
         "@capacitor/cli": "^8.1.0",
         "@capacitor/ios": "^8.1.0",
         "@eslint/js": "^9.39.2",
+        "@tauri-apps/cli": "^2.10.0",
         "@types/node": "^24.10.1",
         "@types/sql.js": "^1.4.9",
         "@vitejs/plugin-vue": "^6.0.2",
