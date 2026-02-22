@@ -150,9 +150,7 @@ MIGRATIONS = [
     {
         "version": 12,
         "name": "rename_exercise_routines_to_workout_routines",
-        "sql": """
-               ALTER TABLE exercise_routines RENAME TO workout_routines;
-               """,
+        "sql": "SELECT 1;",  # no-op: workout_routines already created correctly in migration 8
     },
     {
         "version": 13,
