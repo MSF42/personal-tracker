@@ -12,12 +12,6 @@ async def health_check():
     return {"status": "ok"}
 
 
-@router.get("/api/v1/health")
-async def health_check_v1():
-    """Health check at the versioned API path (used by Electron sidecar polling)."""
-    return {"status": "ok"}
-
-
 @router.get("/health/live")
 async def liveness():
     """Kubernetes liveness probe - is the process alive?"""
@@ -54,7 +48,7 @@ async def info():
     }
 
 
-@router.get("/api/v1/ping", summary="Ping", status_code=200)
+@router.get("/ping", summary="Ping", status_code=200)
 def ping():
     return {"message": "pong"}
 

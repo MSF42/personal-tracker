@@ -10,8 +10,7 @@ function getApiBinaryPath() {
         return path.join(process.resourcesPath, 'personal-tracker-api')
     }
     // Dev: binary staged in electron/binaries/
-    const arch = process.arch === 'arm64' ? 'aarch64-apple-darwin' : 'x86_64-apple-darwin'
-    return path.join(__dirname, 'binaries', `personal-tracker-api-${arch}`)
+    return path.join(__dirname, 'binaries', 'personal-tracker-api')
 }
 
 function startApi() {

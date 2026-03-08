@@ -70,7 +70,8 @@ def create_app():
         )
 
     # Register routes
-    app.include_router(router)
+    app.include_router(router)  # bare paths: /health, /health/live, /health/ready, etc.
+    app.include_router(router, prefix="/api/v1")  # versioned paths: /api/v1/health, etc.
     app.include_router(tasks_router)
     app.include_router(running_router)
     app.include_router(exercise_router)
