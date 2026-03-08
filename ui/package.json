@@ -3,6 +3,7 @@
     "private": true,
     "version": "0.0.0",
     "type": "module",
+    "main": "electron/main.js",
     "scripts": {
         "dev": "vite --host",
         "build": "run-p type-check \"build-only {@}\"",
@@ -11,7 +12,11 @@
         "lint": "eslint . --fix",
         "format": "prettier --write src/",
         "verify": "npm run format && npm run lint && npm run type-check",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "electron:dev": "npm run dev",
+        "electron:start": "electron .",
+        "electron:build": "electron-builder --mac",
+        "build-macos": "bash scripts/build-macos.sh"
     },
     "dependencies": {
         "@primeuix/themes": "^2.0.3",
@@ -50,5 +55,27 @@
         "vite": "^7.3.1",
         "vite-plugin-vue-devtools": "^8.0.6",
         "vue-tsc": "^3.2.4"
+    },
+    "build": {
+        "appId": "com.stevefurches.personaltracker",
+        "productName": "Personal Tracker",
+        "directories": {
+            "output": "dist-electron"
+        },
+        "files": [
+            "dist/**",
+            "electron/**",
+            "!electron/binaries"
+        ],
+        "extraResources": [
+            {
+                "from": "electron/binaries/personal-tracker-api",
+                "to": "personal-tracker-api"
+            }
+        ],
+        "mac": {
+            "target": "dmg",
+            "icon": "electron/icons/icon.icns"
+        }
     }
 }
