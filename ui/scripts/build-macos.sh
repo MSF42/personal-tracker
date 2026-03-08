@@ -19,6 +19,7 @@ BINARY_DEST="$UI_DIR/src-tauri/binaries/personal-tracker-api-${ARCH}"
 
 echo "==> Building PyInstaller binary (arch: $ARCH)..."
 cd "$API_DIR"
+source .venv/bin/activate
 pyinstaller personal-tracker-api.spec
 
 echo "==> Copying binary to src-tauri/binaries/..."

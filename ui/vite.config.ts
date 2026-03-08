@@ -4,7 +4,7 @@ import { PrimeVueResolver } from '@primevue/auto-import-resolver';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import Components from 'unplugin-vue-components/vite';
-import VueRouter from 'unplugin-vue-router/vite';
+import VueRouter from 'vue-router/vite';
 import { defineConfig } from 'vite';
 import vueDevTools from 'vite-plugin-vue-devtools';
 
@@ -15,7 +15,7 @@ const backendDir =
 
 export default defineConfig({
     plugins: [
-        VueRouter({ dts: true }),
+        VueRouter({ dts: 'src/route-map.d.ts' }),
         vue(),
         tailwindcss(),
         vueDevTools(),

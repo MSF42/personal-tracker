@@ -6,3 +6,6 @@
 
 # Learning guides (personal reference)
 python-*.md
+
+# Git worktrees
+.worktrees/
