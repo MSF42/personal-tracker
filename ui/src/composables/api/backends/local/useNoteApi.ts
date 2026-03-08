@@ -196,46 +196,9 @@ export function useNoteApi() {
     };
 
     const uploadNoteImage = async (
-        file: File,
+        _file: File,
     ): Promise<ApiResponse<NoteImageUpload>> => {
-        try {
-            const { Filesystem, Directory } =
-                await import('@capacitor/filesystem');
-            const reader = new FileReader();
-            const base64 = await new Promise<string>((resolve, reject) => {
-                reader.onload = () => {
-                    const result = reader.result as string;
-                    resolve(result.split(',')[1]!);
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-
-            const filename = `note-image-${Date.now()}-${file.name}`;
-            const savedFile = await Filesystem.writeFile({
-                path: `images/${filename}`,
-                data: base64,
-                directory: Directory.Data,
-            });
-
-            return {
-                data: {
-                    url: savedFile.uri,
-                    filename,
-                },
-                error: null,
-                success: true,
-            };
-        } catch (err) {
-            return {
-                data: null,
-                error: {
-                    message:
-                        err instanceof Error ? err.message : 'Upload failed',
-                },
-                success: false,
-            };
-        }
+        throw new Error('Image upload is not supported in the local backend')
     };
 
     return {
