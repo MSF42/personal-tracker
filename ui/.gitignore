@@ -29,3 +29,7 @@ ios/App/Pods
 # Tauri
 src-tauri/binaries/
 src-tauri/target/
+
+# Electron
+electron/binaries/
+dist-electron/

@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Detect architecture and map to Tauri's expected triple
 RAW_ARCH=$(uname -m)
 if [ "$RAW_ARCH" = "arm64" ]; then
     ARCH="aarch64-apple-darwin"
@@ -15,20 +14,25 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 UI_DIR="$SCRIPT_DIR/.."
 API_DIR="$UI_DIR/../api"
-BINARY_DEST="$UI_DIR/src-tauri/binaries/personal-tracker-api-${ARCH}"
+BINARY_SRC="$API_DIR/dist/personal-tracker-api"
+BINARY_DEST="$UI_DIR/electron/binaries/personal-tracker-api"
 
 echo "==> Building PyInstaller binary (arch: $ARCH)..."
 cd "$API_DIR"
 source .venv/bin/activate
 pyinstaller personal-tracker-api.spec
 
-echo "==> Copying binary to src-tauri/binaries/..."
-cp "dist/personal-tracker-api" "$BINARY_DEST"
+echo "==> Staging binary for electron-builder..."
+mkdir -p "$UI_DIR/electron/binaries"
+cp "$BINARY_SRC" "$BINARY_DEST"
 chmod +x "$BINARY_DEST"
 
-echo "==> Building Tauri app..."
+echo "==> Building Vue frontend..."
 cd "$UI_DIR"
-VITE_API_BASE_URL=http://localhost:8743 npm run tauri build
+VITE_API_BASE_URL=http://localhost:8743 npm run build-only
+
+echo "==> Packaging with electron-builder..."
+npm run electron:build
 
 echo ""
-echo "Done! App bundle at: $UI_DIR/src-tauri/target/release/bundle/"
+echo "Done! App bundle at: $UI_DIR/dist-electron/"
