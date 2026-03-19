@@ -402,7 +402,11 @@ const hoveredSidebarId = ref<number | null>(null);
             <div
                 class="border-surface-200 dark:border-surface-700 border-b p-3"
             >
-                <div class="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Notes</div>
+                <div
+                    class="mb-2 text-[10px] font-bold tracking-widest text-slate-500 uppercase dark:text-slate-400"
+                >
+                    Notes
+                </div>
                 <button
                     class="w-full rounded-md bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                     @click="addRootNote"
@@ -469,7 +473,10 @@ const hoveredSidebarId = ref<number | null>(null);
                 </div>
             </div>
 
-            <div v-else class="bg-stone-50 dark:bg-stone-900 flex flex-1 flex-col overflow-y-auto px-7 pt-6 pb-4">
+            <div
+                v-else
+                class="flex flex-1 flex-col overflow-y-auto bg-stone-50 px-7 pt-6 pb-4 dark:bg-stone-900"
+            >
                 <!-- Title -->
                 <textarea
                     class="text-surface-900 dark:text-surface-100 mb-2 w-full resize-none border-none bg-transparent text-2xl leading-snug font-bold tracking-tight outline-none"
@@ -488,14 +495,14 @@ const hoveredSidebarId = ref<number | null>(null);
                     "
                 />
 
-                <div class="mb-4 mt-1.5 h-0.5 w-9 rounded bg-blue-500"></div>
+                <div class="mt-1.5 mb-4 h-0.5 w-9 rounded bg-blue-500"></div>
 
                 <!-- Outline content -->
                 <div v-if="flatNodes.length > 0" class="space-y-0">
                     <div
                         v-for="{ node, depth } in flatNodes"
                         :key="node.id"
-                        class="hover:bg-surface-50 dark:hover:bg-surface-800 group relative flex items-start gap-1 rounded py-0.5"
+                        class="group relative flex items-start gap-1 rounded py-0.5 hover:bg-stone-100 dark:hover:bg-stone-800"
                         :data-note-id="node.id"
                         :style="{ paddingLeft: depth * 1.5 + 'rem' }"
                         @mouseenter="hoveredId = node.id"
@@ -505,7 +512,7 @@ const hoveredSidebarId = ref<number | null>(null);
                         <div
                             v-for="i in depth"
                             :key="'guide-' + i"
-                            class="bg-surface-200 dark:bg-surface-700 pointer-events-none absolute inset-y-0 w-px"
+                            class="pointer-events-none absolute inset-y-0 w-px bg-stone-200 dark:bg-stone-700"
                             :style="{ left: (i - 1) * 1.5 + 0.625 + 'rem' }"
                         ></div>
                         <!-- Collapse toggle / bullet -->
