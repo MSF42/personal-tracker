@@ -397,18 +397,18 @@ const hoveredSidebarId = ref<number | null>(null);
     <div class="flex h-full">
         <!-- Left sidebar -->
         <div
-            class="bg-slate-100 dark:bg-slate-800 border-surface-200 dark:border-surface-700 flex w-64 shrink-0 flex-col border-r"
+            class="border-surface-200 dark:border-surface-700 flex w-64 shrink-0 flex-col border-r bg-slate-100 dark:bg-slate-800"
         >
             <div
                 class="border-surface-200 dark:border-surface-700 border-b p-3"
             >
-                <AppButton
-                    class="w-full"
-                    icon="pi pi-plus"
-                    label="Add Note"
-                    size="small"
+                <div class="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Notes</div>
+                <button
+                    class="w-full rounded-md bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                     @click="addRootNote"
-                />
+                >
+                    <i class="pi pi-plus mr-1.5 text-xs"></i>New Note
+                </button>
             </div>
 
             <div class="flex-1 overflow-y-auto p-2">
@@ -503,8 +503,8 @@ const hoveredSidebarId = ref<number | null>(null);
                         <div
                             v-for="i in depth"
                             :key="'guide-' + i"
-                            class="pointer-events-none absolute inset-y-0 w-px bg-surface-200 dark:bg-surface-700"
-                            :style="{ left: ((i - 1) * 1.5 + 0.625) + 'rem' }"
+                            class="bg-surface-200 dark:bg-surface-700 pointer-events-none absolute inset-y-0 w-px"
+                            :style="{ left: (i - 1) * 1.5 + 0.625 + 'rem' }"
                         ></div>
                         <!-- Collapse toggle / bullet -->
                         <button
