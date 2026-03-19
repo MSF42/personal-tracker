@@ -415,11 +415,11 @@ const hoveredSidebarId = ref<number | null>(null);
                 <div
                     v-for="note in tree"
                     :key="note.id"
-                    class="group relative flex cursor-pointer items-center gap-1 rounded px-2 py-1.5 text-sm"
+                    class="group relative flex cursor-pointer items-center gap-1 rounded px-3 py-1.5 text-sm"
                     :class="
                         note.id === selectedNoteId
                             ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                            : 'text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800'
+                            : 'text-surface-700 dark:text-surface-300 hover:bg-surface-0 hover:shadow-sm dark:hover:bg-slate-700'
                     "
                     @click="selectedNoteId = note.id"
                     @mouseenter="hoveredSidebarId = note.id"
