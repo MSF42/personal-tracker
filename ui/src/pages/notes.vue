@@ -16,6 +16,11 @@ const {
 
 const tree = ref<NoteTreeNode[]>([]);
 const focusId = ref<number | null>(null);
+const selectedNoteId = ref<number | null>(null);
+
+const selectedNote = computed(
+    () => tree.value.find((n) => n.id === selectedNoteId.value) ?? null,
+);
 
 interface FlatNode {
     node: NoteTreeNode;
@@ -32,7 +37,7 @@ const flatNodes = computed<FlatNode[]>(() => {
             }
         }
     }
-    walk(tree.value, 0);
+    walk(selectedNote.value?.children ?? [], 0);
     return result;
 });
 
@@ -40,6 +45,9 @@ async function loadData() {
     const res = await getNotes();
     if (res.success && res.data) {
         tree.value = res.data;
+        if (tree.value.length > 0 && !selectedNoteId.value) {
+            selectedNoteId.value = tree.value[0]!.id;
+        }
     }
 }
 
@@ -48,8 +56,19 @@ onMounted(loadData);
 function setFocus(id: number) {
     focusId.value = id;
     nextTick(() => {
+        nextTick(() => {
+            const el = document.querySelector(
+                `[data-note-id="${id}"] textarea`,
+            ) as HTMLTextAreaElement | null;
+            el?.focus();
+        });
+    });
+}
+
+function focusTitleArea() {
+    nextTick(() => {
         const el = document.querySelector(
-            `[data-note-id="${id}"] textarea`,
+            '[data-title-area]',
         ) as HTMLTextAreaElement | null;
         el?.focus();
     });
@@ -156,7 +175,18 @@ async function addRootNote() {
             children: [],
         };
         tree.value.push(newNode);
-        setFocus(newNode.id);
+        selectedNoteId.value = newNode.id;
+        focusTitleArea();
+    }
+}
+
+async function deleteRootNote(node: NoteTreeNode) {
+    const idx = tree.value.findIndex((n) => n.id === node.id);
+    if (idx === -1) return;
+    await deleteNote(node.id);
+    tree.value.splice(idx, 1);
+    if (selectedNoteId.value === node.id) {
+        selectedNoteId.value = tree.value[0]?.id ?? null;
     }
 }
 
@@ -354,86 +384,101 @@ function openFilePicker(node: NoteTreeNode) {
         input.click();
     });
 }
+
+function noteTitle(node: NoteTreeNode): string {
+    const first = node.content.split('\n')[0]?.trim();
+    return first || 'Untitled';
+}
+
+const hoveredSidebarId = ref<number | null>(null);
 </script>
 
 <template>
-    <div class="mx-auto max-w-4xl p-6">
-        <div class="mb-6 flex items-center justify-between">
-            <h1 class="text-2xl font-bold">Notes</h1>
-            <AppButton
-                icon="pi pi-plus"
-                label="Add Note"
-                @click="addRootNote"
-            />
-        </div>
-
-        <div v-if="flatNodes.length === 0" class="py-16 text-center">
-            <p class="text-surface-400 mb-4 text-lg">No notes yet</p>
-            <AppButton
-                icon="pi pi-plus"
-                label="Add Note"
-                @click="addRootNote"
-            />
-        </div>
-
-        <div v-else class="space-y-0">
+    <div class="flex h-full">
+        <!-- Left sidebar -->
+        <div
+            class="bg-slate-100 dark:bg-slate-800 border-surface-200 dark:border-surface-700 flex w-64 shrink-0 flex-col border-r"
+        >
             <div
-                v-for="{ node, depth } in flatNodes"
-                :key="node.id"
-                class="hover:bg-surface-50 dark:hover:bg-surface-800 group flex items-start gap-1 rounded py-0.5"
-                :data-note-id="node.id"
-                :style="{ paddingLeft: depth * 1.5 + 'rem' }"
-                @mouseenter="hoveredId = node.id"
-                @mouseleave="hoveredId = null"
+                class="border-surface-200 dark:border-surface-700 border-b p-3"
             >
-                <!-- Collapse toggle / bullet -->
-                <button
-                    class="mt-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded"
-                    :class="
-                        node.children.length
-                            ? 'text-surface-500 hover:bg-surface-200 dark:hover:bg-surface-700 cursor-pointer'
-                            : 'text-surface-300 dark:text-surface-600 cursor-default'
-                    "
-                    tabindex="-1"
-                    @click="
-                        node.children.length ? toggleCollapse(node) : undefined
-                    "
-                >
-                    <i
-                        v-if="node.children.length"
-                        class="pi text-xs"
-                        :class="
-                            node.collapsed
-                                ? 'pi-chevron-right'
-                                : 'pi-chevron-down'
-                        "
-                    ></i>
-                    <span
-                        v-else
-                        class="bg-surface-400 dark:bg-surface-500 inline-block h-1.5 w-1.5 rounded-full"
-                    ></span>
-                </button>
+                <AppButton
+                    class="w-full"
+                    icon="pi pi-plus"
+                    label="Add Note"
+                    size="small"
+                    @click="addRootNote"
+                />
+            </div>
 
-                <!-- Content: rendered markdown or editable textarea -->
+            <div class="flex-1 overflow-y-auto p-2">
                 <div
-                    v-if="focusId !== node.id"
-                    class="note-prose prose prose-sm dark:prose-invert text-surface-800 dark:text-surface-200 min-h-[1.75rem] flex-1 cursor-text py-1 text-sm"
-                    @click="setFocus(node.id)"
-                    v-html="renderMarkdown(node.content)"
-                ></div>
-                <textarea
-                    v-else
-                    class="text-surface-800 dark:text-surface-200 min-h-[1.75rem] flex-1 resize-none overflow-hidden border-none bg-transparent py-1 text-sm leading-snug outline-none"
-                    rows="1"
-                    :value="node.content"
-                    @blur="
-                        handleBlur(node);
-                        focusId = null;
+                    v-for="note in tree"
+                    :key="note.id"
+                    class="group relative flex cursor-pointer items-center gap-1 rounded px-2 py-1.5 text-sm"
+                    :class="
+                        note.id === selectedNoteId
+                            ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                            : 'text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800'
                     "
-                    @focus="focusId = node.id"
-                    @input="handleInput($event, node)"
-                    @keydown="handleKeydown($event, node)"
-                    @paste="handlePaste($event, node)"
+                    @click="selectedNoteId = note.id"
+                    @mouseenter="hoveredSidebarId = note.id"
+                    @mouseleave="hoveredSidebarId = null"
+                >
+                    <span class="min-w-0 flex-1 truncate">{{
+                        noteTitle(note)
+                    }}</span>
+                    <button
+                        class="shrink-0 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
+                        :class="
+                            note.id === selectedNoteId
+                                ? 'text-primary-400'
+                                : 'text-surface-400'
+                        "
+                        title="Delete note"
+                        @click.stop="deleteRootNote(note)"
+                    >
+                        <i class="pi pi-trash text-xs"></i>
+                    </button>
+                </div>
+
+                <div
+                    v-if="tree.length === 0"
+                    class="text-surface-400 px-2 py-4 text-center text-xs"
+                >
+                    No notes yet
+                </div>
+            </div>
+        </div>
+
+        <!-- Right panel -->
+        <div class="flex min-w-0 flex-1 flex-col">
+            <div
+                v-if="!selectedNote"
+                class="flex flex-1 items-center justify-center"
+            >
+                <div class="text-center">
+                    <p class="text-surface-400 mb-4 text-lg">
+                        No note selected
+                    </p>
+                    <AppButton
+                        icon="pi pi-plus"
+                        label="Add Note"
+                        @click="addRootNote"
+                    />
+                </div>
+            </div>
+
+            <div v-else class="flex flex-1 flex-col overflow-y-auto p-6">
+                <!-- Title -->
+                <textarea
+                    class="text-surface-900 dark:text-surface-100 mb-4 w-full resize-none border-none bg-transparent text-2xl leading-snug font-bold outline-none"
+                    data-title-area
+                    placeholder="Untitled"
+                    rows="1"
+                    :value="selectedNote.content"
+                    @blur="handleBlur(selectedNote)"
+                    @input="handleInput($event, selectedNote)"
                     @vue:mounted="
                         ($event: any) => {
                             const el = $event.el as HTMLTextAreaElement;
@@ -443,38 +488,128 @@ function openFilePicker(node: NoteTreeNode) {
                     "
                 />
 
-                <!-- Hover actions -->
-                <div
-                    class="mt-1 flex shrink-0 gap-0.5 opacity-0 transition-opacity"
-                    :class="{ 'opacity-100': hoveredId === node.id }"
-                >
-                    <button
-                        class="text-surface-400 hover:text-primary-500 rounded p-0.5"
-                        title="Add image"
-                        @click="openFilePicker(node)"
+                <!-- Outline content -->
+                <div v-if="flatNodes.length > 0" class="space-y-0">
+                    <div
+                        v-for="{ node, depth } in flatNodes"
+                        :key="node.id"
+                        class="hover:bg-surface-50 dark:hover:bg-surface-800 group relative flex items-start gap-1 rounded py-0.5"
+                        :data-note-id="node.id"
+                        :style="{ paddingLeft: depth * 1.5 + 'rem' }"
+                        @mouseenter="hoveredId = node.id"
+                        @mouseleave="hoveredId = null"
                     >
-                        <i
-                            class="pi text-xs"
+                        <!-- Indent guides -->
+                        <div
+                            v-for="i in depth"
+                            :key="'guide-' + i"
+                            class="pointer-events-none absolute inset-y-0 w-px bg-surface-200 dark:bg-surface-700"
+                            :style="{ left: ((i - 1) * 1.5 + 0.625) + 'rem' }"
+                        ></div>
+                        <!-- Collapse toggle / bullet -->
+                        <button
+                            class="mt-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded"
                             :class="
-                                uploadingImages.has(node.id)
-                                    ? 'pi-spinner pi-spin'
-                                    : 'pi-image'
+                                node.children.length
+                                    ? 'text-surface-500 hover:bg-surface-200 dark:hover:bg-surface-700 cursor-pointer'
+                                    : 'text-surface-300 dark:text-surface-600 cursor-default'
                             "
-                        ></i>
-                    </button>
+                            tabindex="-1"
+                            @click="
+                                node.children.length
+                                    ? toggleCollapse(node)
+                                    : undefined
+                            "
+                        >
+                            <i
+                                v-if="node.children.length"
+                                class="pi text-xs"
+                                :class="
+                                    node.collapsed
+                                        ? 'pi-chevron-right'
+                                        : 'pi-chevron-down'
+                                "
+                            ></i>
+                            <span
+                                v-else
+                                class="bg-surface-400 dark:bg-surface-500 inline-block h-1.5 w-1.5 rounded-full"
+                            ></span>
+                        </button>
+
+                        <!-- Content: rendered markdown or editable textarea -->
+                        <div
+                            v-if="focusId !== node.id"
+                            class="note-prose prose prose-sm dark:prose-invert text-surface-800 dark:text-surface-200 min-h-[1.75rem] flex-1 cursor-text py-1 text-sm"
+                            @click="setFocus(node.id)"
+                            v-html="renderMarkdown(node.content)"
+                        ></div>
+                        <textarea
+                            v-else
+                            class="text-surface-800 dark:text-surface-200 min-h-[1.75rem] flex-1 resize-none overflow-hidden border-none bg-transparent py-1 text-sm leading-snug outline-none"
+                            rows="1"
+                            :value="node.content"
+                            @blur="
+                                handleBlur(node);
+                                if (focusId === node.id) focusId = null;
+                            "
+                            @focus="focusId = node.id"
+                            @input="handleInput($event, node)"
+                            @keydown="handleKeydown($event, node)"
+                            @paste="handlePaste($event, node)"
+                            @vue:mounted="
+                                ($event: any) => {
+                                    const el = $event.el as HTMLTextAreaElement;
+                                    el.style.height = 'auto';
+                                    el.style.height = el.scrollHeight + 'px';
+                                }
+                            "
+                        />
+
+                        <!-- Hover actions -->
+                        <div
+                            class="mt-1 flex shrink-0 gap-0.5 opacity-0 transition-opacity"
+                            :class="{ 'opacity-100': hoveredId === node.id }"
+                        >
+                            <button
+                                class="text-surface-400 hover:text-primary-500 rounded p-0.5"
+                                title="Add image"
+                                @click="openFilePicker(node)"
+                            >
+                                <i
+                                    class="pi text-xs"
+                                    :class="
+                                        uploadingImages.has(node.id)
+                                            ? 'pi-spinner pi-spin'
+                                            : 'pi-image'
+                                    "
+                                ></i>
+                            </button>
+                            <button
+                                class="text-surface-400 hover:text-primary-500 rounded p-0.5"
+                                title="Add child"
+                                @click="addChild(node)"
+                            >
+                                <i class="pi pi-plus text-xs"></i>
+                            </button>
+                            <button
+                                class="text-surface-400 rounded p-0.5 hover:text-red-500"
+                                title="Delete"
+                                @click="handleDelete(node)"
+                            >
+                                <i class="pi pi-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty state: no children yet -->
+                <div v-else class="mt-2">
                     <button
-                        class="text-surface-400 hover:text-primary-500 rounded p-0.5"
-                        title="Add child"
-                        @click="addChild(node)"
+                        class="text-surface-400 hover:text-primary-500 flex items-center gap-1 text-sm"
+                        @click="addChild(selectedNote)"
                     >
                         <i class="pi pi-plus text-xs"></i>
-                    </button>
-                    <button
-                        class="text-surface-400 rounded p-0.5 hover:text-red-500"
-                        title="Delete"
-                        @click="handleDelete(node)"
-                    >
-                        <i class="pi pi-trash text-xs"></i>
+                        <span>Add item</span>
                     </button>
                 </div>
             </div>
