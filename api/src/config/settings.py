@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # Server
     environment: str = "development"
     port: int = 8000
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
 
     # Database
     database_path: str = "data/tracker.db"

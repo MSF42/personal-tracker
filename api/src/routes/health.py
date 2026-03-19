@@ -46,15 +46,3 @@ async def info():
         "environment": settings.environment,
         "version": settings.api_version,
     }
-
-
-@router.get("/ping", summary="Ping", status_code=200)
-def ping():
-    return {"message": "pong"}
-
-
-@router.get("/db-test")
-async def db_test(db=Depends(get_db)):
-    cursor = await db.execute("SELECT 1")
-    result = await cursor.fetchone()
-    return {"result": result[0]}
