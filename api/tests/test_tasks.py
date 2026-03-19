@@ -38,3 +38,9 @@ async def test_create_and_get_task(client):
     get_response = await client.get(f"/api/v1/tasks/{task_id}")
     assert get_response.status_code == 200
     assert get_response.json()["title"] == "Fetch Me"
+
+
+@pytest.mark.asyncio
+async def test_create_task_missing_fields_returns_422(client):
+    response = await client.post("/api/v1/tasks", json={})
+    assert response.status_code == 422

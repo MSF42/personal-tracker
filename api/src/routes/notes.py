@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 
 from src.config.settings import get_settings
 from src.db.database import get_db
-from src.errors import NotFoundError, ValidationError
+from src.errors import AppValidationError, NotFoundError
 from src.models.note import (
     CreateNoteRequest,
     ImageUploadResponse,
@@ -87,14 +87,14 @@ EXTENSION_MAP = {
 @router.post("/images", status_code=201, response_model=ImageUploadResponse)
 async def upload_image(file: UploadFile = File(...)):
     if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise ValidationError(
+        raise AppValidationError(
             f"Invalid image type: {file.content_type}. "
             f"Allowed: {', '.join(sorted(ALLOWED_IMAGE_TYPES))}"
         )
 
     content = await file.read()
     if len(content) > MAX_IMAGE_SIZE:
-        raise ValidationError(
+        raise AppValidationError(
             f"File too large. Maximum size is {MAX_IMAGE_SIZE // (1024 * 1024)}MB"
         )
 

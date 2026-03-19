@@ -32,7 +32,7 @@ class ConflictError(AppError):
         )
 
 
-class ValidationError(AppError):
+class AppValidationError(AppError):
     def __init__(self, detail: str = "Validation error"):
         super().__init__(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

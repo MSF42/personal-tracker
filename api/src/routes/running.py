@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, UploadFile
 
 from src.db.database import get_db
-from src.errors import NotFoundError, ValidationError
+from src.errors import AppValidationError, NotFoundError
 from src.models.running import (
     CreateRunningActivityRequest,
     GpxImportResponse,
@@ -55,7 +55,7 @@ async def import_gpx(
     repo: SQLiteRunningRepository = Depends(get_running_repository),
 ):
     if not file.filename or not file.filename.lower().endswith(".gpx"):
-        raise ValidationError("File must have a .gpx extension")
+        raise AppValidationError("File must have a .gpx extension")
 
     xml_bytes = await file.read()
     result = parse_gpx(xml_bytes)
