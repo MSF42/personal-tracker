@@ -469,10 +469,10 @@ const hoveredSidebarId = ref<number | null>(null);
                 </div>
             </div>
 
-            <div v-else class="flex flex-1 flex-col overflow-y-auto p-6">
+            <div v-else class="bg-stone-50 dark:bg-stone-900 flex flex-1 flex-col overflow-y-auto px-7 pt-6 pb-4">
                 <!-- Title -->
                 <textarea
-                    class="text-surface-900 dark:text-surface-100 mb-4 w-full resize-none border-none bg-transparent text-2xl leading-snug font-bold outline-none"
+                    class="text-surface-900 dark:text-surface-100 mb-2 w-full resize-none border-none bg-transparent text-2xl leading-snug font-bold tracking-tight outline-none"
                     data-title-area
                     placeholder="Untitled"
                     rows="1"
@@ -487,6 +487,8 @@ const hoveredSidebarId = ref<number | null>(null);
                         }
                     "
                 />
+
+                <div class="mb-4 mt-1.5 h-0.5 w-9 rounded bg-blue-500"></div>
 
                 <!-- Outline content -->
                 <div v-if="flatNodes.length > 0" class="space-y-0">
