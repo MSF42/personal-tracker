@@ -2,11 +2,13 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import { useNoteApi } from '@/composables/api/useNoteApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useToast } from '@/composables/useToast';
 
 const { getSetting, setSetting, deleteSetting, resetAllData } =
     useSettingsApi();
+const { uploadNoteImage } = useNoteApi();
 const toast = useToast();
 const router = useRouter();
 
@@ -23,7 +25,16 @@ onMounted(async () => {
         getSetting('user_name'),
     ]);
     if (profileRes.success && profileRes.data?.value) {
-        profilePicture.value = profileRes.data.value;
+        const raw = profileRes.data.value;
+        // NOTE: Prior to 2026-03-19, profile pictures were stored as base64 data URLs.
+        // On first load after this change, existing base64 values are cleared.
+        // Users must re-upload their profile picture once. Acceptable for a personal app.
+        if (raw.startsWith('data:')) {
+            await deleteSetting('profile_picture');
+            profilePicture.value = null;
+        } else {
+            profilePicture.value = raw;
+        }
     }
     if (nameRes.success && nameRes.data?.value) {
         displayName.value = nameRes.data.value;
@@ -42,21 +53,20 @@ function triggerUpload() {
     fileInput.value?.click();
 }
 
-function onFileSelected(event: Event) {
+async function onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-        const dataUrl = reader.result as string;
-        const res = await setSetting('profile_picture', dataUrl);
-        if (res.success) {
-            profilePicture.value = dataUrl;
-            toast.showSuccess('Profile picture updated');
-        }
-    };
-    reader.readAsDataURL(file);
+    const res = await uploadNoteImage(file);
+    if (!res.success || !res.data) return;
+
+    const url = res.data.url;
+    const saveRes = await setSetting('profile_picture', url);
+    if (saveRes.success) {
+        profilePicture.value = url;
+        toast.showSuccess('Profile picture updated');
+    }
     input.value = '';
 }
 
