@@ -1,17 +1,12 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue';
-
-import { useNoteApi } from '@/composables/api/useNoteApi';
+import NoteRow from '@/components/NoteRow.vue';
 import { useNoteTree } from '@/composables/useNoteTree';
-import type { NoteTreeNode } from '@/types/Note';
-import { renderMarkdown } from '@/utils/markdown';
 
 const {
     tree,
     focusId,
     selectedNoteId,
     focusedNodeId,
-    nodeRefs,
     selectedNote,
     viewRoot,
     focusedPath,
@@ -27,73 +22,6 @@ const {
     handleBlur,
     handleKeydown,
 } = useNoteTree();
-
-const { uploadNoteImage, updateNote } = useNoteApi();
-
-const hoveredId = ref<number | null>(null);
-const uploadingImages = ref<Set<number>>(new Set());
-
-async function uploadAndInsertImage(
-    file: File,
-    node: NoteTreeNode,
-    textarea: HTMLTextAreaElement | null,
-) {
-    uploadingImages.value.add(node.id);
-    uploadingImages.value = new Set(uploadingImages.value);
-    try {
-        const res = await uploadNoteImage(file);
-        if (!res.success || !res.data) return;
-
-        const markdownImg = `![](${res.data.url})`;
-        const cursorPos = textarea?.selectionStart ?? node.content.length;
-        node.content =
-            node.content.slice(0, cursorPos) +
-            markdownImg +
-            node.content.slice(cursorPos);
-        await updateNote(node.id, { content: node.content });
-    } finally {
-        uploadingImages.value.delete(node.id);
-        uploadingImages.value = new Set(uploadingImages.value);
-    }
-}
-
-function handlePaste(e: ClipboardEvent, node: NoteTreeNode) {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (const item of items) {
-        if (item.type.startsWith('image/')) {
-            e.preventDefault();
-            const file = item.getAsFile();
-            if (!file) return;
-            const textarea = document.querySelector(
-                `[data-note-id="${node.id}"] textarea`,
-            ) as HTMLTextAreaElement | null;
-            uploadAndInsertImage(file, node, textarea);
-            return;
-        }
-    }
-}
-
-function openFilePicker(node: NoteTreeNode) {
-    setFocus(node.id);
-    nextTick(() => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = () => {
-            const file = input.files?.[0];
-            if (!file) return;
-            const textarea = document.querySelector(
-                `[data-note-id="${node.id}"] textarea`,
-            ) as HTMLTextAreaElement | null;
-            uploadAndInsertImage(file, node, textarea);
-        };
-        input.click();
-    });
-}
-
-const hoveredSidebarId = ref<number | null>(null);
 </script>
 
 <template>
@@ -129,8 +57,6 @@ const hoveredSidebarId = ref<number | null>(null);
                             : 'text-surface-700 dark:text-surface-300 hover:bg-surface-0 hover:shadow-sm dark:hover:bg-slate-700'
                     "
                     @click="selectedNoteId = note.id"
-                    @mouseenter="hoveredSidebarId = note.id"
-                    @mouseleave="hoveredSidebarId = null"
                 >
                     <span class="min-w-0 flex-1 truncate">{{
                         noteTitle(note)
@@ -235,129 +161,27 @@ const hoveredSidebarId = ref<number | null>(null);
 
                 <!-- Outline content -->
                 <div v-if="flatNodes.length > 0" class="space-y-0">
-                    <div
+                    <NoteRow
                         v-for="{ node, depth } in flatNodes"
                         :key="node.id"
-                        class="group relative flex items-start gap-1 rounded py-0.5 hover:bg-stone-100 dark:hover:bg-stone-800"
-                        :data-note-id="node.id"
-                        :style="{ paddingLeft: depth * 1.5 + 'rem' }"
-                        @mouseenter="hoveredId = node.id"
-                        @mouseleave="hoveredId = null"
-                    >
-                        <!-- Indent guides -->
-                        <div
-                            v-for="i in depth"
-                            :key="'guide-' + i"
-                            class="pointer-events-none absolute inset-y-0 w-px bg-stone-200 dark:bg-stone-700"
-                            :style="{ left: (i - 1) * 1.5 + 0.625 + 'rem' }"
-                        ></div>
-                        <!-- Bullet — zoom trigger -->
-                        <button
-                            class="mt-1.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded"
-                            :class="
-                                focusedNodeId === node.id
-                                    ? 'text-primary-500'
-                                    : 'text-surface-400 hover:text-surface-600 dark:hover:text-surface-300'
-                            "
-                            tabindex="-1"
-                            :title="'Zoom into ' + noteTitle(node)"
-                            @click="focusedNodeId = node.id"
-                        >
-                            <span
-                                class="inline-block h-1.5 w-1.5 rounded-full"
-                                :class="
-                                    focusedNodeId === node.id
-                                        ? 'bg-primary-500'
-                                        : 'bg-surface-400 dark:bg-surface-500'
-                                "
-                            ></span>
-                        </button>
-
-                        <!-- Collapse caret — halfway between parent guide and this bullet -->
-                        <button
-                            v-if="node.children.length"
-                            class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 absolute top-2 flex h-3 w-3 cursor-pointer items-center justify-center opacity-0 transition-opacity group-hover:opacity-100"
-                            :style="{
-                                left: Math.max(0, depth * 1.5 - 0.5) + 'rem',
-                            }"
-                            tabindex="-1"
-                            @click="toggleCollapse(node)"
-                        >
-                            <i
-                                class="pi text-[8px]"
-                                :class="
-                                    node.collapsed
-                                        ? 'pi-caret-right'
-                                        : 'pi-caret-down'
-                                "
-                            ></i>
-                        </button>
-
-                        <!-- Content: rendered markdown or editable textarea -->
-                        <div
-                            v-if="focusId !== node.id"
-                            class="note-prose prose prose-sm dark:prose-invert text-surface-800 dark:text-surface-200 min-h-[1.75rem] flex-1 cursor-text py-1 text-sm"
-                            @click="setFocus(node.id)"
-                            v-html="renderMarkdown(node.content)"
-                        ></div>
-                        <textarea
-                            v-else
-                            class="text-surface-800 dark:text-surface-200 min-h-[1.75rem] flex-1 resize-none overflow-hidden border-none bg-transparent py-1 text-sm leading-snug outline-none"
-                            rows="1"
-                            :value="node.content"
-                            :ref="(el) => { if (el) nodeRefs[node.id] = el as HTMLTextAreaElement }"
-                            @blur="
-                                handleBlur(node);
-                                if (focusId === node.id) focusId = null;
-                            "
-                            @focus="focusId = node.id"
-                            @input="handleInput($event, node)"
-                            @keydown="handleKeydown($event, node)"
-                            @paste="handlePaste($event, node)"
-                            @vue:mounted="
-                                ($event: any) => {
-                                    const el = $event.el as HTMLTextAreaElement;
-                                    el.style.height = 'auto';
-                                    el.style.height = el.scrollHeight + 'px';
-                                }
-                            "
-                        />
-
-                        <!-- Hover actions -->
-                        <div
-                            class="mt-1 flex shrink-0 gap-0.5 opacity-0 transition-opacity"
-                            :class="{ 'opacity-100': hoveredId === node.id }"
-                        >
-                            <button
-                                class="text-surface-400 hover:text-primary-500 rounded p-0.5"
-                                title="Add image"
-                                @click="openFilePicker(node)"
-                            >
-                                <i
-                                    class="pi text-xs"
-                                    :class="
-                                        uploadingImages.has(node.id)
-                                            ? 'pi-spinner pi-spin'
-                                            : 'pi-image'
-                                    "
-                                ></i>
-                            </button>
-                            <button
-                                class="text-surface-400 hover:text-primary-500 rounded p-0.5"
-                                title="Add child"
-                                @click="addChild(node)"
-                            >
-                                <i class="pi pi-plus text-xs"></i>
-                            </button>
-                            <button
-                                class="text-surface-400 rounded p-0.5 hover:text-red-500"
-                                title="Delete"
-                                @click="handleDelete(node)"
-                            >
-                                <i class="pi pi-trash text-xs"></i>
-                            </button>
-                        </div>
-                    </div>
+                        :depth="depth"
+                        :focused-node-id="focusedNodeId"
+                        :is-focused="focusId === node.id"
+                        :node="node"
+                        @add-child="addChild"
+                        @blur="
+                            (n) => {
+                                handleBlur(n);
+                                if (focusId === n.id) focusId = null;
+                            }
+                        "
+                        @delete="handleDelete"
+                        @input="handleInput"
+                        @keydown="handleKeydown"
+                        @set-focus="(n) => setFocus(n.id)"
+                        @toggle-collapse="toggleCollapse"
+                        @zoom="(id) => (focusedNodeId = id)"
+                    />
                 </div>
 
                 <!-- Empty state: no children yet -->

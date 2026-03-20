@@ -1,4 +1,4 @@
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import { useNoteApi } from '@/composables/api/useNoteApi';
 import type { NoteTreeNode } from '@/types/Note';
@@ -11,7 +11,6 @@ export function useNoteTree() {
     const focusId = ref<number | null>(null);
     const selectedNoteId = ref<number | null>(null);
     const focusedNodeId = ref<number | null>(null);
-    const nodeRefs = ref<Record<number, HTMLTextAreaElement>>({});
     const dirtyNodes = new Set<number>();
 
     // --- helpers ---
@@ -70,11 +69,10 @@ export function useNoteTree() {
 
     // --- computeds ---
 
-    const selectedNote = computed(
-        () =>
-            selectedNoteId.value
-                ? findInTree(tree.value, selectedNoteId.value)
-                : null,
+    const selectedNote = computed(() =>
+        selectedNoteId.value
+            ? findInTree(tree.value, selectedNoteId.value)
+            : null,
     );
 
     const focusedNode = computed(() =>
@@ -89,11 +87,8 @@ export function useNoteTree() {
 
     const focusedPath = computed<NoteTreeNode[]>(() =>
         focusedNodeId.value && selectedNote.value
-            ? (findPath(
-                  selectedNote.value.children,
-                  focusedNodeId.value,
-                  [],
-              ) ?? [])
+            ? (findPath(selectedNote.value.children, focusedNodeId.value, []) ??
+              [])
             : [],
     );
 
@@ -138,9 +133,6 @@ export function useNoteTree() {
 
     function setFocus(id: number) {
         focusId.value = id;
-        nextTick(() => {
-            nodeRefs.value[id]?.focus();
-        });
     }
 
     function focusTitleArea() {
@@ -283,11 +275,7 @@ export function useNoteTree() {
         const newSortOrder = info.parent.sort_order + 1;
 
         // Bump subsequent siblings of grandparent
-        for (
-            let i = parentIdx + 1;
-            i < grandparentInfo.siblings.length;
-            i++
-        ) {
+        for (let i = parentIdx + 1; i < grandparentInfo.siblings.length; i++) {
             const gpSibling = grandparentInfo.siblings[i]!;
             gpSibling.sort_order++;
             await moveNote(gpSibling.id, {
@@ -386,7 +374,6 @@ export function useNoteTree() {
         focusId,
         selectedNoteId,
         focusedNodeId,
-        nodeRefs,
         // computeds
         selectedNote,
         focusedNode,

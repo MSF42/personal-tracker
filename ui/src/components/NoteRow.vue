@@ -39,13 +39,13 @@ async function uploadAndInsertImage(
         if (!res.success || !res.data) return;
         const markdownImg = `![](${res.data.url})`;
         const cursorPos = textarea?.selectionStart ?? props.node.content.length;
-        props.node.content =
+        const newContent =
             props.node.content.slice(0, cursorPos) +
             markdownImg +
             props.node.content.slice(cursorPos);
         emit(
             'input',
-            { target: { value: props.node.content } } as unknown as Event,
+            { target: { value: newContent } } as unknown as Event,
             props.node,
         );
     } finally {
@@ -109,7 +109,9 @@ function openFilePicker() {
                     : 'text-surface-400 hover:text-surface-600 dark:hover:text-surface-300'
             "
             tabindex="-1"
-            :title="'Zoom into ' + node.content.split('\n')[0]?.trim() || 'Untitled'"
+            :title="
+                'Zoom into ' + node.content.split('\n')[0]?.trim() || 'Untitled'
+            "
             @click="emit('zoom', node.id)"
         >
             <span
