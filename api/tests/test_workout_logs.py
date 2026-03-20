@@ -50,3 +50,9 @@ async def test_log_set_with_json_body(client):
     assert set_resp.status_code == 201
     data = set_resp.json()
     assert data["reps"] == 10
+
+
+async def test_get_logs_by_routine_is_reachable(client):
+    """GET /routine/{id} must not be shadowed by GET /{workout_log_id}."""
+    response = await client.get("/api/v1/workout-logs/routine/999")
+    assert response.status_code != 422

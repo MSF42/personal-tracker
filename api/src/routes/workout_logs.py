@@ -42,6 +42,14 @@ async def get_exercise_history(
     return await repo.get_exercise_history(exercise_id)
 
 
+@router.get("/routine/{routine_id}")
+async def get_logs_by_routine(
+    routine_id: int,
+    repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
+):
+    return await repo.find_by_routine(routine_id)
+
+
 @router.get("/{workout_log_id}")
 async def get_workout_log(
     workout_log_id: int,
@@ -59,7 +67,9 @@ async def log_set(
     data: LogSetRequest,
     repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
 ):
-    return await repo.log_set(workout_log_id, data.exercise_id, data.set_number, data.reps, data.weight)
+    return await repo.log_set(
+        workout_log_id, data.exercise_id, data.set_number, data.reps, data.weight
+    )
 
 
 @router.put("/{workout_log_id}")
@@ -82,11 +92,3 @@ async def delete_workout_log(
     deleted = await repo.delete(workout_log_id)
     if not deleted:
         raise NotFoundError("Workout log not found")
-
-
-@router.get("/routine/{routine_id}")
-async def get_logs_by_routine(
-    routine_id: int,
-    repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
-):
-    return await repo.find_by_routine(routine_id)
