@@ -3,23 +3,33 @@ import { onMounted, ref } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
-import { useToast } from '@/composables/useToast';
+import { useBackup } from '@/composables/useBackup';
+import { useUserProfile } from '@/composables/useUserProfile';
 
 const route = useRoute();
 const router = useRouter();
-const { getSetting, setSetting, backup, restore } = useSettingsApi();
-const toast = useToast();
+const { getSetting, setSetting } = useSettingsApi();
 
-const profilePicture = ref<string | null>(null);
-const userName = ref<string | null>(null);
+const restoreFileInput = ref<HTMLInputElement | null>(null);
+
+const {
+    restoreConfirmText,
+    showRestoreDialog,
+    backingUp,
+    restoring,
+    downloadBackup,
+    onRestoreFileSelected,
+    confirmRestore,
+} = useBackup();
+
+function triggerRestoreUpload() {
+    restoreFileInput.value?.click();
+}
+
+const { profilePicture, userName, loadProfile } = useUserProfile();
+
 const theme = ref('dark');
 const themeOptions = ['light', 'dark'];
-const backingUp = ref(false);
-const restoreFileInput = ref<HTMLInputElement | null>(null);
-const restoreFile = ref<File | null>(null);
-const restoreConfirmText = ref('');
-const showRestoreDialog = ref(false);
-const restoring = ref(false);
 const popover = ref();
 
 const navItems = [
@@ -27,32 +37,14 @@ const navItems = [
     { label: 'Tasks', to: '/tasks', icon: 'pi pi-check-square' },
     { label: 'Running', to: '/running', icon: 'pi pi-bolt' },
     { label: 'Exercises', to: '/exercises', icon: 'pi pi-heart' },
-    {
-        label: 'Routines',
-        to: '/workout-routines',
-        icon: 'pi pi-list',
-    },
+    { label: 'Routines', to: '/workout-routines', icon: 'pi pi-list' },
     { label: 'Logs', to: '/workout-logs', icon: 'pi pi-history' },
     { label: 'Notes', to: '/notes', icon: 'pi pi-file-edit' },
-    {
-        label: 'Measurements',
-        to: '/measurements',
-        icon: 'pi pi-chart-line',
-    },
+    { label: 'Measurements', to: '/measurements', icon: 'pi pi-chart-line' },
 ];
 
 onMounted(async () => {
-    const [profileRes, themeRes, nameRes] = await Promise.all([
-        getSetting('profile_picture'),
-        getSetting('theme'),
-        getSetting('user_name'),
-    ]);
-    if (profileRes.success && profileRes.data?.value) {
-        profilePicture.value = profileRes.data.value;
-    }
-    if (nameRes.success && nameRes.data?.value) {
-        userName.value = nameRes.data.value;
-    }
+    const themeRes = await getSetting('theme');
     if (themeRes.success && themeRes.data?.value) {
         theme.value = themeRes.data.value;
     }
@@ -61,6 +53,7 @@ onMounted(async () => {
     } else {
         document.documentElement.classList.add('dark');
     }
+    await loadProfile();
 });
 
 function toggleMenu(event: Event) {
@@ -75,46 +68,6 @@ async function onThemeChange(value: string) {
         document.documentElement.classList.add('dark');
     }
     await setSetting('theme', value);
-}
-
-async function downloadBackup() {
-    backingUp.value = true;
-    try {
-        await backup();
-        toast.showSuccess('Backup downloaded');
-    } catch {
-        toast.showError('Failed to download backup');
-    } finally {
-        backingUp.value = false;
-    }
-}
-
-function triggerRestoreUpload() {
-    restoreFileInput.value?.click();
-}
-
-function onRestoreFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    restoreFile.value = file;
-    restoreConfirmText.value = '';
-    showRestoreDialog.value = true;
-    input.value = '';
-}
-
-async function confirmRestore() {
-    if (restoreConfirmText.value !== 'RESTORE' || !restoreFile.value) return;
-    restoring.value = true;
-    const res = await restore(restoreFile.value);
-    restoring.value = false;
-    if (res.success) {
-        showRestoreDialog.value = false;
-        toast.showSuccess('Backup restored successfully');
-        window.location.reload();
-    } else {
-        toast.showError(res.error);
-    }
 }
 
 function goToSettings() {
