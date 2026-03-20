@@ -13,12 +13,12 @@ const backendDir =
         ? './src/composables/api/backends/local'
         : './src/composables/api/backends/http';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
     plugins: [
         VueRouter({ dts: 'src/route-map.d.ts' }),
         vue(),
         tailwindcss(),
-        vueDevTools(),
+        ...(mode !== 'production' ? [vueDevTools()] : []),
         Components({
             resolvers: [PrimeVueResolver()],
         }),
@@ -35,11 +35,11 @@ export default defineConfig({
         port: 3099,
         proxy: {
             '/api': {
-                target: 'http://localhost:8050',
+                target: 'http://localhost:8000',
                 changeOrigin: true,
             },
             '/uploads': {
-                target: 'http://localhost:8050',
+                target: 'http://localhost:8000',
                 changeOrigin: true,
             },
         },
@@ -47,4 +47,4 @@ export default defineConfig({
     build: {
         target: 'es2023',
     },
-});
+}));
