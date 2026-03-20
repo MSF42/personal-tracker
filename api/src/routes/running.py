@@ -1,3 +1,5 @@
+import xml.etree.ElementTree as ET
+
 from fastapi import APIRouter, Depends, File, UploadFile
 
 from src.db.database import get_db
@@ -58,7 +60,12 @@ async def import_gpx(
         raise AppValidationError("File must have a .gpx extension")
 
     xml_bytes = await file.read()
-    result = parse_gpx(xml_bytes)
+    try:
+        result = parse_gpx(xml_bytes)
+    except ET.ParseError:
+        raise AppValidationError("GPX file contains invalid XML")
+    except ValueError as exc:
+        raise AppValidationError(str(exc))
 
     activity = await repo.create_with_gpx(
         date=result.date,
