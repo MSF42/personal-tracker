@@ -83,6 +83,23 @@ EXTENSION_MAP = {
     "image/webp": ".webp",
 }
 
+# Magic byte signatures per content type (content_type can be spoofed; this is a second layer)
+_MAGIC_BYTES: dict[str, list[bytes]] = {
+    "image/jpeg": [b"\xff\xd8\xff"],
+    "image/png": [b"\x89PNG\r\n\x1a\n"],
+    "image/gif": [b"GIF87a", b"GIF89a"],
+    "image/webp": [],  # checked separately via RIFF header
+}
+
+
+def _validate_magic_bytes(content: bytes, content_type: str) -> bool:
+    if content_type == "image/webp":
+        return len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP"
+    signatures = _MAGIC_BYTES.get(content_type, [])
+    if not signatures:
+        return False
+    return any(content[: len(sig)] == sig for sig in signatures)
+
 
 @router.post("/images", status_code=201, response_model=ImageUploadResponse)
 async def upload_image(file: UploadFile = File(...)):
@@ -96,6 +113,12 @@ async def upload_image(file: UploadFile = File(...)):
     if len(content) > MAX_IMAGE_SIZE:
         raise AppValidationError(
             f"File too large. Maximum size is {MAX_IMAGE_SIZE // (1024 * 1024)}MB"
+        )
+
+    # Second layer: magic-byte check (content_type is client-supplied and can be spoofed)
+    if not _validate_magic_bytes(content, file.content_type):
+        raise AppValidationError(
+            f"File content does not match declared type {file.content_type}"
         )
 
     ext = EXTENSION_MAP.get(file.content_type, ".bin")
