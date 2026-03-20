@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import { useNoteApi } from '@/composables/api/useNoteApi';
 import type { NoteTreeNode } from '@/types/Note';
