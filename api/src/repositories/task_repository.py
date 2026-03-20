@@ -21,9 +21,7 @@ class SQLiteTaskRepository:
     async def create(self, task: CreateTaskRequest) -> TaskResponse:
         now = datetime.now(timezone.utc).isoformat()
 
-        repeat_days_str = (
-            ",".join(str(d) for d in task.repeat_days) if task.repeat_days else None
-        )
+        repeat_days_str = ",".join(str(d) for d in task.repeat_days) if task.repeat_days else None
 
         cursor = await self.db.execute(
             """
@@ -112,9 +110,7 @@ class SQLiteTaskRepository:
         # Serialize repeat_days list to comma-separated string
         if "repeat_days" in update_data:
             if update_data["repeat_days"] is not None:
-                update_data["repeat_days"] = ",".join(
-                    str(d) for d in update_data["repeat_days"]
-                )
+                update_data["repeat_days"] = ",".join(str(d) for d in update_data["repeat_days"])
             else:
                 update_data["repeat_days"] = None
 
@@ -144,17 +140,14 @@ class SQLiteTaskRepository:
 
         # Get total count
         count_cursor = await self.db.execute(
-            f"SELECT COUNT(*) FROM tasks WHERE {where_clause}",
+            f"SELECT COUNT(*) FROM tasks WHERE {where_clause}",  # noqa: S608 — where_clause built from validated condition strings, not user input
             params,
         )
         total = (await count_cursor.fetchone())[0]
 
         # Get paginated results
         cursor = await self.db.execute(
-            f"""SELECT * FROM tasks                                                       
-                  WHERE {where_clause}                                                      
-                  ORDER BY created_at DESC                                                  
-                  LIMIT ? OFFSET ?""",
+            f"SELECT * FROM tasks WHERE {where_clause} ORDER BY created_at DESC LIMIT ? OFFSET ?",  # noqa: S608
             params + [limit, offset],
         )
         rows = await cursor.fetchall()

@@ -30,7 +30,17 @@ def calculate_next_due_date(
     interval: int = 1,
     repeat_days: list[int] | None = None,
 ) -> str:
-    """Calculate the next due date based on recurrence settings."""
+    """Calculate the next due date based on recurrence settings.
+
+    Weekday convention: Monday = 0, Sunday = 6 (Python's datetime.weekday()).
+
+    NOTE: The TypeScript local-backend counterpart in
+    ui/src/composables/api/backends/local/useTaskApi.ts uses JavaScript's
+    Date.getDay() convention (Sunday = 0, Saturday = 6). This means weekly
+    tasks with repeat_days will calculate incorrect next due dates in the
+    local backend for all days except Saturday. This is a known issue —
+    fixing it requires aligning the two weekday conventions.
+    """
     due_date = datetime.fromisoformat(current_due.replace("Z", "+00:00"))
 
     match repeat_type:
