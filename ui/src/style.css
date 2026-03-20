@@ -10,6 +10,7 @@ html,
 body {
     margin: 0;
     padding: 0;
+    height: 100%;
     color: var(--p-surface-900);
     background-color: var(--p-surface-0);
     font-family:
@@ -30,7 +31,9 @@ body {
 }
 
 #app {
-    min-height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Row-action buttons: subdued until the table row is hovered */

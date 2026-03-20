@@ -1,0 +1,185 @@
+<h2>Right Panel Treatment</h2>
+<p class="subtitle">Same B sidebar — three ways to style the content area</p>
+
+<div class="cards">
+
+  <!-- Option A: Clean White with header bar -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; overflow: hidden;">
+      <div style="display: flex; height: 340px; font-family: -apple-system, sans-serif; font-size: 12px;">
+        <!-- B Sidebar -->
+        <div style="width: 160px; background: #f1f5f9; border-right: 1px solid #cbd5e1; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;">
+          <div style="padding: 12px 10px 8px; border-bottom: 1px solid #e2e8f0;">
+            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 6px;">Notes</div>
+            <button style="width: 100%; background: #3b82f6; border: none; border-radius: 5px; padding: 5px 8px; font-size: 11px; color: white; cursor: pointer; font-weight: 500;">+ New Note</button>
+          </div>
+          <div style="padding: 6px; flex: 1;">
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; color: #1e40af; background: #dbeafe; margin-bottom: 2px;">Project Ideas</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #334155; background: #fff; margin-bottom: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">Daily Journal</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #475569; margin-bottom: 2px;">Meeting Notes</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #94a3b8; margin-bottom: 2px;">Reading List</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #94a3b8;">Recipes</div>
+          </div>
+        </div>
+        <!-- Right: clean white, sticky title bar -->
+        <div style="flex: 1; background: #ffffff; display: flex; flex-direction: column; overflow: hidden;">
+          <!-- Title bar -->
+          <div style="padding: 14px 18px 12px; border-bottom: 1px solid #f3f4f6;">
+            <div style="font-size: 17px; font-weight: 700; color: #111827; letter-spacing: -0.02em;">Project Ideas</div>
+          </div>
+          <!-- Outline -->
+          <div style="flex: 1; overflow: hidden; padding: 10px 14px;">
+            <div style="padding: 3px 0; display: flex; align-items: flex-start; gap: 4px; color: #374151;">
+              <span style="color: #9ca3af; font-size: 10px; margin-top: 3px;">▾</span>
+              <span>Build a habit tracker app</span>
+            </div>
+            <div style="padding: 3px 0 3px 20px; display: flex; align-items: flex-start; gap: 4px; color: #6b7280; border-left: 1px solid #e5e7eb; margin-left: 5px;">
+              <span style="color: #d1d5db; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Research existing apps</span>
+            </div>
+            <div style="padding: 3px 0 3px 20px; display: flex; align-items: flex-start; gap: 4px; color: #6b7280; border-left: 1px solid #e5e7eb; margin-left: 5px;">
+              <span style="color: #d1d5db; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Design the data model</span>
+            </div>
+            <div style="padding: 3px 0; display: flex; align-items: flex-start; gap: 4px; color: #374151;">
+              <span style="color: #9ca3af; font-size: 10px; margin-top: 3px;">▾</span>
+              <span>Learn Rust</span>
+            </div>
+            <div style="padding: 3px 0 3px 20px; display: flex; align-items: flex-start; gap: 4px; color: #6b7280; border-left: 1px solid #e5e7eb; margin-left: 5px;">
+              <span style="color: #d1d5db; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Read "The Rust Book"</span>
+            </div>
+            <div style="padding: 3px 0; display: flex; align-items: flex-start; gap: 4px; color: #374151;">
+              <span style="color: #d1d5db; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Write CLI tools for practice</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Clean Divide</h3>
+      <p>Bright white content area. Title in its own bar separated by a hairline border. Maximum contrast with the slate sidebar. Crisp, editorial.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Soft warm paper -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; overflow: hidden; background: #faf9f7;">
+      <div style="display: flex; height: 340px; font-family: -apple-system, sans-serif; font-size: 12px;">
+        <!-- B Sidebar -->
+        <div style="width: 160px; background: #f1f5f9; border-right: 1px solid #cbd5e1; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;">
+          <div style="padding: 12px 10px 8px; border-bottom: 1px solid #e2e8f0;">
+            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 6px;">Notes</div>
+            <button style="width: 100%; background: #3b82f6; border: none; border-radius: 5px; padding: 5px 8px; font-size: 11px; color: white; cursor: pointer; font-weight: 500;">+ New Note</button>
+          </div>
+          <div style="padding: 6px; flex: 1;">
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; color: #1e40af; background: #dbeafe; margin-bottom: 2px;">Project Ideas</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #334155; background: #fff; margin-bottom: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">Daily Journal</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #475569; margin-bottom: 2px;">Meeting Notes</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #94a3b8; margin-bottom: 2px;">Reading List</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #94a3b8;">Recipes</div>
+          </div>
+        </div>
+        <!-- Right: warm paper -->
+        <div style="flex: 1; background: #faf9f7; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="padding: 20px 20px 8px;">
+            <div style="font-size: 18px; font-weight: 700; color: #1c1917; letter-spacing: -0.02em; margin-bottom: 2px;">Project Ideas</div>
+            <div style="width: 32px; height: 2px; background: #3b82f6; border-radius: 1px;"></div>
+          </div>
+          <div style="flex: 1; overflow: hidden; padding: 10px 16px;">
+            <div style="padding: 3px 0; display: flex; align-items: flex-start; gap: 4px; color: #292524;">
+              <span style="color: #78716c; font-size: 10px; margin-top: 3px;">▾</span>
+              <span>Build a habit tracker app</span>
+            </div>
+            <div style="padding: 3px 0 3px 20px; display: flex; align-items: flex-start; gap: 4px; color: #78716c; border-left: 1px solid #e7e5e4; margin-left: 5px;">
+              <span style="color: #d6d3d1; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Research existing apps</span>
+            </div>
+            <div style="padding: 3px 0 3px 20px; display: flex; align-items: flex-start; gap: 4px; color: #78716c; border-left: 1px solid #e7e5e4; margin-left: 5px;">
+              <span style="color: #d6d3d1; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Design the data model</span>
+            </div>
+            <div style="padding: 3px 0; display: flex; align-items: flex-start; gap: 4px; color: #292524;">
+              <span style="color: #78716c; font-size: 10px; margin-top: 3px;">▾</span>
+              <span>Learn Rust</span>
+            </div>
+            <div style="padding: 3px 0 3px 20px; display: flex; align-items: flex-start; gap: 4px; color: #78716c; border-left: 1px solid #e7e5e4; margin-left: 5px;">
+              <span style="color: #d6d3d1; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Read "The Rust Book"</span>
+            </div>
+            <div style="padding: 3px 0; display: flex; align-items: flex-start; gap: 4px; color: #292524;">
+              <span style="color: #d6d3d1; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Write CLI tools for practice</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Warm Paper</h3>
+      <p>Slightly warm off-white canvas. Big title with a blue accent underline. Feels like a notebook or writing app. Softer, less clinical.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Unified gray -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; overflow: hidden; background: #f8fafc;">
+      <div style="display: flex; height: 340px; font-family: -apple-system, sans-serif; font-size: 12px;">
+        <!-- B Sidebar — slightly darker -->
+        <div style="width: 160px; background: #e2e8f0; border-right: 1px solid #cbd5e1; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;">
+          <div style="padding: 12px 10px 8px; border-bottom: 1px solid #cbd5e1;">
+            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #475569; margin-bottom: 6px;">Notes</div>
+            <button style="width: 100%; background: #3b82f6; border: none; border-radius: 5px; padding: 5px 8px; font-size: 11px; color: white; cursor: pointer; font-weight: 500;">+ New Note</button>
+          </div>
+          <div style="padding: 6px; flex: 1;">
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; color: #1e40af; background: #dbeafe; margin-bottom: 2px;">Project Ideas</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #334155; background: #f8fafc; margin-bottom: 2px;">Daily Journal</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #475569; margin-bottom: 2px;">Meeting Notes</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #94a3b8; margin-bottom: 2px;">Reading List</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 11px; color: #94a3b8;">Recipes</div>
+          </div>
+        </div>
+        <!-- Right: very light gray, same family as sidebar -->
+        <div style="flex: 1; background: #f8fafc; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="padding: 16px 18px 10px;">
+            <div style="font-size: 17px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em;">Project Ideas</div>
+          </div>
+          <!-- Divider -->
+          <div style="height: 1px; background: #e2e8f0; margin: 0 18px 10px;"></div>
+          <div style="flex: 1; overflow: hidden; padding: 2px 14px;">
+            <div style="padding: 3px 0; display: flex; align-items: flex-start; gap: 4px; color: #1e293b;">
+              <span style="color: #94a3b8; font-size: 10px; margin-top: 3px;">▾</span>
+              <span>Build a habit tracker app</span>
+            </div>
+            <div style="padding: 3px 0 3px 20px; display: flex; align-items: flex-start; gap: 4px; color: #64748b; border-left: 1px solid #e2e8f0; margin-left: 5px;">
+              <span style="color: #cbd5e1; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Research existing apps</span>
+            </div>
+            <div style="padding: 3px 0 3px 20px; display: flex; align-items: flex-start; gap: 4px; color: #64748b; border-left: 1px solid #e2e8f0; margin-left: 5px;">
+              <span style="color: #cbd5e1; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Design the data model</span>
+            </div>
+            <div style="padding: 3px 0; display: flex; align-items: flex-start; gap: 4px; color: #1e293b;">
+              <span style="color: #94a3b8; font-size: 10px; margin-top: 3px;">▾</span>
+              <span>Learn Rust</span>
+            </div>
+            <div style="padding: 3px 0 3px 20px; display: flex; align-items: flex-start; gap: 4px; color: #64748b; border-left: 1px solid #e2e8f0; margin-left: 5px;">
+              <span style="color: #cbd5e1; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Read "The Rust Book"</span>
+            </div>
+            <div style="padding: 3px 0; display: flex; align-items: flex-start; gap: 4px; color: #1e293b;">
+              <span style="color: #cbd5e1; font-size: 10px; margin-top: 3px;">•</span>
+              <span>Write CLI tools for practice</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Unified Slate</h3>
+      <p>Sidebar and content area are the same cool-gray family — sidebar slightly darker to create depth. Cohesive, monochromatic. Very calm.</p>
+    </div>
+  </div>
+
+</div>

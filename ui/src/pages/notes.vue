@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import { useNoteApi } from '@/composables/api/useNoteApi';
 import type { NoteTreeNode } from '@/types/Note';
@@ -17,9 +17,48 @@ const {
 const tree = ref<NoteTreeNode[]>([]);
 const focusId = ref<number | null>(null);
 const selectedNoteId = ref<number | null>(null);
+const focusedNodeId = ref<number | null>(null);
 
 const selectedNote = computed(
     () => tree.value.find((n) => n.id === selectedNoteId.value) ?? null,
+);
+
+function findInTree(nodes: NoteTreeNode[], id: number): NoteTreeNode | null {
+    for (const n of nodes) {
+        if (n.id === id) return n;
+        const found = findInTree(n.children, id);
+        if (found) return found;
+    }
+    return null;
+}
+
+function findPath(
+    nodes: NoteTreeNode[],
+    id: number,
+    path: NoteTreeNode[],
+): NoteTreeNode[] | null {
+    for (const n of nodes) {
+        if (n.id === id) return [...path, n];
+        const found = findPath(n.children, id, [...path, n]);
+        if (found) return found;
+    }
+    return null;
+}
+
+const focusedNode = computed(() =>
+    focusedNodeId.value && selectedNote.value
+        ? findInTree(selectedNote.value.children, focusedNodeId.value)
+        : null,
+);
+
+const viewRoot = computed(
+    () => focusedNode.value ?? selectedNote.value ?? null,
+);
+
+const focusedPath = computed<NoteTreeNode[]>(() =>
+    focusedNodeId.value && selectedNote.value
+        ? (findPath(selectedNote.value.children, focusedNodeId.value, []) ?? [])
+        : [],
 );
 
 interface FlatNode {
@@ -37,7 +76,7 @@ const flatNodes = computed<FlatNode[]>(() => {
             }
         }
     }
-    walk(selectedNote.value?.children ?? [], 0);
+    walk(viewRoot.value?.children ?? [], 0);
     return result;
 });
 
@@ -52,6 +91,10 @@ async function loadData() {
 }
 
 onMounted(loadData);
+
+watch(selectedNoteId, () => {
+    focusedNodeId.value = null;
+});
 
 function setFocus(id: number) {
     focusId.value = id;
@@ -477,25 +520,58 @@ const hoveredSidebarId = ref<number | null>(null);
                 v-else
                 class="flex flex-1 flex-col overflow-y-auto bg-stone-50 px-7 pt-6 pb-4 dark:bg-stone-900"
             >
-                <!-- Title -->
-                <textarea
-                    class="text-surface-900 dark:text-surface-100 mb-2 w-full resize-none border-none bg-transparent text-2xl leading-snug font-bold tracking-tight outline-none"
-                    data-title-area
-                    placeholder="Untitled"
-                    rows="1"
-                    :value="selectedNote.content"
-                    @blur="handleBlur(selectedNote)"
-                    @input="handleInput($event, selectedNote)"
-                    @vue:mounted="
-                        ($event: any) => {
-                            const el = $event.el as HTMLTextAreaElement;
-                            el.style.height = 'auto';
-                            el.style.height = el.scrollHeight + 'px';
-                        }
-                    "
-                />
+                <!-- Normal: editable title -->
+                <template v-if="!focusedNodeId">
+                    <textarea
+                        class="text-surface-900 dark:text-surface-100 mb-2 w-full resize-none border-none bg-transparent text-2xl leading-snug font-bold tracking-tight outline-none"
+                        data-title-area
+                        placeholder="Untitled"
+                        rows="1"
+                        :value="selectedNote.content"
+                        @blur="handleBlur(selectedNote)"
+                        @input="handleInput($event, selectedNote)"
+                        @vue:mounted="
+                            ($event: any) => {
+                                const el = $event.el as HTMLTextAreaElement;
+                                el.style.height = 'auto';
+                                el.style.height = el.scrollHeight + 'px';
+                            }
+                        "
+                    />
+                    <div
+                        class="mt-1.5 mb-4 h-0.5 w-9 rounded bg-blue-500"
+                    ></div>
+                </template>
 
-                <div class="mt-1.5 mb-4 h-0.5 w-9 rounded bg-blue-500"></div>
+                <!-- Zoomed: breadcrumb navigation -->
+                <div
+                    v-else
+                    class="mb-4 flex flex-wrap items-center gap-1 text-sm"
+                >
+                    <button
+                        class="text-primary-600 dark:text-primary-400 max-w-[10rem] truncate font-medium hover:underline"
+                        @click="focusedNodeId = null"
+                    >
+                        {{ noteTitle(selectedNote) }}
+                    </button>
+                    <template v-for="(crumb, i) in focusedPath" :key="crumb.id">
+                        <i
+                            class="pi pi-chevron-right text-surface-400 text-xs"
+                        ></i>
+                        <button
+                            v-if="i < focusedPath.length - 1"
+                            class="text-primary-600 dark:text-primary-400 max-w-[10rem] truncate hover:underline"
+                            @click="focusedNodeId = crumb.id"
+                        >
+                            {{ noteTitle(crumb) }}
+                        </button>
+                        <span
+                            v-else
+                            class="text-surface-900 dark:text-surface-100 max-w-[10rem] truncate font-semibold"
+                            >{{ noteTitle(crumb) }}</span
+                        >
+                    </template>
+                </div>
 
                 <!-- Outline content -->
                 <div v-if="flatNodes.length > 0" class="space-y-0">
@@ -515,34 +591,40 @@ const hoveredSidebarId = ref<number | null>(null);
                             class="pointer-events-none absolute inset-y-0 w-px bg-stone-200 dark:bg-stone-700"
                             :style="{ left: (i - 1) * 1.5 + 0.625 + 'rem' }"
                         ></div>
-                        <!-- Collapse toggle / bullet -->
+                        <!-- Bullet — zoom trigger -->
                         <button
-                            class="mt-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded"
+                            class="mt-1.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded"
                             :class="
-                                node.children.length
-                                    ? 'text-surface-500 hover:bg-surface-200 dark:hover:bg-surface-700 cursor-pointer'
-                                    : 'text-surface-300 dark:text-surface-600 cursor-default'
+                                focusedNodeId === node.id
+                                    ? 'text-primary-500'
+                                    : 'text-surface-400 hover:text-surface-600 dark:hover:text-surface-300'
                             "
                             tabindex="-1"
-                            @click="
-                                node.children.length
-                                    ? toggleCollapse(node)
-                                    : undefined
-                            "
+                            :title="'Zoom into ' + noteTitle(node)"
+                            @click="focusedNodeId = node.id"
+                        >
+                            <span
+                                class="inline-block h-1.5 w-1.5 rounded-full"
+                                :class="
+                                    focusedNodeId === node.id
+                                        ? 'bg-primary-500'
+                                        : 'bg-surface-400 dark:bg-surface-500'
+                                "
+                            ></span>
+                        </button>
+
+                        <!-- Collapse caret — halfway between parent guide and this bullet -->
+                        <button
+                            v-if="node.children.length"
+                            class="absolute top-2 flex h-3 w-3 cursor-pointer items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
+                            :style="{ left: Math.max(0, depth * 1.5 - 0.5) + 'rem' }"
+                            tabindex="-1"
+                            @click="toggleCollapse(node)"
                         >
                             <i
-                                v-if="node.children.length"
-                                class="pi text-xs"
-                                :class="
-                                    node.collapsed
-                                        ? 'pi-chevron-right'
-                                        : 'pi-chevron-down'
-                                "
+                                class="pi text-[8px]"
+                                :class="node.collapsed ? 'pi-caret-right' : 'pi-caret-down'"
                             ></i>
-                            <span
-                                v-else
-                                class="bg-surface-400 dark:bg-surface-500 inline-block h-1.5 w-1.5 rounded-full"
-                            ></span>
                         </button>
 
                         <!-- Content: rendered markdown or editable textarea -->
@@ -615,7 +697,7 @@ const hoveredSidebarId = ref<number | null>(null);
                 <div v-else class="mt-2">
                     <button
                         class="text-surface-400 hover:text-primary-500 flex items-center gap-1 text-sm"
-                        @click="addChild(selectedNote)"
+                        @click="viewRoot && addChild(viewRoot)"
                     >
                         <i class="pi pi-plus text-xs"></i>
                         <span>Add item</span>

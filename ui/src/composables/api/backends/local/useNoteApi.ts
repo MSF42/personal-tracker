@@ -198,7 +198,7 @@ export function useNoteApi() {
     const uploadNoteImage = async (
         _file: File,
     ): Promise<ApiResponse<NoteImageUpload>> => {
-        throw new Error('Image upload is not supported in the local backend')
+        throw new Error('Image upload is not supported in the local backend');
     };
 
     return {

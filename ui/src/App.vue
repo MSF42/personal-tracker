@@ -158,12 +158,18 @@ function goToSettings() {
                     <img
                         v-if="profilePicture"
                         alt="Profile"
-                        class="h-8 w-8 rounded-full object-cover"
+                        class="h-7 w-7 rounded-full object-cover"
                         :src="profilePicture"
                     />
-                    <span v-if="userName" class="text-sm font-medium">
-                        {{ userName }}
-                    </span>
+                    <div
+                        v-else-if="userName"
+                        class="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                    >
+                        {{ userName.charAt(0).toUpperCase() }}
+                    </div>
+                    <span v-if="userName" class="text-sm font-medium">{{
+                        userName
+                    }}</span>
                 </template>
                 <i v-else class="pi pi-cog text-lg"></i>
             </button>
@@ -267,7 +273,10 @@ function goToSettings() {
         </div>
     </AppDialog>
 
-    <div style="padding-bottom: env(safe-area-inset-bottom, 0px)">
+    <div
+        class="min-h-0 flex-1"
+        style="padding-bottom: env(safe-area-inset-bottom, 0px)"
+    >
         <RouterView />
     </div>
 </template>

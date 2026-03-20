@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useToast } from '@/composables/useToast';
@@ -7,6 +8,7 @@ import { useToast } from '@/composables/useToast';
 const { getSetting, setSetting, deleteSetting, resetAllData } =
     useSettingsApi();
 const toast = useToast();
+const router = useRouter();
 
 const profilePicture = ref<string | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -79,7 +81,9 @@ async function confirmReset() {
     if (res.success) {
         showResetDialog.value = false;
         toast.showSuccess('All data has been deleted');
-        window.location.reload();
+        router.push('/tasks');
+    } else {
+        toast.showError('Failed to delete data');
     }
 }
 </script>

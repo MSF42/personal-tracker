@@ -4,9 +4,9 @@ import { PrimeVueResolver } from '@primevue/auto-import-resolver';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import Components from 'unplugin-vue-components/vite';
-import VueRouter from 'vue-router/vite';
 import { defineConfig } from 'vite';
 import vueDevTools from 'vite-plugin-vue-devtools';
+import VueRouter from 'vue-router/vite';
 
 const backendDir =
     process.env.VITE_BACKEND === 'local'
@@ -35,11 +35,11 @@ export default defineConfig({
         port: 3099,
         proxy: {
             '/api': {
-                target: 'http://localhost:8000',
+                target: 'http://localhost:8050',
                 changeOrigin: true,
             },
             '/uploads': {
-                target: 'http://localhost:8000',
+                target: 'http://localhost:8050',
                 changeOrigin: true,
             },
         },

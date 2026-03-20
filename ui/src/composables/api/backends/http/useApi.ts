@@ -1,3 +1,4 @@
+import { useToast } from '@/composables/useToast';
 import type {
     ApiError,
     ApiResponse,
@@ -11,19 +12,6 @@ import {
     isNoContent,
     isSuccessStatus,
 } from '@/types/ApiResponse';
-
-let toastInstance: ReturnType<
-    typeof import('@/composables/useToast').useToast
-> | null = null;
-
-function getToast() {
-    if (!toastInstance) {
-        import('@/composables/useToast').then((module) => {
-            toastInstance = module.useToast();
-        });
-    }
-    return toastInstance;
-}
 
 function getBaseUrl(): string {
     const base = import.meta.env.VITE_API_BASE_URL ?? window.location.origin;
@@ -47,6 +35,7 @@ function buildUrl(
 
 function handleHttpError(
     status: number,
+    showApiError: (error: ApiError) => void,
     backendError?: BackendError,
     endpoint?: string,
 ): ApiError {
@@ -56,17 +45,13 @@ function handleHttpError(
         endpoint,
         code: backendError?.code,
     };
-
-    const toast = getToast();
-    if (toast) {
-        toast.showApiError(apiError);
-    }
-
+    showApiError(apiError);
     return apiError;
 }
 
 async function request<T>(
     endpoint: string,
+    showApiError: (error: ApiError) => void,
     options: FetchOptions = {},
 ): Promise<ApiResponse<T>> {
     const { method = HttpMethod.GET, body, params } = options;
@@ -95,7 +80,12 @@ async function request<T>(
             }
             return {
                 data: null,
-                error: handleHttpError(response.status, backendError, endpoint),
+                error: handleHttpError(
+                    response.status,
+                    showApiError,
+                    backendError,
+                    endpoint,
+                ),
                 success: false,
             };
         }
@@ -114,18 +104,14 @@ async function request<T>(
                     : 'An unexpected error occurred',
             endpoint,
         };
-
-        const toast = getToast();
-        if (toast) {
-            toast.showApiError(apiError);
-        }
-
+        showApiError(apiError);
         return { data: null, error: apiError, success: false };
     }
 }
 
 async function requestFormData<T>(
     endpoint: string,
+    showApiError: (error: ApiError) => void,
     formData: FormData,
 ): Promise<ApiResponse<T>> {
     const url = buildUrl(endpoint);
@@ -144,7 +130,12 @@ async function requestFormData<T>(
             }
             return {
                 data: null,
-                error: handleHttpError(response.status, backendError, endpoint),
+                error: handleHttpError(
+                    response.status,
+                    showApiError,
+                    backendError,
+                    endpoint,
+                ),
                 success: false,
             };
         }
@@ -163,29 +154,29 @@ async function requestFormData<T>(
                     : 'An unexpected error occurred',
             endpoint,
         };
-
-        const toast = getToast();
-        if (toast) {
-            toast.showApiError(apiError);
-        }
-
+        showApiError(apiError);
         return { data: null, error: apiError, success: false };
     }
 }
 
 export function useApi() {
+    const { showApiError } = useToast();
     const getData = async <T>(
         endpoint: string,
         params?: Record<string, string | number | boolean | undefined>,
     ): Promise<ApiResponse<T>> => {
-        return request<T>(endpoint, { params });
+        return request<T>(endpoint, showApiError, { params });
     };
 
     const getDataArray = async <T>(
         endpoint: string,
         params?: Record<string, string | number | boolean | undefined>,
     ): Promise<ApiResponse<T[]>> => {
-        const response = await request<PaginatedData<T>>(endpoint, { params });
+        const response = await request<PaginatedData<T>>(
+            endpoint,
+            showApiError,
+            { params },
+        );
         if (response.success && response.data) {
             return { data: response.data.data, error: null, success: true };
         }
@@ -196,14 +187,14 @@ export function useApi() {
         endpoint: string,
         params?: Record<string, string | number | boolean | undefined>,
     ): Promise<ApiResponse<PaginatedData<T>>> => {
-        return request<PaginatedData<T>>(endpoint, { params });
+        return request<PaginatedData<T>>(endpoint, showApiError, { params });
     };
 
     const post = async <TBody, TResponse>(
         endpoint: string,
         body: TBody,
     ): Promise<ApiResponse<TResponse>> => {
-        return request<TResponse>(endpoint, {
+        return request<TResponse>(endpoint, showApiError, {
             method: HttpMethod.POST,
             body,
         });
@@ -213,7 +204,7 @@ export function useApi() {
         endpoint: string,
         body: TBody,
     ): Promise<ApiResponse<TResponse>> => {
-        return request<TResponse>(endpoint, {
+        return request<TResponse>(endpoint, showApiError, {
             method: HttpMethod.PUT,
             body,
         });
@@ -223,18 +214,23 @@ export function useApi() {
         endpoint: string,
         params: Record<string, string | number | boolean | undefined>,
     ): Promise<ApiResponse<T>> => {
-        return request<T>(endpoint, { method: HttpMethod.POST, params });
+        return request<T>(endpoint, showApiError, {
+            method: HttpMethod.POST,
+            params,
+        });
     };
 
     const remove = async (endpoint: string): Promise<ApiResponse<void>> => {
-        return request<void>(endpoint, { method: HttpMethod.DELETE });
+        return request<void>(endpoint, showApiError, {
+            method: HttpMethod.DELETE,
+        });
     };
 
     const postFormData = async <T>(
         endpoint: string,
         formData: FormData,
     ): Promise<ApiResponse<T>> => {
-        return requestFormData<T>(endpoint, formData);
+        return requestFormData<T>(endpoint, showApiError, formData);
     };
 
     return {

@@ -1,0 +1,127 @@
+<h2>Left Column Styling Directions</h2>
+<p class="subtitle">Three different takes on the notes sidebar. Which feels right to you?</p>
+
+<div class="cards">
+
+  <!-- Option A: Refined Minimal -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #f8f9fa; overflow: hidden;">
+      <div style="display: flex; height: 320px; font-family: -apple-system, sans-serif;">
+        <!-- Sidebar -->
+        <div style="width: 200px; background: #ffffff; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; overflow: hidden;">
+          <!-- Header -->
+          <div style="padding: 12px; border-bottom: 1px solid #f3f4f6;">
+            <button style="width: 100%; background: none; border: 1px dashed #d1d5db; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #6b7280; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 14px;">+</span> New Note
+            </button>
+          </div>
+          <!-- Notes list -->
+          <div style="padding: 8px; flex: 1; overflow: hidden;">
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 12px; font-weight: 500; color: #1f2937; background: #eff6ff; margin-bottom: 2px;">Project Ideas</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 12px; color: #374151; margin-bottom: 2px; background: #f9fafb;">Daily Journal</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 12px; color: #374151; margin-bottom: 2px;">Meeting Notes</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 12px; color: #9ca3af; margin-bottom: 2px;">Reading List</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 12px; color: #9ca3af; margin-bottom: 2px;">Recipes</div>
+            <div style="padding: 5px 8px; border-radius: 5px; font-size: 12px; color: #9ca3af;">Quick Notes</div>
+          </div>
+        </div>
+        <!-- Content -->
+        <div style="flex: 1; padding: 16px; background: #fafafa;">
+          <div style="font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 12px;">Project Ideas</div>
+          <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
+            <div style="margin-bottom: 4px;">• Build a habit tracker app</div>
+            <div style="margin-bottom: 4px; margin-left: 12px; color: #9ca3af;">• Research existing apps</div>
+            <div style="margin-bottom: 4px; margin-left: 12px; color: #9ca3af;">• Design the data model</div>
+            <div style="margin-bottom: 4px;">• Learn Rust</div>
+            <div style="margin-bottom: 4px; margin-left: 12px; color: #9ca3af;">• Read the book</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Refined Minimal</h3>
+      <p>Subtle improvements on the current look: tighter spacing, ghost "New Note" button, light hover fills. Stays clean and out of the way.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Sidebar Panel -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #f1f5f9; overflow: hidden;">
+      <div style="display: flex; height: 320px; font-family: -apple-system, sans-serif;">
+        <!-- Sidebar -->
+        <div style="width: 200px; background: #f1f5f9; border-right: 1px solid #cbd5e1; display: flex; flex-direction: column; overflow: hidden;">
+          <!-- Header with app branding feel -->
+          <div style="padding: 14px 12px 10px; border-bottom: 1px solid #e2e8f0;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 8px;">Notes</div>
+            <button style="width: 100%; background: #3b82f6; border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: white; cursor: pointer; font-weight: 500;">+ New Note</button>
+          </div>
+          <!-- Notes list -->
+          <div style="padding: 8px; flex: 1; overflow: hidden;">
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #1e40af; background: #dbeafe; margin-bottom: 3px;">Project Ideas</div>
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #334155; background: #ffffff; margin-bottom: 3px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">Daily Journal</div>
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #475569; margin-bottom: 3px;">Meeting Notes</div>
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #94a3b8; margin-bottom: 3px;">Reading List</div>
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #94a3b8; margin-bottom: 3px;">Recipes</div>
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #94a3b8;">Quick Notes</div>
+          </div>
+        </div>
+        <!-- Content -->
+        <div style="flex: 1; padding: 16px; background: #ffffff;">
+          <div style="font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 12px;">Project Ideas</div>
+          <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
+            <div style="margin-bottom: 4px;">• Build a habit tracker app</div>
+            <div style="margin-bottom: 4px; margin-left: 12px; color: #9ca3af;">• Research existing apps</div>
+            <div style="margin-bottom: 4px; margin-left: 12px; color: #9ca3af;">• Design the data model</div>
+            <div style="margin-bottom: 4px;">• Learn Rust</div>
+            <div style="margin-bottom: 4px; margin-left: 12px; color: #9ca3af;">• Read the book</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Sidebar Panel</h3>
+      <p>Distinct slate-tinted sidebar background, "NOTES" label header, solid blue button. Feels like a proper app sidebar — more structured and app-like.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Editorial -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #1e1e2e; overflow: hidden;">
+      <div style="display: flex; height: 320px; font-family: -apple-system, sans-serif;">
+        <!-- Sidebar -->
+        <div style="width: 200px; background: #13131f; border-right: 1px solid #2d2d44; display: flex; flex-direction: column; overflow: hidden;">
+          <!-- Header -->
+          <div style="padding: 14px 12px 10px; border-bottom: 1px solid #2d2d44;">
+            <div style="font-size: 13px; font-weight: 700; color: #e2e8f0; margin-bottom: 8px; letter-spacing: -0.01em;">✦ Notes</div>
+            <button style="width: 100%; background: #6366f1; border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: white; cursor: pointer; font-weight: 500;">+ New</button>
+          </div>
+          <!-- Notes list -->
+          <div style="padding: 8px; flex: 1; overflow: hidden;">
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; color: #a5b4fc; background: rgba(99,102,241,0.2); margin-bottom: 3px; border-left: 2px solid #6366f1;">Project Ideas</div>
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #cbd5e1; margin-bottom: 3px;">Daily Journal</div>
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #94a3b8; margin-bottom: 3px;">Meeting Notes</div>
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #64748b; margin-bottom: 3px;">Reading List</div>
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #64748b; margin-bottom: 3px;">Recipes</div>
+            <div style="padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #64748b;">Quick Notes</div>
+          </div>
+        </div>
+        <!-- Content -->
+        <div style="flex: 1; padding: 16px; background: #1e1e2e;">
+          <div style="font-size: 16px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">Project Ideas</div>
+          <div style="font-size: 11px; color: #94a3b8; line-height: 1.6;">
+            <div style="margin-bottom: 4px; color: #cbd5e1;">• Build a habit tracker app</div>
+            <div style="margin-bottom: 4px; margin-left: 12px;">• Research existing apps</div>
+            <div style="margin-bottom: 4px; margin-left: 12px;">• Design the data model</div>
+            <div style="margin-bottom: 4px; color: #cbd5e1;">• Learn Rust</div>
+            <div style="margin-bottom: 4px; margin-left: 12px;">• Read the book</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Dark Editorial</h3>
+      <p>Deep dark sidebar with indigo accents and a left-border active indicator. Rich, focused writing environment. Great if you use dark mode.</p>
+    </div>
+  </div>
+
+</div>
