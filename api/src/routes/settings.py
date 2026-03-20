@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from src.config.settings import get_settings
@@ -80,6 +80,9 @@ async def backup_data():
     )
 
 
+MAX_RESTORE_SIZE = 100 * 1024 * 1024  # 100 MB
+
+
 @router.post("/restore")
 async def restore_data(file: UploadFile):
     settings = get_settings()
@@ -91,15 +94,43 @@ async def restore_data(file: UploadFile):
     try:
         with os.fdopen(tmp_fd, "wb") as tmp:
             content = await file.read()
+            if len(content) > MAX_RESTORE_SIZE:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "Upload exceeds 100 MB limit", "code": "FILE_TOO_LARGE"},
+                )
             tmp.write(content)
 
         # Validate zip structure
         with zipfile.ZipFile(tmp_path, "r") as zf:
             names = zf.namelist()
-            if "tracker.db" not in names:
-                return {"error": "Invalid backup: missing tracker.db", "code": "VALIDATION_ERROR"}
 
-            # Extract tracker.db
+            # Guard: reject if any entry uses "tracker.db" with path components
+            if "tracker.db" not in names:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "Invalid backup: missing tracker.db", "code": "VALIDATION_ERROR"},
+                )
+            for name in names:
+                if name.endswith("tracker.db") and name != "tracker.db":
+                    return JSONResponse(
+                        status_code=400,
+                        content={"error": "Invalid backup: path traversal detected", "code": "VALIDATION_ERROR"},
+                    )
+
+            # Guard: reject any upload entry whose resolved path escapes uploads_path
+            resolved_uploads = uploads_path.resolve()
+            for name in names:
+                if name.startswith("uploads/") and not name.endswith("/"):
+                    relative = name[len("uploads/"):]
+                    target = (uploads_path / relative).resolve()
+                    if not str(target).startswith(str(resolved_uploads) + os.sep) and str(target) != str(resolved_uploads):
+                        return JSONResponse(
+                            status_code=400,
+                            content={"error": "Invalid backup: path traversal detected", "code": "VALIDATION_ERROR"},
+                        )
+
+            # Extract tracker.db — always write to configured db_path, never to a path from the zip
             db_path.parent.mkdir(parents=True, exist_ok=True)
             with zf.open("tracker.db") as src, open(db_path, "wb") as dst:
                 shutil.copyfileobj(src, dst)
@@ -111,7 +142,8 @@ async def restore_data(file: UploadFile):
 
             for name in names:
                 if name.startswith("uploads/") and not name.endswith("/"):
-                    target = uploads_path / Path(name).relative_to("uploads")
+                    relative = name[len("uploads/"):]
+                    target = uploads_path / relative
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with zf.open(name) as src, open(target, "wb") as dst:
                         shutil.copyfileobj(src, dst)
