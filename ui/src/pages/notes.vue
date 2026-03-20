@@ -18,9 +18,13 @@ const tree = ref<NoteTreeNode[]>([]);
 const focusId = ref<number | null>(null);
 const selectedNoteId = ref<number | null>(null);
 const focusedNodeId = ref<number | null>(null);
+const nodeRefs = ref<Record<number, HTMLTextAreaElement>>({});
 
 const selectedNote = computed(
-    () => tree.value.find((n) => n.id === selectedNoteId.value) ?? null,
+    () =>
+        selectedNoteId.value
+            ? findInTree(tree.value, selectedNoteId.value)
+            : null,
 );
 
 function findInTree(nodes: NoteTreeNode[], id: number): NoteTreeNode | null {
@@ -99,12 +103,7 @@ watch(selectedNoteId, () => {
 function setFocus(id: number) {
     focusId.value = id;
     nextTick(() => {
-        nextTick(() => {
-            const el = document.querySelector(
-                `[data-note-id="${id}"] textarea`,
-            ) as HTMLTextAreaElement | null;
-            el?.focus();
-        });
+        nodeRefs.value[id]?.focus();
     });
 }
 
@@ -616,14 +615,20 @@ const hoveredSidebarId = ref<number | null>(null);
                         <!-- Collapse caret — halfway between parent guide and this bullet -->
                         <button
                             v-if="node.children.length"
-                            class="absolute top-2 flex h-3 w-3 cursor-pointer items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
-                            :style="{ left: Math.max(0, depth * 1.5 - 0.5) + 'rem' }"
+                            class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 absolute top-2 flex h-3 w-3 cursor-pointer items-center justify-center opacity-0 transition-opacity group-hover:opacity-100"
+                            :style="{
+                                left: Math.max(0, depth * 1.5 - 0.5) + 'rem',
+                            }"
                             tabindex="-1"
                             @click="toggleCollapse(node)"
                         >
                             <i
                                 class="pi text-[8px]"
-                                :class="node.collapsed ? 'pi-caret-right' : 'pi-caret-down'"
+                                :class="
+                                    node.collapsed
+                                        ? 'pi-caret-right'
+                                        : 'pi-caret-down'
+                                "
                             ></i>
                         </button>
 
@@ -639,6 +644,7 @@ const hoveredSidebarId = ref<number | null>(null);
                             class="text-surface-800 dark:text-surface-200 min-h-[1.75rem] flex-1 resize-none overflow-hidden border-none bg-transparent py-1 text-sm leading-snug outline-none"
                             rows="1"
                             :value="node.content"
+                            :ref="(el) => { if (el) nodeRefs[node.id] = el as HTMLTextAreaElement }"
                             @blur="
                                 handleBlur(node);
                                 if (focusId === node.id) focusId = null;
