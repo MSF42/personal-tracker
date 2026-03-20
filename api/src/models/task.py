@@ -93,4 +93,3 @@ def task_from_db(row: TaskInDB) -> TaskResponse:
     else:
         data["repeat_days"] = None
     return TaskResponse(**data)
-

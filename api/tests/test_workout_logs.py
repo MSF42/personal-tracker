@@ -56,3 +56,10 @@ async def test_get_logs_by_routine_is_reachable(client):
     """GET /routine/{id} must not be shadowed by GET /{workout_log_id}."""
     response = await client.get("/api/v1/workout-logs/routine/999")
     assert response.status_code != 422
+
+
+async def test_list_workout_logs_returns_list(client):
+    """GET /workout-logs must return a list (response model enforced)."""
+    response = await client.get("/api/v1/workout-logs")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)

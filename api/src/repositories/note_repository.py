@@ -98,8 +98,6 @@ class SQLiteNoteRepository:
         return await self.find_by_id(note_id)
 
     async def delete(self, note_id: int) -> bool:
-        # CASCADE delete handled by FK, but need PRAGMA foreign_keys = ON
-        await self.db.execute("PRAGMA foreign_keys = ON")
         cursor = await self.db.execute("DELETE FROM notes WHERE id = ?", (note_id,))
         await self.db.commit()
         return cursor.rowcount > 0

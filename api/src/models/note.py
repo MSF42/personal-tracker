@@ -23,14 +23,7 @@ class NoteResponse(BaseModel):
     updated_at: str
 
 
-class NoteTreeNode(BaseModel):
-    id: int
-    parent_id: int | None = None
-    content: str
-    sort_order: int
-    collapsed: bool
-    created_at: str
-    updated_at: str
+class NoteTreeNode(NoteResponse):
     children: list[NoteTreeNode] = []
 
 

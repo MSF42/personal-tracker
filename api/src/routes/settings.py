@@ -8,11 +8,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
 
 from src.config.settings import get_settings
 from src.db.database import get_db
 from src.db.migrations import run_migrations
+from src.models.settings import UpdateSettingRequest
 from src.repositories.settings_repository import SQLiteSettingsRepository
 
 router = APIRouter(prefix="/api/v1/settings", tags=["Settings"])
@@ -20,10 +20,6 @@ router = APIRouter(prefix="/api/v1/settings", tags=["Settings"])
 
 async def get_settings_repository(db=Depends(get_db)):
     return SQLiteSettingsRepository(db)
-
-
-class UpdateSettingRequest(BaseModel):
-    value: str
 
 
 @router.get("/{key}")
@@ -109,25 +105,36 @@ async def restore_data(file: UploadFile):
             if "tracker.db" not in names:
                 return JSONResponse(
                     status_code=400,
-                    content={"error": "Invalid backup: missing tracker.db", "code": "VALIDATION_ERROR"},
+                    content={
+                        "error": "Invalid backup: missing tracker.db",
+                        "code": "VALIDATION_ERROR",
+                    },
                 )
             for name in names:
                 if name.endswith("tracker.db") and name != "tracker.db":
                     return JSONResponse(
                         status_code=400,
-                        content={"error": "Invalid backup: path traversal detected", "code": "VALIDATION_ERROR"},
+                        content={
+                            "error": "Invalid backup: path traversal detected",
+                            "code": "VALIDATION_ERROR",
+                        },
                     )
 
             # Guard: reject any upload entry whose resolved path escapes uploads_path
             resolved_uploads = uploads_path.resolve()
             for name in names:
                 if name.startswith("uploads/") and not name.endswith("/"):
-                    relative = name[len("uploads/"):]
+                    relative = name[len("uploads/") :]
                     target = (uploads_path / relative).resolve()
-                    if not str(target).startswith(str(resolved_uploads) + os.sep) and str(target) != str(resolved_uploads):
+                    if not str(target).startswith(str(resolved_uploads) + os.sep) and str(
+                        target
+                    ) != str(resolved_uploads):
                         return JSONResponse(
                             status_code=400,
-                            content={"error": "Invalid backup: path traversal detected", "code": "VALIDATION_ERROR"},
+                            content={
+                                "error": "Invalid backup: path traversal detected",
+                                "code": "VALIDATION_ERROR",
+                            },
                         )
 
             # Extract tracker.db — always write to configured db_path, never to a path from the zip
@@ -142,7 +149,7 @@ async def restore_data(file: UploadFile):
 
             for name in names:
                 if name.startswith("uploads/") and not name.endswith("/"):
-                    relative = name[len("uploads/"):]
+                    relative = name[len("uploads/") :]
                     target = uploads_path / relative
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with zf.open(name) as src, open(target, "wb") as dst:

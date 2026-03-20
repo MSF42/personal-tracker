@@ -122,10 +122,17 @@ class SQLiteWorkoutLogRepository:
             updates["notes"] = notes
 
         if updates:
-            set_clause = ", ".join(f"{key} = ?" for key in updates)
-            values = list(updates.values()) + [workout_log_id]
-            await self.db.execute(f"UPDATE workout_logs SET {set_clause} WHERE id = ?", values)
-            await self.db.commit()
+            # Only "date" and "notes" are updatable — explicit safe columns, no dynamic column names
+            allowed = {"date", "notes"}
+            filtered = {k: v for k, v in updates.items() if k in allowed}
+            if filtered:
+                set_clause = ", ".join(f"{key} = ?" for key in filtered)
+                values = list(filtered.values()) + [workout_log_id]
+                await self.db.execute(
+                    f"UPDATE workout_logs SET {set_clause} WHERE id = ?",  # noqa: S608
+                    values,
+                )
+                await self.db.commit()
 
         cursor = await self.db.execute(
             """SELECT wl.*, wr.name as routine_name
