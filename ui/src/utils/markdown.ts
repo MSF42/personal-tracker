@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
 import bash from 'highlight.js/lib/languages/bash';
 import css from 'highlight.js/lib/languages/css';
@@ -36,7 +37,7 @@ export function renderMarkdown(content: string): string {
     if (!content) return '';
     const isMultiLine = content.includes('\n');
     if (isMultiLine) {
-        return marked.parse(content) as string;
+        return DOMPurify.sanitize(marked.parse(content) as string);
     }
-    return marked.parseInline(content) as string;
+    return DOMPurify.sanitize(marked.parseInline(content) as string);
 }
