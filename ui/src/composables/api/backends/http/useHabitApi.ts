@@ -23,6 +23,9 @@ export function useHabitApi() {
     const toggleCompletion = (id: number, date: string) =>
         api.post<{ date: string }, Habit>(`habits/${id}/complete`, { date });
 
+    const getCompletionHistory = (days = 28) =>
+        api.getData<Record<string, string[]>>('habits/completions', { days });
+
     return {
         getHabits,
         getHabit,
@@ -30,5 +33,6 @@ export function useHabitApi() {
         updateHabit,
         deleteHabit,
         toggleCompletion,
+        getCompletionHistory,
     };
 }

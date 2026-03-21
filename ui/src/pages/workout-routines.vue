@@ -6,6 +6,7 @@ import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
+import { useUnits } from '@/composables/useUnits';
 import type { Exercise } from '@/types/Exercise';
 import type { WorkoutLog } from '@/types/WorkoutLog';
 import type {
@@ -29,6 +30,7 @@ const { getWorkoutLogs, createWorkoutLog, logSet } = useWorkoutLogApi();
 const { getExercises } = useExerciseApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
+const { weightUnit, toKg } = useUnits();
 
 const routines = ref<WorkoutRoutine[]>([]);
 const workoutLogs = ref<WorkoutLog[]>([]);
@@ -69,6 +71,7 @@ const showDialog = ref(false);
 const editingId = ref<number | null>(null);
 const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
+const formError = ref('');
 
 const form = reactive({
     name: '',
@@ -79,6 +82,7 @@ function resetForm() {
     form.name = '';
     form.description = '';
     editingId.value = null;
+    formError.value = '';
 }
 
 function openAddDialog() {
@@ -90,10 +94,16 @@ function openEditDialog(routine: WorkoutRoutine) {
     editingId.value = routine.id;
     form.name = routine.name;
     form.description = routine.description ?? '';
+    formError.value = '';
     showDialog.value = true;
 }
 
 async function saveRoutine() {
+    formError.value = '';
+    if (!form.name.trim()) {
+        formError.value = 'Name is required';
+        return;
+    }
     if (editingId.value) {
         const payload: WorkoutRoutineUpdate = {
             name: form.name,
@@ -102,6 +112,10 @@ async function saveRoutine() {
         const res = await updateWorkoutRoutine(editingId.value, payload);
         if (res.success) {
             toast.showSuccess('Routine updated');
+            showDialog.value = false;
+            await loadData();
+        } else {
+            formError.value = res.error?.message ?? 'Something went wrong';
         }
     } else {
         const payload: WorkoutRoutineCreate = {
@@ -111,10 +125,12 @@ async function saveRoutine() {
         const res = await createWorkoutRoutine(payload);
         if (res.success) {
             toast.showSuccess('Routine added');
+            showDialog.value = false;
+            await loadData();
+        } else {
+            formError.value = res.error?.message ?? 'Something went wrong';
         }
     }
-    showDialog.value = false;
-    await loadData();
 }
 
 function confirmDelete(id: number) {
@@ -269,7 +285,7 @@ async function saveSet(entry: SetEntry) {
         entry.exerciseId,
         entry.setNumber,
         entry.reps,
-        entry.weight,
+        entry.weight != null ? toKg(entry.weight) : null,
     );
     if (res.success) {
         entry.saved = true;
@@ -325,6 +341,7 @@ async function loadData() {
     ]);
     if (routinesRes.success && routinesRes.data)
         routines.value = routinesRes.data;
+    else if (!routinesRes.success) toast.showError('Failed to load routines');
     if (logsRes.success && logsRes.data) workoutLogs.value = logsRes.data;
     if (exercisesRes.success && exercisesRes.data)
         allExercises.value = exercisesRes.data;
@@ -368,7 +385,11 @@ const dialogHeader = computed(() =>
                 <template #title>Last Workout</template>
                 <template #content>
                     <div class="text-2xl font-bold">
-                        {{ stats.lastWorkout ? formatDate(stats.lastWorkout) : '—' }}
+                        {{
+                            stats.lastWorkout
+                                ? formatDate(stats.lastWorkout)
+                                : '—'
+                        }}
                     </div>
                     <div class="text-surface-500 text-sm">most recent</div>
                 </template>
@@ -395,9 +416,16 @@ const dialogHeader = computed(() =>
         >
             <template #empty>
                 <div class="flex flex-col items-center py-10 text-center">
-                    <i class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"></i>
+                    <i
+                        class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"
+                    ></i>
                     <p class="text-surface-500 mb-3">No routines yet</p>
-                    <AppButton icon="pi pi-plus" label="Add your first routine" size="small" @click="openAddDialog" />
+                    <AppButton
+                        icon="pi pi-plus"
+                        label="Add your first routine"
+                        size="small"
+                        @click="openAddDialog"
+                    />
                 </div>
             </template>
             <AppColumn field="name" header="Name" sortable />
@@ -434,7 +462,13 @@ const dialogHeader = computed(() =>
                     <span
                         v-if="routineLastPerformed[(data as WorkoutRoutine).id]"
                     >
-                        {{ formatDate(routineLastPerformed[(data as WorkoutRoutine).id]!) }}
+                        {{
+                            formatDate(
+                                routineLastPerformed[
+                                    (data as WorkoutRoutine).id
+                                ]!,
+                            )
+                        }}
                     </span>
                     <span v-else class="text-surface-400">&mdash;</span>
                 </template>
@@ -479,6 +513,9 @@ const dialogHeader = computed(() =>
                 <div>
                     <label class="mb-1 block text-sm font-medium">Name</label>
                     <AppInputText v-model="form.name" class="w-full" />
+                    <p v-if="formError" class="mt-1 text-sm text-red-500">
+                        {{ formError }}
+                    </p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
@@ -666,7 +703,9 @@ const dialogHeader = computed(() =>
                                 :min="0"
                                 placeholder="Weight"
                             />
-                            <span class="text-surface-500 text-xs">kg</span>
+                            <span class="text-surface-500 text-xs">{{
+                                weightUnit
+                            }}</span>
                             <AppButton
                                 v-if="!entry.saved"
                                 icon="pi pi-check"

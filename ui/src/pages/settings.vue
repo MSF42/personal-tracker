@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
 
 import { useNoteApi } from '@/composables/api/useNoteApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useToast } from '@/composables/useToast';
+import { useUnits } from '@/composables/useUnits';
 
-const { getSetting, setSetting, deleteSetting, resetAllData } =
+const { getSetting, setSetting, deleteSetting, resetAllData, seedSampleData } =
     useSettingsApi();
 const { uploadNoteImage } = useNoteApi();
 const toast = useToast();
-const router = useRouter();
 
 const profilePicture = ref<string | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -18,6 +17,11 @@ const displayName = ref('');
 const confirmText = ref('');
 const showResetDialog = ref(false);
 const resetting = ref(false);
+const seeding = ref(false);
+
+const { weightUnit, distanceUnit, setWeightUnit, setDistanceUnit } = useUnits();
+const weightOptions = ['kg', 'lbs'];
+const distanceOptions = ['km', 'mi'];
 
 onMounted(async () => {
     const [profileRes, nameRes] = await Promise.all([
@@ -58,6 +62,18 @@ async function onFileSelected(event: Event) {
     const file = input.files?.[0];
     if (!file) return;
 
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowed.includes(file.type)) {
+        toast.showError('Please upload a JPG, PNG, WebP, or GIF image.');
+        input.value = '';
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        toast.showError('Image must be under 5 MB.');
+        input.value = '';
+        return;
+    }
+
     const res = await uploadNoteImage(file);
     if (!res.success || !res.data) return;
 
@@ -78,6 +94,18 @@ async function removePicture() {
     }
 }
 
+async function generateSampleData() {
+    seeding.value = true;
+    const res = await seedSampleData();
+    seeding.value = false;
+    if (res.success) {
+        toast.showSuccess('Sample data generated');
+        setTimeout(() => window.location.replace('/'), 1000);
+    } else {
+        toast.showError('Failed to generate sample data');
+    }
+}
+
 function openResetDialog() {
     confirmText.value = '';
     showResetDialog.value = true;
@@ -91,7 +119,7 @@ async function confirmReset() {
     if (res.success) {
         showResetDialog.value = false;
         toast.showSuccess('All data has been deleted');
-        router.push('/tasks');
+        setTimeout(() => window.location.replace('/'), 1500);
     } else {
         toast.showError('Failed to delete data');
     }
@@ -162,6 +190,61 @@ async function confirmReset() {
                     @blur="saveDisplayName"
                 />
             </div>
+        </section>
+
+        <!-- Units -->
+        <section
+            class="border-surface-200 dark:border-surface-700 mb-8 rounded-lg border p-6"
+        >
+            <h2
+                class="text-surface-800 dark:text-surface-100 mb-4 text-lg font-semibold"
+            >
+                Units
+            </h2>
+            <div class="flex flex-col gap-4">
+                <div>
+                    <label class="mb-2 block text-sm font-medium">Weight</label>
+                    <AppSelectButton
+                        :allow-empty="false"
+                        :model-value="weightUnit"
+                        :options="weightOptions"
+                        @update:model-value="setWeightUnit"
+                    />
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium"
+                        >Distance</label
+                    >
+                    <AppSelectButton
+                        :allow-empty="false"
+                        :model-value="distanceUnit"
+                        :options="distanceOptions"
+                        @update:model-value="setDistanceUnit"
+                    />
+                </div>
+            </div>
+        </section>
+
+        <!-- Sample Data -->
+        <section
+            class="border-surface-200 dark:border-surface-700 mb-8 rounded-lg border p-6"
+        >
+            <h2
+                class="text-surface-800 dark:text-surface-100 mb-2 text-lg font-semibold"
+            >
+                Sample Data
+            </h2>
+            <p class="text-surface-600 dark:text-surface-400 mb-4 text-sm">
+                Populate the app with realistic sample data across all areas —
+                tasks, habits, runs, workouts, notes, and measurements.
+            </p>
+            <AppButton
+                icon="pi pi-sparkles"
+                label="Generate Sample Data"
+                :loading="seeding"
+                severity="secondary"
+                @click="generateSampleData"
+            />
         </section>
 
         <!-- Danger Zone -->

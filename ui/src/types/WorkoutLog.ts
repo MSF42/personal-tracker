@@ -26,6 +26,11 @@ export interface ExerciseHistoryEntry {
     weight: number | null;
 }
 
+export interface SetLogUpdate {
+    reps?: number | null;
+    weight?: number | null;
+}
+
 export interface WorkoutLogUpdate {
     date?: string | null;
     notes?: string | null;

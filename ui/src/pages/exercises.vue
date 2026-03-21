@@ -37,6 +37,17 @@ const muscleGroupOptions = [
 
 const muscleGroupFormOptions = muscleGroupOptions.filter((o) => o.value !== '');
 
+const EQUIPMENT_OPTIONS = [
+    'Barbell',
+    'Dumbbell',
+    'Kettlebell',
+    'Machine',
+    'Cable',
+    'Resistance Band',
+    'Bodyweight',
+    'Other',
+];
+
 // --- Filters ---
 const showFilters = ref(false);
 const filters = reactive({
@@ -96,6 +107,7 @@ const showDialog = ref(false);
 const editingId = ref<number | null>(null);
 const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
+const formError = ref('');
 
 const form = reactive({
     name: '',
@@ -112,6 +124,7 @@ function resetForm() {
     form.description = '';
     form.instructions = '';
     editingId.value = null;
+    formError.value = '';
 }
 
 function openAddDialog() {
@@ -126,10 +139,16 @@ function openEditDialog(exercise: Exercise) {
     form.equipment = exercise.equipment ?? '';
     form.description = exercise.description ?? '';
     form.instructions = exercise.instructions ?? '';
+    formError.value = '';
     showDialog.value = true;
 }
 
 async function saveExercise() {
+    formError.value = '';
+    if (!form.name.trim()) {
+        formError.value = 'Name is required';
+        return;
+    }
     if (editingId.value) {
         const payload: ExerciseUpdate = {
             name: form.name,
@@ -141,6 +160,10 @@ async function saveExercise() {
         const res = await updateExercise(editingId.value, payload);
         if (res.success) {
             toast.showSuccess('Exercise updated');
+            showDialog.value = false;
+            await loadData();
+        } else {
+            formError.value = res.error?.message ?? 'Something went wrong';
         }
     } else {
         const payload: ExerciseCreate = {
@@ -153,10 +176,12 @@ async function saveExercise() {
         const res = await createExercise(payload);
         if (res.success) {
             toast.showSuccess('Exercise added');
+            showDialog.value = false;
+            await loadData();
+        } else {
+            formError.value = res.error?.message ?? 'Something went wrong';
         }
     }
-    showDialog.value = false;
-    await loadData();
 }
 
 function confirmDelete(id: number) {
@@ -198,6 +223,7 @@ async function loadData() {
         getExercisePRs(),
     ]);
     if (res.success && res.data) exercises.value = res.data;
+    else if (!res.success) toast.showError('Failed to load exercises');
     if (lastPerformedRes.success && lastPerformedRes.data)
         exerciseLastPerformed.value = lastPerformedRes.data;
     if (prsRes.success && prsRes.data) exercisePRs.value = prsRes.data;
@@ -337,9 +363,16 @@ const dialogHeader = computed(() =>
         >
             <template #empty>
                 <div class="flex flex-col items-center py-10 text-center">
-                    <i class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"></i>
+                    <i
+                        class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"
+                    ></i>
                     <p class="text-surface-500 mb-3">No exercises found</p>
-                    <AppButton icon="pi pi-plus" label="Add your first exercise" size="small" @click="openAddDialog" />
+                    <AppButton
+                        icon="pi pi-plus"
+                        label="Add your first exercise"
+                        size="small"
+                        @click="openAddDialog"
+                    />
                 </div>
             </template>
             <AppColumn field="name" header="Name" sortable>
@@ -384,7 +417,11 @@ const dialogHeader = computed(() =>
             <AppColumn header="Last Performed" sort-field="id" sortable>
                 <template #body="{ data }">
                     <span v-if="exerciseLastPerformed[(data as Exercise).id]">
-                        {{ formatDate(exerciseLastPerformed[(data as Exercise).id]!) }}
+                        {{
+                            formatDate(
+                                exerciseLastPerformed[(data as Exercise).id]!,
+                            )
+                        }}
                     </span>
                     <span v-else class="text-surface-400">&mdash;</span>
                 </template>
@@ -430,6 +467,9 @@ const dialogHeader = computed(() =>
                 <div>
                     <label class="mb-1 block text-sm font-medium">Name</label>
                     <AppInputText v-model="form.name" class="w-full" />
+                    <p v-if="formError" class="mt-1 text-sm text-red-500">
+                        {{ formError }}
+                    </p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
@@ -447,7 +487,12 @@ const dialogHeader = computed(() =>
                     <label class="mb-1 block text-sm font-medium">
                         Equipment
                     </label>
-                    <AppInputText v-model="form.equipment" class="w-full" />
+                    <AppSelect
+                        v-model="form.equipment"
+                        class="w-full"
+                        :options="EQUIPMENT_OPTIONS"
+                        placeholder="Select equipment"
+                    />
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">

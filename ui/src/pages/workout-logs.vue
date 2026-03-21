@@ -5,8 +5,10 @@ import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
+import { useUnits } from '@/composables/useUnits';
 import type {
     ExerciseHistoryEntry,
+    SetLog,
     WorkoutLog,
     WorkoutLogDetail,
 } from '@/types/WorkoutLog';
@@ -17,10 +19,12 @@ const {
     getWorkoutLog,
     getExerciseHistory,
     updateWorkoutLog,
+    updateSet,
     deleteWorkoutLog,
 } = useWorkoutLogApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
+const { fmtWeight } = useUnits();
 
 const logs = ref<WorkoutLog[]>([]);
 
@@ -117,6 +121,32 @@ const setGroups = computed<SetGroup[]>(() => {
     return groups;
 });
 
+// --- Inline Set Editing ---
+const editingSetId = ref<number | null>(null);
+const editSetReps = ref(0);
+const editSetWeight = ref(0);
+
+function startEditSet(set: SetLog) {
+    editingSetId.value = set.id;
+    editSetReps.value = set.reps;
+    editSetWeight.value = set.weight ?? 0;
+}
+
+async function saveSet(set: SetLog) {
+    if (!detail.value) return;
+    const res = await updateSet(detail.value.id, set.id, {
+        reps: editSetReps.value,
+        weight: editSetWeight.value,
+    });
+    if (res.success && res.data) {
+        const idx = detail.value.sets.findIndex((s) => s.id === set.id);
+        if (idx !== -1) detail.value.sets[idx] = res.data;
+    } else if (!res.success) {
+        toast.showError('Failed to update set');
+    }
+    editingSetId.value = null;
+}
+
 // --- Exercise History Dialog ---
 const showHistory = ref(false);
 const historyExerciseName = ref('');
@@ -184,6 +214,7 @@ async function executeDelete() {
 async function loadData() {
     const res = await getWorkoutLogs();
     if (res.success && res.data) logs.value = res.data;
+    else if (!res.success) toast.showError('Failed to load workout logs');
 }
 
 onMounted(() => withLoading(loadData));
@@ -219,7 +250,11 @@ onMounted(() => withLoading(loadData));
                 <template #title>Last Workout</template>
                 <template #content>
                     <div class="text-2xl font-bold">
-                        {{ stats.lastWorkout ? formatDate(stats.lastWorkout) : '—' }}
+                        {{
+                            stats.lastWorkout
+                                ? formatDate(stats.lastWorkout)
+                                : '—'
+                        }}
                     </div>
                     <div class="text-surface-500 text-sm">most recent</div>
                 </template>
@@ -303,9 +338,19 @@ onMounted(() => withLoading(loadData));
         >
             <template #empty>
                 <div class="flex flex-col items-center py-10 text-center">
-                    <i class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"></i>
+                    <i
+                        class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"
+                    ></i>
                     <p class="text-surface-500 mb-3">No workout logs yet</p>
-                    <p class="text-surface-400 mb-3 text-sm">Log workouts from the <RouterLink class="text-primary underline" to="/workout-routines">Routines</RouterLink> page</p>
+                    <p class="text-surface-400 mb-3 text-sm">
+                        Log workouts from the
+                        <RouterLink
+                            class="text-primary underline"
+                            to="/workout-routines"
+                            >Routines</RouterLink
+                        >
+                        page
+                    </p>
                 </div>
             </template>
             <AppColumn field="date" header="Date" sortable>
@@ -401,19 +446,61 @@ onMounted(() => withLoading(loadData));
                         <div
                             v-for="set in group.sets"
                             :key="set.id"
-                            class="text-surface-600 dark:text-surface-400 flex items-center gap-3 text-sm"
+                            class="text-surface-600 dark:text-surface-400 flex items-center gap-2 text-sm"
                         >
-                            <span class="text-surface-500 w-12">
+                            <span class="text-surface-500 w-12 shrink-0">
                                 Set {{ set.set_number }}
                             </span>
-                            <span>{{ set.reps }} reps</span>
-                            <span>
-                                {{
-                                    set.weight !== null
-                                        ? `${set.weight} kg`
-                                        : '—'
-                                }}
-                            </span>
+                            <template v-if="editingSetId !== set.id">
+                                <span>{{ set.reps }} reps</span>
+                                <span>
+                                    {{
+                                        set.weight !== null
+                                            ? fmtWeight(set.weight)
+                                            : '—'
+                                    }}
+                                </span>
+                                <button
+                                    class="text-surface-400 hover:text-primary ml-1"
+                                    title="Edit set"
+                                    @click="startEditSet(set)"
+                                >
+                                    <i class="pi pi-pencil text-xs" />
+                                </button>
+                            </template>
+                            <template v-else>
+                                <AppInputNumber
+                                    v-model="editSetReps"
+                                    :max="999"
+                                    :min="1"
+                                    size="small"
+                                    style="width: 5rem"
+                                />
+                                <span class="text-surface-500">reps ×</span>
+                                <AppInputNumber
+                                    v-model="editSetWeight"
+                                    :max="9999"
+                                    :max-fraction-digits="2"
+                                    :min="0"
+                                    size="small"
+                                    style="width: 6rem"
+                                />
+                                <span class="text-surface-500">kg</span>
+                                <button
+                                    class="hover:text-green-600 text-green-500"
+                                    title="Save"
+                                    @click="saveSet(set)"
+                                >
+                                    <i class="pi pi-check text-sm" />
+                                </button>
+                                <button
+                                    class="text-red-400 hover:text-red-600"
+                                    title="Cancel"
+                                    @click="editingSetId = null"
+                                >
+                                    <i class="pi pi-times text-sm" />
+                                </button>
+                            </template>
                         </div>
                     </div>
                 </div>

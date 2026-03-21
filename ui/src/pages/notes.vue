@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { onUnmounted, ref, watch } from 'vue';
 
 import NoteRow from '@/components/NoteRow.vue';
 import { useNoteApi } from '@/composables/api/useNoteApi';
@@ -65,6 +65,10 @@ watch(searchQuery, (q) => {
     }, 300);
 });
 
+onUnmounted(() => {
+    if (searchTimer) clearTimeout(searchTimer);
+});
+
 function selectSearchResult(id: number) {
     selectedNoteId.value = id;
     searchQuery.value = '';
@@ -79,7 +83,7 @@ function noteFirstLine(note: Note): string {
     <div class="flex h-full">
         <!-- Left sidebar -->
         <div
-            class="border-surface-200 dark:border-surface-700 flex shrink-0 flex-col border-r bg-slate-100 dark:bg-slate-800 md:w-64"
+            class="border-surface-200 dark:border-surface-700 flex shrink-0 flex-col border-r bg-slate-100 md:w-64 dark:bg-slate-800"
             :class="sidebarOpen ? 'w-64' : 'hidden md:flex'"
         >
             <div
@@ -192,7 +196,9 @@ function noteFirstLine(note: Note): string {
             modal
             :style="{ width: '24rem', maxWidth: '92vw' }"
         >
-            <p>Are you sure you want to delete this note and all its children?</p>
+            <p>
+                Are you sure you want to delete this note and all its children?
+            </p>
             <div class="mt-4 flex justify-end gap-2">
                 <AppButton
                     label="Cancel"
@@ -210,7 +216,9 @@ function noteFirstLine(note: Note): string {
         <!-- Right panel -->
         <div class="flex min-w-0 flex-1 flex-col">
             <!-- Mobile sidebar toggle -->
-            <div class="border-surface-200 dark:border-surface-700 flex items-center border-b px-3 py-2 md:hidden">
+            <div
+                class="border-surface-200 dark:border-surface-700 flex items-center border-b px-3 py-2 md:hidden"
+            >
                 <AppButton
                     :icon="sidebarOpen ? 'pi pi-times' : 'pi pi-bars'"
                     rounded
@@ -240,7 +248,7 @@ function noteFirstLine(note: Note): string {
 
             <div
                 v-else
-                class="flex flex-1 flex-col overflow-y-auto bg-surface-50 px-7 pt-6 pb-4 dark:bg-surface-900"
+                class="bg-surface-50 dark:bg-surface-900 flex flex-1 flex-col overflow-y-auto px-7 pt-6 pb-4"
             >
                 <!-- Normal: editable title -->
                 <template v-if="!focusedNodeId">

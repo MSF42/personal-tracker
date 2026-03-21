@@ -1,6 +1,7 @@
 import type {
     ExerciseHistoryEntry,
     SetLog,
+    SetLogUpdate,
     WorkoutLog,
     WorkoutLogDetail,
     WorkoutLogUpdate,
@@ -47,6 +48,16 @@ export function useWorkoutLogApi() {
             `workout-logs/exercise/${exerciseId}/history`,
         );
 
+    const updateSet = async (
+        workoutLogId: number,
+        setId: number,
+        data: SetLogUpdate,
+    ) =>
+        api.put<SetLogUpdate, SetLog>(
+            `workout-logs/${workoutLogId}/sets/${setId}`,
+            data,
+        );
+
     const updateWorkoutLog = async (id: number, data: WorkoutLogUpdate) =>
         api.put<WorkoutLogUpdate, WorkoutLog>(`workout-logs/${id}`, data);
 
@@ -66,6 +77,7 @@ export function useWorkoutLogApi() {
         getWorkoutLog,
         createWorkoutLog,
         updateWorkoutLog,
+        updateSet,
         deleteWorkoutLog,
         logSet,
         getExerciseHistory,

@@ -14,12 +14,21 @@ from src.db.database import get_db
 from src.db.migrations import run_migrations
 from src.models.settings import UpdateSettingRequest
 from src.repositories.settings_repository import SQLiteSettingsRepository
+from src.seeder import seed_sample_data
 
 router = APIRouter(prefix="/api/v1/settings", tags=["Settings"])
 
 
 async def get_settings_repository(db=Depends(get_db)):
     return SQLiteSettingsRepository(db)
+
+
+# Literal routes must be registered BEFORE /{key} — otherwise Starlette
+# matches the parameterized path first and returns 405 for POST requests.
+@router.post("/seed")
+async def seed_data(db=Depends(get_db)):
+    await seed_sample_data(db)
+    return {"message": "Sample data generated"}
 
 
 @router.get("/{key}")

@@ -5,7 +5,9 @@ from src.errors import NotFoundError
 from src.models.workout_log import (
     CreateWorkoutLogRequest,
     LogSetRequest,
+    SetHistoryEntry,
     SetLogResponse,
+    UpdateSetRequest,
     UpdateWorkoutLogRequest,
     WorkoutLogResponse,
 )
@@ -33,21 +35,21 @@ async def list_workout_logs(
     return await repo.find_all()
 
 
-@router.get("/exercise-prs")
+@router.get("/exercise-prs", response_model=dict[int, float | None])
 async def get_exercise_prs(
     repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
 ):
     return await repo.get_exercise_prs()
 
 
-@router.get("/exercise-last-performed")
+@router.get("/exercise-last-performed", response_model=dict[int, str | None])
 async def get_exercise_last_performed(
     repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
 ):
     return await repo.get_exercise_last_performed()
 
 
-@router.get("/exercise/{exercise_id}/history")
+@router.get("/exercise/{exercise_id}/history", response_model=list[SetHistoryEntry])
 async def get_exercise_history(
     exercise_id: int,
     repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
@@ -83,6 +85,19 @@ async def log_set(
     return await repo.log_set(
         workout_log_id, data.exercise_id, data.set_number, data.reps, data.weight
     )
+
+
+@router.put("/{workout_log_id}/sets/{set_id}", response_model=SetLogResponse)
+async def update_set(
+    workout_log_id: int,
+    set_id: int,
+    data: UpdateSetRequest,
+    repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
+):
+    result = await repo.update_set(workout_log_id, set_id, data)
+    if result is None:
+        raise NotFoundError("Set not found")
+    return result
 
 
 @router.put("/{workout_log_id}", response_model=WorkoutLogResponse)

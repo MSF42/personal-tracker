@@ -102,6 +102,7 @@ html:not(.dark) {
     --p-surface-600: #3f3f46;
 }
 
+html.dark,
 .dark body {
     color: var(--p-surface-0);
     background-color: var(--p-surface-900);

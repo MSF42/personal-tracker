@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 
 from aiosqlite import Connection
 
+from src.models.workout_log import UpdateSetRequest
+
 
 class SQLiteWorkoutLogRepository:
     def __init__(self, db: Connection):
@@ -107,6 +109,38 @@ class SQLiteWorkoutLogRepository:
             (routine_id,),
         )
         return [dict(row) for row in await cursor.fetchall()]
+
+    async def update_set(
+        self, workout_log_id: int, set_id: int, data: UpdateSetRequest
+    ) -> dict | None:
+        # Verify set exists and belongs to workout_log
+        cursor = await self.db.execute(
+            "SELECT * FROM set_logs WHERE id = ? AND workout_log_id = ?",
+            (set_id, workout_log_id),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        # Update only provided fields
+        update_data = data.model_dump(exclude_none=True)
+        if not update_data:
+            return dict(row)
+        # Build UPDATE query — only "reps" and "weight" are updatable, explicit safe columns
+        allowed = {"reps", "weight"}
+        filtered = {k: v for k, v in update_data.items() if k in allowed}
+        if filtered:
+            set_clause = ", ".join(f"{k} = ?" for k in filtered)
+            values = list(filtered.values()) + [set_id]
+            await self.db.execute(
+                f"UPDATE set_logs SET {set_clause} WHERE id = ?",  # noqa: S608
+                values,
+            )
+            await self.db.commit()
+        cursor = await self.db.execute(
+            "SELECT * FROM set_logs WHERE id = ?", (set_id,)
+        )
+        updated = await cursor.fetchone()
+        return dict(updated) if updated else None
 
     async def delete(self, workout_log_id: int) -> bool:
         cursor = await self.db.execute("DELETE FROM workout_logs WHERE id = ?", (workout_log_id,))

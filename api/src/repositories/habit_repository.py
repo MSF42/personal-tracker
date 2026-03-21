@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from aiosqlite import Connection
 
@@ -111,16 +111,27 @@ class SQLiteHabitRepository:
         await self.db.commit()
         return cursor.rowcount > 0
 
+    async def get_completions_recent(self, days: int = 28) -> dict[int, list[str]]:
+        cutoff = (datetime.now(timezone.utc).date() - timedelta(days=days - 1)).isoformat()
+        cursor = await self.db.execute(
+            "SELECT habit_id, date FROM habit_completions WHERE date >= ? ORDER BY date ASC",
+            (cutoff,),
+        )
+        rows = await cursor.fetchall()
+        result: dict[int, list[str]] = {}
+        for row in rows:
+            hid = row["habit_id"]
+            if hid not in result:
+                result[hid] = []
+            result[hid].append(row["date"])
+        return result
+
     async def toggle_completion(self, habit_id: int, date_str: str) -> HabitResponse | None:
         existing = await self.find_by_id(habit_id)
         if existing is None:
             return None
 
         now = datetime.now(timezone.utc).isoformat()
-        if date_str in (existing.completed_today and [date_str] or []):
-            # Check directly in DB
-            pass
-
         check_cursor = await self.db.execute(
             "SELECT id FROM habit_completions WHERE habit_id = ? AND date = ?",
             (habit_id, date_str),

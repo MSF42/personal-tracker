@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 
 from src.config.settings import get_settings
 from src.db.database import get_db
@@ -30,12 +31,15 @@ async def readiness(db=Depends(get_db)):
             },
         }
     except Exception as e:
-        return {
-            "status": "not_ready",
-            "checks": {
-                "database": f"unhealthy: {str(e)}",
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "checks": {
+                    "database": f"unhealthy: {str(e)}",
+                },
             },
-        }
+        )
 
 
 @router.get("/health/info")

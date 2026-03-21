@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useBackup } from '@/composables/useBackup';
+import { useUnits } from '@/composables/useUnits';
 import { useUserProfile } from '@/composables/useUserProfile';
 
 const route = useRoute();
@@ -27,6 +28,7 @@ function triggerRestoreUpload() {
 }
 
 const { profilePicture, userName, loadProfile } = useUserProfile();
+const { loadUnits } = useUnits();
 
 const theme = ref('dark');
 const themeOptions = ['light', 'dark'];
@@ -35,11 +37,9 @@ const popover = ref();
 const navItems = [
     { label: 'Home', to: '/', icon: 'pi pi-home' },
     { label: 'Tasks', to: '/tasks', icon: 'pi pi-check-square' },
-    { label: 'Habits', to: '/habits', icon: 'pi pi-calendar-check' },
+    { label: 'Habits', to: '/habits', icon: 'pi pi-check-circle' },
     { label: 'Running', to: '/running', icon: 'pi pi-bolt' },
-    { label: 'Exercises', to: '/exercises', icon: 'pi pi-heart' },
-    { label: 'Routines', to: '/workout-routines', icon: 'pi pi-list' },
-    { label: 'Logs', to: '/workout-logs', icon: 'pi pi-history' },
+    { label: 'Strength', to: '/strength', icon: 'pi pi-heart' },
     { label: 'Notes', to: '/notes', icon: 'pi pi-file-edit' },
     { label: 'Measurements', to: '/measurements', icon: 'pi pi-chart-line' },
 ];
@@ -54,7 +54,7 @@ onMounted(async () => {
     } else {
         document.documentElement.classList.add('dark');
     }
-    await loadProfile();
+    await Promise.all([loadProfile(), loadUnits()]);
 });
 
 function toggleMenu(event: Event) {

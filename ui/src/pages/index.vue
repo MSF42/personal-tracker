@@ -9,6 +9,7 @@ import { useToast } from '@/composables/useToast';
 import type { RunningActivity } from '@/types/Running';
 import type { Task, TaskCreate } from '@/types/Task';
 import type { WorkoutLog } from '@/types/WorkoutLog';
+import { formatDate as formatIsoDate } from '@/utils/format';
 
 const { getActivities, createActivity } = useRunningApi();
 const { getTasks, createTask } = useTaskApi();
@@ -33,8 +34,11 @@ onMounted(async () => {
         getWorkoutLogs(),
     ]);
     if (runsRes.success && runsRes.data) runs.value = runsRes.data;
+    else if (!runsRes.success) toast.showError('Failed to load running activities');
     if (tasksRes.success && tasksRes.data) tasks.value = tasksRes.data;
+    else if (!tasksRes.success) toast.showError('Failed to load tasks');
     if (logsRes.success && logsRes.data) workoutLogs.value = logsRes.data;
+    else if (!logsRes.success) toast.showError('Failed to load workout logs');
 });
 
 // --- Summary computations ---
@@ -327,7 +331,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                 <template #content>
                     <template v-if="lastWorkout">
                         <div class="text-2xl font-bold">
-                            {{ lastWorkout.date }}
+                            {{ formatIsoDate(lastWorkout.date) }}
                         </div>
                         <div class="text-surface-500 text-sm">
                             {{ lastWorkout.routineName }}

@@ -245,7 +245,8 @@ MIGRATIONS = [
                    ON measurement_entries (measurement_id, date DESC);
 
                INSERT INTO measurements (name, unit, sort_order, created_at, updated_at)
-               VALUES ('Weight', 'lbs', 0, datetime('now'), datetime('now'));
+               VALUES ('Weight', 'lbs', 0, datetime('now'), datetime('now'))
+               ON CONFLICT(name) DO NOTHING;
                """,
     },
     {
@@ -278,6 +279,14 @@ MIGRATIONS = [
         "version": 21,
         "name": "add_priority_to_tasks",
         "sql": "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
+    },
+    {
+        "version": 22,
+        "name": "add_fk_indices",
+        "sql": """
+               CREATE INDEX IF NOT EXISTS idx_routine_exercises_routine_id ON routine_exercises (routine_id);
+               CREATE INDEX IF NOT EXISTS idx_set_logs_workout_log_id ON set_logs (workout_log_id);
+               """,
     },
 ]
 

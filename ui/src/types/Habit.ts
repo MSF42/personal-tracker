@@ -16,7 +16,7 @@ export interface Habit {
 export interface HabitCreate {
     name: string;
     description?: string | null;
-    frequency?: string;
+    frequency?: 'daily' | 'weekdays' | 'weekly';
     frequency_days?: number[] | null;
     color?: string;
 }
@@ -24,7 +24,7 @@ export interface HabitCreate {
 export interface HabitUpdate {
     name?: string | null;
     description?: string | null;
-    frequency?: string | null;
+    frequency?: 'daily' | 'weekdays' | 'weekly' | null;
     frequency_days?: number[] | null;
     color?: string | null;
     archived?: boolean | null;

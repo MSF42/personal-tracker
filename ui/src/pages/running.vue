@@ -17,6 +17,7 @@ import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
+import { useUnits } from '@/composables/useUnits';
 import type { GpxSegment, RunningActivity } from '@/types/Running';
 import { formatDate } from '@/utils/format';
 
@@ -43,6 +44,7 @@ const {
 const { getSetting, setSetting } = useSettingsApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
+const { distanceUnit, fmtDistance, fmtPace, toKm, fromKm } = useUnits();
 
 const activities = ref<RunningActivity[]>([]);
 
@@ -74,6 +76,24 @@ const hasActiveFilters = computed(() =>
     ),
 );
 
+const filterWarning = computed(() => {
+    if (
+        filters.distanceMin !== null &&
+        filters.distanceMax !== null &&
+        filters.distanceMin > filters.distanceMax
+    ) {
+        return 'Min distance is greater than max — no results will match.';
+    }
+    if (
+        filters.durationMin !== null &&
+        filters.durationMax !== null &&
+        filters.durationMin > filters.durationMax
+    ) {
+        return 'Min duration is greater than max — no results will match.';
+    }
+    return null;
+});
+
 function clearFilters() {
     filters.dateFrom = '';
     filters.dateTo = '';
@@ -86,13 +106,28 @@ function clearFilters() {
 }
 
 const filteredActivities = computed(() => {
+    // Convert filter inputs from display unit to stored units for comparison
+    const distMinKm =
+        filters.distanceMin !== null ? toKm(filters.distanceMin) : null;
+    const distMaxKm =
+        filters.distanceMax !== null ? toKm(filters.distanceMax) : null;
+    const paceMinKm =
+        filters.paceMin !== null
+            ? distanceUnit.value === 'mi'
+                ? filters.paceMin / 1.60934
+                : filters.paceMin
+            : null;
+    const paceMaxKm =
+        filters.paceMax !== null
+            ? distanceUnit.value === 'mi'
+                ? filters.paceMax / 1.60934
+                : filters.paceMax
+            : null;
     return activities.value.filter((r) => {
         if (filters.dateFrom && r.date < filters.dateFrom) return false;
         if (filters.dateTo && r.date > filters.dateTo) return false;
-        if (filters.distanceMin !== null && r.distance_km < filters.distanceMin)
-            return false;
-        if (filters.distanceMax !== null && r.distance_km > filters.distanceMax)
-            return false;
+        if (distMinKm !== null && r.distance_km < distMinKm) return false;
+        if (distMaxKm !== null && r.distance_km > distMaxKm) return false;
         const durationMin = filters.durationMin
             ? filters.durationMin * 60
             : null;
@@ -103,8 +138,8 @@ const filteredActivities = computed(() => {
             return false;
         if (durationMax !== null && r.duration_seconds > durationMax)
             return false;
-        if (filters.paceMin !== null && r.pace < filters.paceMin) return false;
-        if (filters.paceMax !== null && r.pace > filters.paceMax) return false;
+        if (paceMinKm !== null && r.pace < paceMinKm) return false;
+        if (paceMaxKm !== null && r.pace > paceMaxKm) return false;
         return true;
     });
 });
@@ -116,6 +151,7 @@ const showDialog = ref(false);
 const editingId = ref<number | null>(null);
 const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
+const formError = ref('');
 
 const form = reactive({
     date: today.toISOString().split('T')[0] as string,
@@ -134,6 +170,7 @@ function resetForm() {
     form.distance_km = 0;
     form.notes = '';
     editingId.value = null;
+    formError.value = '';
 }
 
 function openAddDialog() {
@@ -147,38 +184,51 @@ function openEditDialog(run: RunningActivity) {
     form.title = run.title ?? '';
     form.minutes = Math.floor(run.duration_seconds / 60);
     form.seconds = run.duration_seconds % 60;
-    form.distance_km = run.distance_km;
+    form.distance_km = parseFloat(fromKm(run.distance_km).toFixed(2));
     form.notes = run.notes ?? '';
+    formError.value = '';
     showDialog.value = true;
 }
 
 async function saveRun() {
+    formError.value = '';
+    if (!form.date.trim()) {
+        formError.value = 'Date is required';
+        return;
+    }
     const durationSeconds = form.minutes * 60 + form.seconds;
+    const distance_km = toKm(form.distance_km);
     if (editingId.value) {
         const res = await updateActivity(editingId.value, {
             date: form.date,
             duration_seconds: durationSeconds,
-            distance_km: form.distance_km,
+            distance_km,
             notes: form.notes || null,
             title: form.title || null,
         });
         if (res.success) {
             toast.showSuccess('Run updated');
+            showDialog.value = false;
+            await loadData();
+        } else {
+            formError.value = res.error?.message ?? 'Failed to save run';
         }
     } else {
         const res = await createActivity({
             date: form.date,
             duration_seconds: durationSeconds,
-            distance_km: form.distance_km,
+            distance_km,
             notes: form.notes || null,
             title: form.title || null,
         });
         if (res.success) {
             toast.showSuccess('Run added');
+            showDialog.value = false;
+            await loadData();
+        } else {
+            formError.value = res.error?.message ?? 'Failed to save run';
         }
     }
-    showDialog.value = false;
-    await loadData();
 }
 
 function confirmDelete(id: number) {
@@ -255,24 +305,27 @@ const goalFormValue = ref<number>(0);
 
 const weeklyGoalProgress = computed(() => {
     if (!weeklyGoalKm.value || weeklyGoalKm.value <= 0) return null;
-    const current = parseFloat(weekStats.value.distance);
+    const current = weekStats.value.distance;
     const pct = Math.min((current / weeklyGoalKm.value) * 100, 100);
     return {
         percentage: Math.round(pct),
-        current,
-        goal: weeklyGoalKm.value,
+        currentKm: current,
+        goalKm: weeklyGoalKm.value,
     };
 });
 
 function openGoalDialog() {
-    goalFormValue.value = weeklyGoalKm.value ?? 0;
+    goalFormValue.value = parseFloat(
+        fromKm(weeklyGoalKm.value ?? 0).toFixed(1),
+    );
     showGoalDialog.value = true;
 }
 
 async function saveGoal() {
     if (goalFormValue.value > 0) {
-        await setSetting('running_weekly_goal_km', String(goalFormValue.value));
-        weeklyGoalKm.value = goalFormValue.value;
+        const goalKm = toKm(goalFormValue.value);
+        await setSetting('running_weekly_goal_km', String(goalKm));
+        weeklyGoalKm.value = goalKm;
     } else {
         await setSetting('running_weekly_goal_km', '0');
         weeklyGoalKm.value = null;
@@ -284,6 +337,7 @@ async function saveGoal() {
 async function loadData() {
     const runsRes = await getActivities();
     if (runsRes.success && runsRes.data) activities.value = runsRes.data;
+    else if (!runsRes.success) toast.showError('Failed to load running activities');
 }
 
 async function loadGoal() {
@@ -316,7 +370,7 @@ const weekStats = computed(() => {
         (r) => r.date >= monStr && r.date <= sunStr,
     );
     return {
-        distance: weekRuns.reduce((s, r) => s + r.distance_km, 0).toFixed(1),
+        distance: weekRuns.reduce((s, r) => s + r.distance_km, 0),
         count: weekRuns.length,
     };
 });
@@ -327,7 +381,7 @@ const monthStats = computed(() => {
         r.date.startsWith(prefix),
     );
     return {
-        distance: monthRuns.reduce((s, r) => s + r.distance_km, 0).toFixed(1),
+        distance: monthRuns.reduce((s, r) => s + r.distance_km, 0),
         count: monthRuns.length,
     };
 });
@@ -338,7 +392,7 @@ const yearStats = computed(() => {
         r.date.startsWith(yearPrefix),
     );
     return {
-        distance: yearRuns.reduce((s, r) => s + r.distance_km, 0).toFixed(1),
+        distance: yearRuns.reduce((s, r) => s + r.distance_km, 0),
         count: yearRuns.length,
     };
 });
@@ -346,15 +400,13 @@ const yearStats = computed(() => {
 const allTimeBests = computed(() => {
     const runs = activities.value;
     if (runs.length === 0) {
-        return { longest: null, totalDistance: '0.0' };
+        return { longest: null, totalDistanceKm: 0 };
     }
     const longest = runs.reduce((best, r) =>
         r.distance_km > best.distance_km ? r : best,
     );
-    const totalDistance = runs
-        .reduce((s, r) => s + r.distance_km, 0)
-        .toFixed(1);
-    return { longest, totalDistance };
+    const totalDistanceKm = runs.reduce((s, r) => s + r.distance_km, 0);
+    return { longest, totalDistanceKm };
 });
 
 // --- Distance-Bracket Personal Bests ---
@@ -393,12 +445,13 @@ const chartData = computed(() => {
     const sorted = [...filteredActivities.value]
         .filter((r) => r.pace > 0)
         .sort((a, b) => a.date.localeCompare(b.date));
+    const paceMultiplier = distanceUnit.value === 'mi' ? 1.60934 : 1;
     return {
         labels: sorted.map((r) => formatDate(r.date)),
         datasets: [
             {
-                label: 'Pace (min/km)',
-                data: sorted.map((r) => r.pace),
+                label: `Pace (min/${distanceUnit.value})`,
+                data: sorted.map((r) => r.pace * paceMultiplier),
                 borderColor: '#6366f1',
                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
                 fill: true,
@@ -408,17 +461,17 @@ const chartData = computed(() => {
     };
 });
 
-const chartOptions = {
+const chartOptions = computed(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
         y: {
             reverse: true,
-            title: { display: true, text: 'Pace (min/km)' },
+            title: { display: true, text: `Pace (min/${distanceUnit.value})` },
         },
     },
-};
+}));
 
 // --- Formatting helpers ---
 function formatDuration(seconds: number): string {
@@ -430,13 +483,6 @@ function formatDuration(seconds: number): string {
     }
     return `${m}:${String(s).padStart(2, '0')}`;
 }
-
-function formatPace(pace: number): string {
-    const mins = Math.floor(pace);
-    const secs = Math.round((pace - mins) * 60);
-    return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
 
 const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
 </script>
@@ -463,7 +509,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 </template>
                 <template #content>
                     <div class="text-2xl font-bold">
-                        {{ weekStats.distance }} km
+                        {{ fmtDistance(weekStats.distance) }}
                     </div>
                     <div class="text-surface-500 text-sm">
                         {{ weekStats.count }}
@@ -471,8 +517,8 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                     </div>
                     <div v-if="weeklyGoalProgress" class="mt-2">
                         <div class="text-surface-500 mb-1 text-xs">
-                            {{ weeklyGoalProgress.current.toFixed(1) }} /
-                            {{ weeklyGoalProgress.goal }} km
+                            {{ fmtDistance(weeklyGoalProgress.currentKm) }} /
+                            {{ fmtDistance(weeklyGoalProgress.goalKm) }}
                         </div>
                         <div
                             class="bg-surface-200 dark:bg-surface-700 h-2 w-full overflow-hidden rounded-full"
@@ -497,7 +543,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 <template #title>This Month</template>
                 <template #content>
                     <div class="text-2xl font-bold">
-                        {{ monthStats.distance }} km
+                        {{ fmtDistance(monthStats.distance) }}
                     </div>
                     <div class="text-surface-500 text-sm">
                         {{ monthStats.count }}
@@ -510,7 +556,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 <template #title>This Year</template>
                 <template #content>
                     <div class="text-2xl font-bold">
-                        {{ yearStats.distance }} km
+                        {{ fmtDistance(yearStats.distance) }}
                     </div>
                     <div class="text-surface-500 text-sm">
                         {{ yearStats.count }}
@@ -530,7 +576,9 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                             <span class="font-semibold">
                                 {{
                                     allTimeBests.longest
-                                        ? `${allTimeBests.longest.distance_km} km`
+                                        ? fmtDistance(
+                                              allTimeBests.longest.distance_km,
+                                          )
                                         : '—'
                                 }}
                             </span>
@@ -540,7 +588,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                                 Total:
                             </span>
                             <span class="font-semibold">
-                                {{ allTimeBests.totalDistance }} km
+                                {{ fmtDistance(allTimeBests.totalDistanceKm) }}
                             </span>
                         </div>
                     </div>
@@ -561,13 +609,10 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                         {{ pb.label }}
                     </div>
                     <div class="text-xl font-bold">
-                        {{ formatPace(pb.run.pace) }}
-                        <span class="text-surface-400 text-sm font-normal">
-                            /km
-                        </span>
+                        {{ fmtPace(pb.run.pace) }}
                     </div>
                     <div class="text-surface-400 mt-1 text-xs">
-                        {{ pb.run.distance_km }} km &middot;
+                        {{ fmtDistance(pb.run.distance_km) }} &middot;
                         {{ formatDate(pb.run.date) }}
                     </div>
                 </div>
@@ -650,7 +695,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 <!-- Distance Range -->
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Min Distance (km)
+                        Min Distance ({{ distanceUnit }})
                     </label>
                     <AppInputNumber
                         v-model="filters.distanceMin"
@@ -664,7 +709,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Max Distance (km)
+                        Max Distance ({{ distanceUnit }})
                     </label>
                     <AppInputNumber
                         v-model="filters.distanceMax"
@@ -705,10 +750,10 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                     />
                 </div>
 
-                <!-- Pace Range (min/km) -->
+                <!-- Pace Range -->
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Min Pace (min/km)
+                        Min Pace (min/{{ distanceUnit }})
                     </label>
                     <AppInputNumber
                         v-model="filters.paceMin"
@@ -722,7 +767,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Max Pace (min/km)
+                        Max Pace (min/{{ distanceUnit }})
                     </label>
                     <AppInputNumber
                         v-model="filters.paceMax"
@@ -750,6 +795,13 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                     @click="clearFilters"
                 />
             </div>
+            <p
+                v-if="filterWarning"
+                class="mt-2 text-sm text-amber-600 dark:text-amber-400"
+            >
+                <i class="pi pi-exclamation-triangle mr-1"></i
+                >{{ filterWarning }}
+            </p>
         </div>
 
         <!-- Data Table -->
@@ -762,9 +814,16 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
         >
             <template #empty>
                 <div class="flex flex-col items-center py-10 text-center">
-                    <i class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"></i>
+                    <i
+                        class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"
+                    ></i>
                     <p class="text-surface-500 mb-3">No runs logged yet</p>
-                    <AppButton icon="pi pi-plus" label="Log your first run" size="small" @click="openAddDialog" />
+                    <AppButton
+                        icon="pi pi-plus"
+                        label="Log your first run"
+                        size="small"
+                        @click="openAddDialog"
+                    />
                 </div>
             </template>
             <AppColumn field="date" header="Date" sortable>
@@ -782,7 +841,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
             </AppColumn>
             <AppColumn field="distance_km" header="Distance" sortable>
                 <template #body="{ data }">
-                    {{ (data as RunningActivity).distance_km }} km
+                    {{ fmtDistance((data as RunningActivity).distance_km) }}
                 </template>
             </AppColumn>
             <AppColumn field="duration_seconds" header="Duration" sortable>
@@ -796,7 +855,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
             </AppColumn>
             <AppColumn field="pace_formatted" header="Pace">
                 <template #body="{ data }">
-                    {{ (data as RunningActivity).pace_formatted }} /km
+                    {{ fmtPace((data as RunningActivity).pace) }}
                 </template>
             </AppColumn>
             <AppColumn field="notes" header="Notes" />
@@ -845,6 +904,9 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                         class="w-full"
                         type="date"
                     />
+                    <p v-if="formError" class="mt-1 text-sm text-red-500">
+                        {{ formError }}
+                    </p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
@@ -858,7 +920,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Distance (km)
+                        Distance ({{ distanceUnit }})
                     </label>
                     <AppInputNumber
                         v-model="form.distance_km"
@@ -866,7 +928,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                         :max-fraction-digits="2"
                         :min-fraction-digits="1"
                         :step="0.1"
-                        suffix=" km"
+                        :suffix="' ' + distanceUnit"
                     />
                 </div>
                 <div>
@@ -938,15 +1000,15 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
             <div class="flex flex-col gap-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Goal (km per week)
+                        Goal ({{ distanceUnit }} per week)
                     </label>
                     <AppInputNumber
                         v-model="goalFormValue"
                         class="w-full"
                         :max-fraction-digits="1"
                         :min="0"
-                        :step="5"
-                        suffix=" km"
+                        :step="distanceUnit === 'mi' ? 3 : 5"
+                        :suffix="' ' + distanceUnit"
                     />
                 </div>
                 <div class="flex justify-end gap-2">
@@ -971,7 +1033,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 <AppColumn field="segment_name" header="Segment" />
                 <AppColumn header="Distance">
                     <template #body="{ data }">
-                        {{ (data as GpxSegment).distance_km.toFixed(2) }} km
+                        {{ fmtDistance((data as GpxSegment).distance_km) }}
                     </template>
                 </AppColumn>
                 <AppColumn header="Duration">
@@ -985,7 +1047,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 </AppColumn>
                 <AppColumn header="Pace">
                     <template #body="{ data }">
-                        {{ (data as GpxSegment).pace_formatted }} /km
+                        {{ fmtPace((data as GpxSegment).pace) }}
                     </template>
                 </AppColumn>
             </AppDataTable>

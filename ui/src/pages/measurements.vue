@@ -53,14 +53,21 @@ const selectedMeasurement = computed(() =>
 // --- Add Measurement Dialog ---
 const showAddMeasurement = ref(false);
 const measurementForm = reactive({ name: '', unit: '' });
+const addMeasurementError = ref('');
 
 function openAddMeasurement() {
     measurementForm.name = '';
     measurementForm.unit = '';
+    addMeasurementError.value = '';
     showAddMeasurement.value = true;
 }
 
 async function saveMeasurement() {
+    addMeasurementError.value = '';
+    if (!measurementForm.name.trim()) {
+        addMeasurementError.value = 'Name is required';
+        return;
+    }
     const res = await createMeasurement({
         name: measurementForm.name,
         unit: measurementForm.unit,
@@ -70,22 +77,31 @@ async function saveMeasurement() {
         showAddMeasurement.value = false;
         await loadMeasurements();
         await selectMeasurement(res.data.id);
+    } else if (!res.success) {
+        addMeasurementError.value = res.error?.message ?? 'Something went wrong';
     }
 }
 
 // --- Edit Measurement Dialog ---
 const showEditMeasurement = ref(false);
 const editMeasurementForm = reactive({ name: '', unit: '' });
+const editMeasurementError = ref('');
 
 function openEditMeasurement() {
     if (!selectedMeasurement.value) return;
     editMeasurementForm.name = selectedMeasurement.value.name;
     editMeasurementForm.unit = selectedMeasurement.value.unit;
+    editMeasurementError.value = '';
     showEditMeasurement.value = true;
 }
 
 async function saveEditMeasurement() {
     if (!selectedId.value) return;
+    editMeasurementError.value = '';
+    if (!editMeasurementForm.name.trim()) {
+        editMeasurementError.value = 'Name is required';
+        return;
+    }
     const res = await updateMeasurement(selectedId.value, {
         name: editMeasurementForm.name,
         unit: editMeasurementForm.unit,
@@ -94,6 +110,8 @@ async function saveEditMeasurement() {
         toast.showSuccess('Measurement updated');
         showEditMeasurement.value = false;
         await loadMeasurements();
+    } else {
+        editMeasurementError.value = res.error?.message ?? 'Something went wrong';
     }
 }
 
@@ -125,12 +143,14 @@ const entryForm = reactive({
     value: 0,
     notes: '',
 });
+const entryFormError = ref('');
 
 function openAddEntry() {
     editingEntryId.value = null;
     entryForm.date = today;
     entryForm.value = 0;
     entryForm.notes = '';
+    entryFormError.value = '';
     showEntryDialog.value = true;
 }
 
@@ -139,11 +159,13 @@ function openEditEntry(entry: MeasurementEntry) {
     entryForm.date = entry.date;
     entryForm.value = entry.value;
     entryForm.notes = entry.notes ?? '';
+    entryFormError.value = '';
     showEntryDialog.value = true;
 }
 
 async function saveEntry() {
     if (!selectedId.value) return;
+    entryFormError.value = '';
     if (editingEntryId.value) {
         const res = await updateEntry(editingEntryId.value, {
             date: entryForm.date,
@@ -152,6 +174,10 @@ async function saveEntry() {
         });
         if (res.success) {
             toast.showSuccess('Entry updated');
+            showEntryDialog.value = false;
+            await loadEntries();
+        } else {
+            entryFormError.value = res.error?.message ?? 'Something went wrong';
         }
     } else {
         const res = await createEntry(selectedId.value, {
@@ -161,10 +187,12 @@ async function saveEntry() {
         });
         if (res.success) {
             toast.showSuccess('Entry added');
+            showEntryDialog.value = false;
+            await loadEntries();
+        } else {
+            entryFormError.value = res.error?.message ?? 'Something went wrong';
         }
     }
-    showEntryDialog.value = false;
-    await loadEntries();
 }
 
 // --- Delete Entry ---
@@ -227,6 +255,8 @@ async function loadMeasurements() {
     const res = await getMeasurements();
     if (res.success && res.data) {
         measurements.value = res.data;
+    } else if (!res.success) {
+        toast.showError('Failed to load measurements');
     }
 }
 
@@ -253,7 +283,6 @@ onMounted(async () => {
         await selectMeasurement(measurements.value[0]!.id);
     }
 });
-
 
 const entryDialogHeader = computed(() =>
     editingEntryId.value ? 'Edit Entry' : 'Add Entry',
@@ -400,6 +429,12 @@ const entryDialogHeader = computed(() =>
                         class="w-full"
                         placeholder="e.g. Waist"
                     />
+                    <p
+                        v-if="addMeasurementError"
+                        class="mt-1 text-sm text-red-500"
+                    >
+                        {{ addMeasurementError }}
+                    </p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium"> Unit </label>
@@ -415,11 +450,7 @@ const entryDialogHeader = computed(() =>
                         text
                         @click="showAddMeasurement = false"
                     />
-                    <AppButton
-                        :disabled="!measurementForm.name.trim()"
-                        label="Save"
-                        @click="saveMeasurement"
-                    />
+                    <AppButton label="Save" @click="saveMeasurement" />
                 </div>
             </div>
         </AppDialog>
@@ -438,6 +469,12 @@ const entryDialogHeader = computed(() =>
                         v-model="editMeasurementForm.name"
                         class="w-full"
                     />
+                    <p
+                        v-if="editMeasurementError"
+                        class="mt-1 text-sm text-red-500"
+                    >
+                        {{ editMeasurementError }}
+                    </p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium"> Unit </label>
@@ -452,11 +489,7 @@ const entryDialogHeader = computed(() =>
                         text
                         @click="showEditMeasurement = false"
                     />
-                    <AppButton
-                        :disabled="!editMeasurementForm.name.trim()"
-                        label="Save"
-                        @click="saveEditMeasurement"
-                    />
+                    <AppButton label="Save" @click="saveEditMeasurement" />
                 </div>
             </div>
         </AppDialog>
@@ -504,6 +537,12 @@ const entryDialogHeader = computed(() =>
                         rows="2"
                     />
                 </div>
+                <p
+                    v-if="entryFormError"
+                    class="text-sm text-red-500"
+                >
+                    {{ entryFormError }}
+                </p>
                 <div class="flex justify-end gap-2">
                     <AppButton
                         label="Cancel"

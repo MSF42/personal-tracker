@@ -19,6 +19,11 @@ class UpdateWorkoutLogRequest(BaseModel):
     notes: str | None = None
 
 
+class UpdateSetRequest(BaseModel):
+    reps: int | None = None
+    weight: float | None = None
+
+
 class SetLogResponse(BaseModel):
     id: int | None = None
     workout_log_id: int
@@ -27,6 +32,15 @@ class SetLogResponse(BaseModel):
     reps: int | None = None
     weight: float | None = None
     created_at: str | None = None
+
+
+class SetHistoryEntry(BaseModel):
+    set_number: int
+    reps: int | None = None
+    weight: float | None = None
+    workout_log_id: int
+    date: str
+    routine_name: str | None = None
 
 
 class WorkoutLogResponse(BaseModel):

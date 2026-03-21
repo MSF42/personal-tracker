@@ -24,6 +24,12 @@ export function useSettingsApi() {
             {},
         );
 
+    const seedSampleData = async () =>
+        api.post<Record<string, never>, { message: string }>(
+            'settings/seed',
+            {},
+        );
+
     const backup = async (): Promise<void> => {
         const response = await fetch(
             `${window.location.origin}/api/v1/settings/backup`,
@@ -65,6 +71,7 @@ export function useSettingsApi() {
         setSetting,
         deleteSetting,
         resetAllData,
+        seedSampleData,
         backup,
         restore,
     };

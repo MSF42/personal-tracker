@@ -33,6 +33,14 @@ async def create_habit(
     return await repo.create(data)
 
 
+@router.get("/completions", response_model=dict[int, list[str]])
+async def get_habit_completions(
+    days: int = 28,
+    repo: SQLiteHabitRepository = Depends(get_habit_repository),
+):
+    return await repo.get_completions_recent(days)
+
+
 @router.get("/{habit_id}", response_model=HabitResponse)
 async def get_habit(
     habit_id: int,

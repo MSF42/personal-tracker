@@ -2,6 +2,7 @@ import type { ApiResponse } from '@/types/ApiResponse';
 import type {
     ExerciseHistoryEntry,
     SetLog,
+    SetLogUpdate,
     WorkoutLog,
     WorkoutLogDetail,
     WorkoutLogUpdate,
@@ -107,6 +108,41 @@ export function useWorkoutLogApi() {
             [exerciseId],
         );
 
+    const updateSet = async (
+        workoutLogId: number,
+        setId: number,
+        data: SetLogUpdate,
+    ): Promise<ApiResponse<SetLog>> => {
+        const fields: string[] = [];
+        const values: unknown[] = [];
+
+        if (data.reps !== undefined && data.reps !== null) {
+            fields.push('reps = ?');
+            values.push(data.reps);
+        }
+        if (data.weight !== undefined) {
+            fields.push('weight = ?');
+            values.push(data.weight);
+        }
+
+        if (fields.length > 0) {
+            values.push(setId);
+            const result = await execute(
+                `UPDATE set_logs SET ${fields.join(', ')} WHERE id = ? AND workout_log_id = ${workoutLogId}`,
+                values,
+            );
+            if (!result.success) return { data: null, error: result.error, success: false };
+        }
+
+        return queryOne<SetLog>(
+            `SELECT sl.*, e.name as exercise_name
+             FROM set_logs sl
+             JOIN exercises e ON sl.exercise_id = e.id
+             WHERE sl.id = ?`,
+            [setId],
+        );
+    };
+
     const updateWorkoutLog = async (id: number, data: WorkoutLogUpdate) => {
         const fields: string[] = [];
         const values: unknown[] = [];
@@ -172,6 +208,7 @@ export function useWorkoutLogApi() {
         getWorkoutLog,
         createWorkoutLog,
         updateWorkoutLog,
+        updateSet,
         deleteWorkoutLog,
         logSet,
         getExerciseHistory,

@@ -54,6 +54,7 @@ const showDialog = ref(false);
 const editingId = ref<number | null>(null);
 const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
+const formError = ref('');
 
 const form = reactive({
     title: '',
@@ -76,6 +77,7 @@ function resetForm() {
     form.repeat_days = [];
     form.priority = 'medium';
     editingId.value = null;
+    formError.value = '';
 }
 
 function openAddDialog() {
@@ -97,6 +99,11 @@ function openEditDialog(task: Task) {
 }
 
 async function saveTask() {
+    if (!form.title.trim()) {
+        formError.value = 'Title is required';
+        return;
+    }
+    formError.value = '';
     if (editingId.value) {
         const payload: TaskUpdate = {
             title: form.title,
@@ -114,6 +121,10 @@ async function saveTask() {
         const res = await updateTask(editingId.value, payload);
         if (res.success) {
             toast.showSuccess('Task updated');
+            showDialog.value = false;
+            await loadData();
+        } else {
+            toast.showError(res.error ?? 'Failed to save task');
         }
     } else {
         const payload: TaskCreate = {
@@ -132,10 +143,12 @@ async function saveTask() {
         const res = await createTask(payload);
         if (res.success) {
             toast.showSuccess('Task added');
+            showDialog.value = false;
+            await loadData();
+        } else {
+            toast.showError(res.error ?? 'Failed to save task');
         }
     }
-    showDialog.value = false;
-    await loadData();
 }
 
 async function toggleCompleted(task: Task) {
@@ -166,6 +179,7 @@ async function executeDelete() {
 async function loadData() {
     const res = await getTasks();
     if (res.success && res.data) tasks.value = res.data;
+    else if (!res.success) toast.showError('Failed to load tasks');
 }
 
 onMounted(() => {
@@ -327,7 +341,10 @@ const dialogHeader = computed(() =>
         <!-- Data Table -->
         <AppDataTable
             :loading="loading"
-            :row-class="(data: Task) => isOverdue(data) ? 'bg-red-50 dark:!bg-red-950/20' : ''"
+            :row-class="
+                (data: Task) =>
+                    isOverdue(data) ? 'bg-red-50 dark:!bg-red-950/20' : ''
+            "
             sort-field="due_date"
             :sort-order="1"
             striped-rows
@@ -335,9 +352,16 @@ const dialogHeader = computed(() =>
         >
             <template #empty>
                 <div class="flex flex-col items-center py-10 text-center">
-                    <i class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"></i>
+                    <i
+                        class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"
+                    ></i>
                     <p class="text-surface-500 mb-3">No tasks found</p>
-                    <AppButton icon="pi pi-plus" label="Add your first task" size="small" @click="openAddDialog" />
+                    <AppButton
+                        icon="pi pi-plus"
+                        label="Add your first task"
+                        size="small"
+                        @click="openAddDialog"
+                    />
                 </div>
             </template>
             <AppColumn header="Done" style="width: 4rem">
@@ -434,6 +458,9 @@ const dialogHeader = computed(() =>
                         Title
                     </label>
                     <AppInputText v-model="form.title" class="w-full" />
+                    <p v-if="formError" class="mt-1 text-sm text-red-500">
+                        {{ formError }}
+                    </p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
