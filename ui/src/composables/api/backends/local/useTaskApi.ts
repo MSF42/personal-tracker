@@ -20,6 +20,7 @@ interface TaskRow {
     repeat_type: string | null;
     repeat_interval: number | null;
     repeat_days: string | null;
+    priority: 'high' | 'medium' | 'low';
     created_at: string;
     updated_at: string;
 }
@@ -29,6 +30,7 @@ function rowToTask(row: TaskRow): Task {
         ...row,
         completed: intToBool(row.completed),
         repeat_days: repeatDaysFromString(row.repeat_days),
+        priority: row.priority ?? 'medium',
     };
 }
 
@@ -162,6 +164,7 @@ export function useTaskApi() {
             repeat_type: task.repeat_type ?? null,
             repeat_interval: task.repeat_interval ?? null,
             repeat_days: repeatDaysVal,
+            priority: task.priority ?? 'medium',
             created_at: now,
             updated_at: now,
         };

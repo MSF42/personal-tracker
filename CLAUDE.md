@@ -17,7 +17,7 @@ Personal Tracker — a FastAPI backend with a Vue 3 frontend for tracking tasks,
 ```bash
 # Run the dev server
 python src/main.py
-# or: uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
+# or: uvicorn src.main:app --reload --host 127.0.0.1 --port 8742
 
 # Lint and format
 ruff check .
@@ -40,7 +40,7 @@ pyinstaller personal-tracker-api.spec
 ### UI (run from `ui/` directory)
 
 ```bash
-# Run the dev server (port 3099, proxies /api to localhost:8000)
+# Run the dev server (port 3099, proxies /api to localhost:8742)
 npm run dev
 
 # Format, lint, and type-check

@@ -16,6 +16,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useMeasurementApi } from '@/composables/api/useMeasurementApi';
 import { useToast } from '@/composables/useToast';
 import type { Measurement, MeasurementEntry } from '@/types/Measurement';
+import { formatDate } from '@/utils/format';
 
 Chart.register(
     CategoryScale,
@@ -253,26 +254,6 @@ onMounted(async () => {
     }
 });
 
-// --- Helpers ---
-const monthAbbrs = [
-    'JAN',
-    'FEB',
-    'MAR',
-    'APR',
-    'MAY',
-    'JUN',
-    'JUL',
-    'AUG',
-    'SEP',
-    'OCT',
-    'NOV',
-    'DEC',
-];
-
-function formatDate(isoDate: string): string {
-    const [year, month, day] = isoDate.split('-');
-    return `${year}-${monthAbbrs[parseInt(month!, 10) - 1]}-${day}`;
-}
 
 const entryDialogHeader = computed(() =>
     editingEntryId.value ? 'Edit Entry' : 'Add Entry',
@@ -409,7 +390,7 @@ const entryDialogHeader = computed(() =>
             v-model:visible="showAddMeasurement"
             header="Add Measurement"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>
@@ -448,7 +429,7 @@ const entryDialogHeader = computed(() =>
             v-model:visible="showEditMeasurement"
             header="Edit Measurement"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>
@@ -485,7 +466,7 @@ const entryDialogHeader = computed(() =>
             v-model:visible="showEntryDialog"
             :header="entryDialogHeader"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>
@@ -539,7 +520,7 @@ const entryDialogHeader = computed(() =>
             v-model:visible="showDeleteMeasurement"
             header="Delete Measurement"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <p>
                 Delete
@@ -565,7 +546,7 @@ const entryDialogHeader = computed(() =>
             v-model:visible="showDeleteEntry"
             header="Delete Entry"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <p>Are you sure you want to delete this entry?</p>
             <div class="mt-4 flex justify-end gap-2">

@@ -97,6 +97,15 @@ class SQLiteNoteRepository:
         await self.db.commit()
         return await self.find_by_id(note_id)
 
+    async def search(self, query: str, limit: int = 50) -> list[NoteResponse]:
+        pattern = f"%{query}%"
+        cursor = await self.db.execute(
+            "SELECT * FROM notes WHERE content LIKE ? ORDER BY updated_at DESC LIMIT ?",
+            (pattern, limit),
+        )
+        rows = await cursor.fetchall()
+        return [note_from_db(NoteInDB(**dict(row))) for row in rows]
+
     async def delete(self, note_id: int) -> bool:
         cursor = await self.db.execute("DELETE FROM notes WHERE id = ?", (note_id,))
         await self.db.commit()

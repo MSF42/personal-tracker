@@ -10,6 +10,12 @@ class RepeatType(str, Enum):
     monthly = "monthly"
 
 
+class Priority(str, Enum):
+    high = "high"
+    medium = "medium"
+    low = "low"
+
+
 # What the database will store
 class TaskInDB(BaseModel):
     id: int
@@ -21,6 +27,7 @@ class TaskInDB(BaseModel):
     repeat_type: str | None
     repeat_interval: int | None
     repeat_days: str | None = None
+    priority: str = "medium"
     created_at: str
     updated_at: str
 
@@ -36,6 +43,7 @@ class TaskResponse(BaseModel):
     repeat_type: str | None = None
     repeat_interval: int | None = None
     repeat_days: list[int] | None = None
+    priority: str = "medium"
     created_at: str
     updated_at: str
 
@@ -59,6 +67,7 @@ class CreateTaskRequest(BaseModel):
     repeat_type: RepeatType | None = None
     repeat_interval: int | None = Field(default=None, ge=1)
     repeat_days: list[int] | None = None
+    priority: Priority = Priority.medium
 
     @field_validator("repeat_days")
     @classmethod
@@ -76,6 +85,7 @@ class UpdateTaskRequest(BaseModel):
     repeat_type: RepeatType | None = None
     repeat_interval: int | None = Field(default=None, ge=1)
     repeat_days: list[int] | None = None
+    priority: Priority | None = None
 
     @field_validator("repeat_days")
     @classmethod

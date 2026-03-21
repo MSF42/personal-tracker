@@ -517,7 +517,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
             v-model:visible="showAddTask"
             header="Add Task"
             modal
-            :style="{ width: '28rem' }"
+            :style="{ width: '28rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>
@@ -568,7 +568,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
             v-model:visible="showAddRun"
             header="Add Run"
             modal
-            :style="{ width: '28rem' }"
+            :style="{ width: '28rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>

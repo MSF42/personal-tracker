@@ -2,7 +2,7 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 
 from src.config.settings import get_settings
 from src.db.database import get_db
@@ -37,6 +37,14 @@ async def create_note(
     repo: SQLiteNoteRepository = Depends(get_note_repository),
 ):
     return await repo.create(data)
+
+
+@router.get("/search", response_model=list[NoteResponse])
+async def search_notes(
+    q: str = Query(min_length=1, max_length=200),
+    repo: SQLiteNoteRepository = Depends(get_note_repository),
+):
+    return await repo.search(q)
 
 
 @router.put("/{note_id}", response_model=NoteResponse)

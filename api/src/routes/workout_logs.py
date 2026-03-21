@@ -33,6 +33,13 @@ async def list_workout_logs(
     return await repo.find_all()
 
 
+@router.get("/exercise-prs")
+async def get_exercise_prs(
+    repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
+):
+    return await repo.get_exercise_prs()
+
+
 @router.get("/exercise-last-performed")
 async def get_exercise_last_performed(
     repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),

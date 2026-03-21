@@ -190,7 +190,7 @@ async function confirmReset() {
             v-model:visible="showResetDialog"
             header="Delete All Data"
             :modal="true"
-            :style="{ width: '28rem' }"
+            :style="{ width: '28rem', maxWidth: '92vw' }"
         >
             <p class="text-surface-600 dark:text-surface-400 mb-4 text-sm">
                 This action cannot be undone. Type

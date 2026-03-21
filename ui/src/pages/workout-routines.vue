@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useExerciseApi } from '@/composables/api/useExerciseApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
+import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type { Exercise } from '@/types/Exercise';
 import type { WorkoutLog } from '@/types/WorkoutLog';
@@ -13,6 +14,7 @@ import type {
     WorkoutRoutineCreate,
     WorkoutRoutineUpdate,
 } from '@/types/WorkoutRoutine';
+import { formatDate } from '@/utils/format';
 
 const {
     getWorkoutRoutines,
@@ -25,6 +27,7 @@ const {
 } = useWorkoutRoutineApi();
 const { getWorkoutLogs, createWorkoutLog, logSet } = useWorkoutLogApi();
 const { getExercises } = useExerciseApi();
+const { loading, withLoading } = useLoading();
 const toast = useToast();
 
 const routines = ref<WorkoutRoutine[]>([]);
@@ -328,7 +331,7 @@ async function loadData() {
     await loadExerciseCounts();
 }
 
-onMounted(loadData);
+onMounted(() => withLoading(loadData));
 
 const dialogHeader = computed(() =>
     editingId.value ? 'Edit Routine' : 'Add Routine',
@@ -365,7 +368,7 @@ const dialogHeader = computed(() =>
                 <template #title>Last Workout</template>
                 <template #content>
                     <div class="text-2xl font-bold">
-                        {{ stats.lastWorkout ?? '—' }}
+                        {{ stats.lastWorkout ? formatDate(stats.lastWorkout) : '—' }}
                     </div>
                     <div class="text-surface-500 text-sm">most recent</div>
                 </template>
@@ -384,11 +387,19 @@ const dialogHeader = computed(() =>
 
         <!-- Data Table -->
         <AppDataTable
+            :loading="loading"
             sort-field="name"
             :sort-order="1"
             striped-rows
             :value="routines"
         >
+            <template #empty>
+                <div class="flex flex-col items-center py-10 text-center">
+                    <i class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"></i>
+                    <p class="text-surface-500 mb-3">No routines yet</p>
+                    <AppButton icon="pi pi-plus" label="Add your first routine" size="small" @click="openAddDialog" />
+                </div>
+            </template>
             <AppColumn field="name" header="Name" sortable />
             <AppColumn field="description" header="Description">
                 <template #body="{ data }">
@@ -423,7 +434,7 @@ const dialogHeader = computed(() =>
                     <span
                         v-if="routineLastPerformed[(data as WorkoutRoutine).id]"
                     >
-                        {{ routineLastPerformed[(data as WorkoutRoutine).id] }}
+                        {{ formatDate(routineLastPerformed[(data as WorkoutRoutine).id]!) }}
                     </span>
                     <span v-else class="text-surface-400">&mdash;</span>
                 </template>
@@ -462,7 +473,7 @@ const dialogHeader = computed(() =>
             v-model:visible="showDialog"
             :header="dialogHeader"
             modal
-            :style="{ width: '28rem' }"
+            :style="{ width: '28rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>
@@ -495,7 +506,7 @@ const dialogHeader = computed(() =>
             v-model:visible="showExercisesDialog"
             :header="`Exercises in ${managingRoutine?.name ?? ''}`"
             modal
-            :style="{ width: '36rem' }"
+            :style="{ width: '36rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <!-- Current exercises list -->
@@ -579,7 +590,7 @@ const dialogHeader = computed(() =>
             v-model:visible="showLogDialog"
             :header="`Log Workout: ${loggingRoutine?.name ?? ''}`"
             modal
-            :style="{ width: '40rem' }"
+            :style="{ width: '40rem', maxWidth: '92vw' }"
         >
             <!-- Step 1: Date + Notes -->
             <div v-if="logStep === 1" class="flex flex-col gap-4">
@@ -655,7 +666,7 @@ const dialogHeader = computed(() =>
                                 :min="0"
                                 placeholder="Weight"
                             />
-                            <span class="text-surface-500 text-xs">lbs</span>
+                            <span class="text-surface-500 text-xs">kg</span>
                             <AppButton
                                 v-if="!entry.saved"
                                 icon="pi pi-check"
@@ -682,7 +693,7 @@ const dialogHeader = computed(() =>
             v-model:visible="showDeleteConfirm"
             header="Confirm Delete"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <p>Are you sure you want to delete this routine?</p>
             <div class="mt-4 flex justify-end gap-2">

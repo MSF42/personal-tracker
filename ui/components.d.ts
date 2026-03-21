@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     ExerciseHistoryDialog: typeof import('./src/components/ExerciseHistoryDialog.vue')['default']
+    NoteRow: typeof import('./src/components/NoteRow.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

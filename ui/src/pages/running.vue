@@ -15,8 +15,10 @@ import { computed, onMounted, reactive, ref } from 'vue';
 
 import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
+import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type { GpxSegment, RunningActivity } from '@/types/Running';
+import { formatDate } from '@/utils/format';
 
 Chart.register(
     CategoryScale,
@@ -39,6 +41,7 @@ const {
     getSegments,
 } = useRunningApi();
 const { getSetting, setSetting } = useSettingsApi();
+const { loading, withLoading } = useLoading();
 const toast = useToast();
 
 const activities = ref<RunningActivity[]>([]);
@@ -292,7 +295,7 @@ async function loadGoal() {
 }
 
 onMounted(() => {
-    loadData();
+    withLoading(loadData);
     loadGoal();
 });
 
@@ -434,25 +437,6 @@ function formatPace(pace: number): string {
     return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
-const monthAbbrs = [
-    'JAN',
-    'FEB',
-    'MAR',
-    'APR',
-    'MAY',
-    'JUN',
-    'JUL',
-    'AUG',
-    'SEP',
-    'OCT',
-    'NOV',
-    'DEC',
-];
-
-function formatDate(isoDate: string): string {
-    const [year, month, day] = isoDate.split('-');
-    return `${year}-${monthAbbrs[parseInt(month!, 10) - 1]}-${day}`;
-}
 
 const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
 </script>
@@ -770,11 +754,19 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
 
         <!-- Data Table -->
         <AppDataTable
+            :loading="loading"
             sort-field="date"
             :sort-order="-1"
             striped-rows
             :value="filteredActivities"
         >
+            <template #empty>
+                <div class="flex flex-col items-center py-10 text-center">
+                    <i class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"></i>
+                    <p class="text-surface-500 mb-3">No runs logged yet</p>
+                    <AppButton icon="pi pi-plus" label="Log your first run" size="small" @click="openAddDialog" />
+                </div>
+            </template>
             <AppColumn field="date" header="Date" sortable>
                 <template #body="{ data }">
                     {{ formatDate((data as RunningActivity).date) }}
@@ -812,15 +804,10 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 <template #body="{ data }">
                     <div class="row-actions flex gap-2">
                         <AppButton
-                            :disabled="!(data as RunningActivity).has_gpx"
+                            v-if="(data as RunningActivity).has_gpx"
                             icon="pi pi-chart-bar"
                             rounded
                             severity="secondary"
-                            :style="
-                                !(data as RunningActivity).has_gpx
-                                    ? { visibility: 'hidden' }
-                                    : {}
-                            "
                             text
                             @click="viewSegments((data as RunningActivity).id)"
                         />
@@ -848,7 +835,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
             v-model:visible="showDialog"
             :header="dialogHeader"
             modal
-            :style="{ width: '28rem' }"
+            :style="{ width: '28rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>
@@ -924,7 +911,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
             v-model:visible="showDeleteConfirm"
             header="Confirm Delete"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <p>Are you sure you want to delete this run?</p>
             <div class="mt-4 flex justify-end gap-2">
@@ -946,7 +933,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
             v-model:visible="showGoalDialog"
             header="Weekly Distance Goal"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>
@@ -978,7 +965,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
             v-model:visible="showSegmentsDialog"
             header="GPX Segments"
             modal
-            :style="{ width: '40rem' }"
+            :style="{ width: '40rem', maxWidth: '92vw' }"
         >
             <AppDataTable :value="selectedSegments">
                 <AppColumn field="segment_name" header="Segment" />

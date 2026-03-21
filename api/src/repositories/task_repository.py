@@ -26,9 +26,9 @@ class SQLiteTaskRepository:
         cursor = await self.db.execute(
             """
             INSERT INTO tasks (title, description, category, due_date, completed,
-                               repeat_type, repeat_interval, repeat_days,
+                               repeat_type, repeat_interval, repeat_days, priority,
                                created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task.title,
@@ -39,6 +39,7 @@ class SQLiteTaskRepository:
                 task.repeat_type.value if task.repeat_type else None,
                 task.repeat_interval,
                 repeat_days_str,
+                task.priority.value,
                 now,
                 now,
             ),
@@ -106,6 +107,9 @@ class SQLiteTaskRepository:
         # Handle enum conversion
         if "repeat_type" in update_data and update_data["repeat_type"] is not None:
             update_data["repeat_type"] = update_data["repeat_type"].value
+
+        if "priority" in update_data and update_data["priority"] is not None:
+            update_data["priority"] = update_data["priority"].value
 
         # Serialize repeat_days list to comma-separated string
         if "repeat_days" in update_data:

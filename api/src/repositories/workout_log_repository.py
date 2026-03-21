@@ -82,6 +82,14 @@ class SQLiteWorkoutLogRepository:
         )
         return [dict(row) for row in await cursor.fetchall()]
 
+    async def get_exercise_prs(self) -> dict[int, float]:
+        cursor = await self.db.execute(
+            "SELECT exercise_id, MAX(weight) AS pr_weight "
+            "FROM set_logs WHERE weight IS NOT NULL AND weight > 0 "
+            "GROUP BY exercise_id"
+        )
+        return {row["exercise_id"]: row["pr_weight"] for row in await cursor.fetchall()}
+
     async def get_exercise_last_performed(self) -> dict[int, str]:
         """Get the most recent workout date for each exercise."""
         cursor = await self.db.execute(

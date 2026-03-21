@@ -10,6 +10,7 @@ _ALLOWED_TABLES = frozenset({
     "measurements",
     "measurement_entries",
     "notes",
+    "habits",
 })
 
 

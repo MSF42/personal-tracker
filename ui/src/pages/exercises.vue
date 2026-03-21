@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
 import { useExerciseApi } from '@/composables/api/useExerciseApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
+import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type {
     Exercise,
@@ -11,14 +12,18 @@ import type {
     ExerciseUpdate,
 } from '@/types/Exercise';
 import type { ExerciseHistoryEntry } from '@/types/WorkoutLog';
+import { formatDate } from '@/utils/format';
 
 const { getExercises, createExercise, updateExercise, deleteExercise } =
     useExerciseApi();
-const { getExerciseHistory, getExerciseLastPerformed } = useWorkoutLogApi();
+const { getExerciseHistory, getExerciseLastPerformed, getExercisePRs } =
+    useWorkoutLogApi();
+const { loading, withLoading } = useLoading();
 const toast = useToast();
 
 const exercises = ref<Exercise[]>([]);
 const exerciseLastPerformed = ref<Record<number, string>>({});
+const exercisePRs = ref<Record<number, number>>({});
 
 const muscleGroupOptions = [
     { label: 'All', value: '' },
@@ -187,16 +192,18 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
 
 // --- Data loading ---
 async function loadData() {
-    const [res, lastPerformedRes] = await Promise.all([
+    const [res, lastPerformedRes, prsRes] = await Promise.all([
         getExercises(),
         getExerciseLastPerformed(),
+        getExercisePRs(),
     ]);
     if (res.success && res.data) exercises.value = res.data;
     if (lastPerformedRes.success && lastPerformedRes.data)
         exerciseLastPerformed.value = lastPerformedRes.data;
+    if (prsRes.success && prsRes.data) exercisePRs.value = prsRes.data;
 }
 
-onMounted(loadData);
+onMounted(() => withLoading(loadData));
 
 const dialogHeader = computed(() =>
     editingId.value ? 'Edit Exercise' : 'Add Exercise',
@@ -322,11 +329,19 @@ const dialogHeader = computed(() =>
 
         <!-- Data Table -->
         <AppDataTable
+            :loading="loading"
             sort-field="name"
             :sort-order="1"
             striped-rows
             :value="filteredExercises"
         >
+            <template #empty>
+                <div class="flex flex-col items-center py-10 text-center">
+                    <i class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"></i>
+                    <p class="text-surface-500 mb-3">No exercises found</p>
+                    <AppButton icon="pi pi-plus" label="Add your first exercise" size="small" @click="openAddDialog" />
+                </div>
+            </template>
             <AppColumn field="name" header="Name" sortable>
                 <template #body="{ data }">
                     <button
@@ -369,7 +384,15 @@ const dialogHeader = computed(() =>
             <AppColumn header="Last Performed" sort-field="id" sortable>
                 <template #body="{ data }">
                     <span v-if="exerciseLastPerformed[(data as Exercise).id]">
-                        {{ exerciseLastPerformed[(data as Exercise).id] }}
+                        {{ formatDate(exerciseLastPerformed[(data as Exercise).id]!) }}
+                    </span>
+                    <span v-else class="text-surface-400">&mdash;</span>
+                </template>
+            </AppColumn>
+            <AppColumn header="PR Weight">
+                <template #body="{ data }">
+                    <span v-if="exercisePRs[(data as Exercise).id]">
+                        {{ exercisePRs[(data as Exercise).id] }} kg
                     </span>
                     <span v-else class="text-surface-400">&mdash;</span>
                 </template>
@@ -401,7 +424,7 @@ const dialogHeader = computed(() =>
             v-model:visible="showDialog"
             :header="dialogHeader"
             modal
-            :style="{ width: '28rem' }"
+            :style="{ width: '28rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>
@@ -469,7 +492,7 @@ const dialogHeader = computed(() =>
             v-model:visible="showDeleteConfirm"
             header="Confirm Delete"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <p>Are you sure you want to delete this exercise?</p>
             <div class="mt-4 flex justify-end gap-2">

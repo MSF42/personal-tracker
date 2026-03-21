@@ -248,6 +248,37 @@ MIGRATIONS = [
                VALUES ('Weight', 'lbs', 0, datetime('now'), datetime('now'));
                """,
     },
+    {
+        "version": 20,
+        "name": "create_habits_tables",
+        "sql": """
+               CREATE TABLE IF NOT EXISTS habits (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   name TEXT NOT NULL,
+                   description TEXT,
+                   frequency TEXT NOT NULL DEFAULT 'daily',
+                   frequency_days TEXT,
+                   color TEXT NOT NULL DEFAULT '#3b82f6',
+                   archived INTEGER NOT NULL DEFAULT 0,
+                   created_at TEXT NOT NULL,
+                   updated_at TEXT NOT NULL
+               );
+               CREATE TABLE IF NOT EXISTS habit_completions (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   habit_id INTEGER NOT NULL,
+                   date TEXT NOT NULL,
+                   created_at TEXT NOT NULL,
+                   FOREIGN KEY (habit_id) REFERENCES habits (id) ON DELETE CASCADE,
+                   UNIQUE (habit_id, date)
+               );
+               CREATE INDEX IF NOT EXISTS idx_habit_completions_habit_date ON habit_completions (habit_id, date DESC);
+               """,
+    },
+    {
+        "version": 21,
+        "name": "add_priority_to_tasks",
+        "sql": "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
+    },
 ]
 
 

@@ -35,6 +35,7 @@ const popover = ref();
 const navItems = [
     { label: 'Home', to: '/', icon: 'pi pi-home' },
     { label: 'Tasks', to: '/tasks', icon: 'pi pi-check-square' },
+    { label: 'Habits', to: '/habits', icon: 'pi pi-calendar-check' },
     { label: 'Running', to: '/running', icon: 'pi pi-bolt' },
     { label: 'Exercises', to: '/exercises', icon: 'pi pi-heart' },
     { label: 'Routines', to: '/workout-routines', icon: 'pi pi-list' },

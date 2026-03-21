@@ -11,6 +11,7 @@ from src.db.migrations import run_migrations
 from src.errors import AppError
 from src.middleware.logging import RequestLoggingMiddleware
 from src.routes.exercises import router as exercise_router
+from src.routes.habits import router as habits_router
 from src.routes.health import router
 from src.routes.measurements import router as measurements_router
 from src.routes.notes import router as notes_router
@@ -72,6 +73,7 @@ def create_app():
     # Register routes
     app.include_router(router)  # bare paths: /health, /health/live, /health/ready, etc.
     app.include_router(tasks_router)
+    app.include_router(habits_router)
     app.include_router(running_router)
     app.include_router(exercise_router)
     app.include_router(workout_routine_router)

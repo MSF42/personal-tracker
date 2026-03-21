@@ -2,10 +2,12 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import { useTaskApi } from '@/composables/api/useTaskApi';
+import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type { Task, TaskCreate, TaskUpdate } from '@/types/Task';
 
 const { getTasks, createTask, updateTask, deleteTask } = useTaskApi();
+const { loading, withLoading } = useLoading();
 const toast = useToast();
 
 const tasks = ref<Task[]>([]);
@@ -14,13 +16,25 @@ const todayStr = new Date().toISOString().split('T')[0] as string;
 // --- Filters ---
 const showCompleted = ref(false);
 const selectedCategory = ref('');
+const selectedPriority = ref('');
+
+const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+
 const filteredTasks = computed(() => {
-    return tasks.value.filter((t) => {
-        if (!showCompleted.value && t.completed) return false;
-        if (selectedCategory.value && t.category !== selectedCategory.value)
-            return false;
-        return true;
-    });
+    return tasks.value
+        .filter((t) => {
+            if (!showCompleted.value && t.completed) return false;
+            if (selectedCategory.value && t.category !== selectedCategory.value)
+                return false;
+            if (selectedPriority.value && t.priority !== selectedPriority.value)
+                return false;
+            return true;
+        })
+        .sort(
+            (a, b) =>
+                (PRIORITY_ORDER[a.priority] ?? 1) -
+                (PRIORITY_ORDER[b.priority] ?? 1),
+        );
 });
 
 // --- Stats ---
@@ -49,6 +63,7 @@ const form = reactive({
     repeat_type: null as 'daily' | 'weekly' | 'monthly' | null,
     repeat_interval: 1,
     repeat_days: [] as number[],
+    priority: 'medium' as 'high' | 'medium' | 'low',
 });
 
 function resetForm() {
@@ -59,6 +74,7 @@ function resetForm() {
     form.repeat_type = null;
     form.repeat_interval = 1;
     form.repeat_days = [];
+    form.priority = 'medium';
     editingId.value = null;
 }
 
@@ -76,6 +92,7 @@ function openEditDialog(task: Task) {
     form.repeat_type = task.repeat_type as typeof form.repeat_type;
     form.repeat_interval = task.repeat_interval ?? 1;
     form.repeat_days = task.repeat_days ?? [];
+    form.priority = task.priority;
     showDialog.value = true;
 }
 
@@ -92,6 +109,7 @@ async function saveTask() {
                 form.repeat_type === 'weekly' && form.repeat_days.length
                     ? form.repeat_days
                     : null,
+            priority: form.priority,
         };
         const res = await updateTask(editingId.value, payload);
         if (res.success) {
@@ -109,6 +127,7 @@ async function saveTask() {
                 form.repeat_type === 'weekly' && form.repeat_days.length
                     ? form.repeat_days
                     : null,
+            priority: form.priority,
         };
         const res = await createTask(payload);
         if (res.success) {
@@ -150,7 +169,7 @@ async function loadData() {
 }
 
 onMounted(() => {
-    loadData();
+    withLoading(loadData);
 });
 
 // --- Helpers ---
@@ -191,6 +210,23 @@ const repeatTypeOptions = [
     { label: 'Weekly', value: 'weekly' },
     { label: 'Monthly', value: 'monthly' },
 ];
+
+const priorityOptions = [
+    { label: 'High', value: 'high' },
+    { label: 'Medium', value: 'medium' },
+    { label: 'Low', value: 'low' },
+];
+
+const filterPriorityOptions = [
+    { label: 'All priorities', value: '' },
+    ...priorityOptions,
+];
+
+const PRIORITY_DOT: Record<string, string> = {
+    high: 'bg-red-500',
+    medium: 'bg-yellow-400',
+    low: 'bg-gray-300',
+};
 
 const categoryOptions = computed(() => {
     const cats = new Set(
@@ -266,6 +302,14 @@ const dialogHeader = computed(() =>
                     :options="filterCategoryOptions"
                     size="small"
                 />
+                <AppSelect
+                    v-model="selectedPriority"
+                    class="min-w-40"
+                    option-label="label"
+                    option-value="value"
+                    :options="filterPriorityOptions"
+                    size="small"
+                />
                 <label
                     class="text-surface-600 dark:text-surface-400 flex cursor-pointer items-center gap-2 text-sm"
                 >
@@ -282,11 +326,20 @@ const dialogHeader = computed(() =>
 
         <!-- Data Table -->
         <AppDataTable
+            :loading="loading"
+            :row-class="(data: Task) => isOverdue(data) ? 'bg-red-50 dark:!bg-red-950/20' : ''"
             sort-field="due_date"
             :sort-order="1"
             striped-rows
             :value="filteredTasks"
         >
+            <template #empty>
+                <div class="flex flex-col items-center py-10 text-center">
+                    <i class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"></i>
+                    <p class="text-surface-500 mb-3">No tasks found</p>
+                    <AppButton icon="pi pi-plus" label="Add your first task" size="small" @click="openAddDialog" />
+                </div>
+            </template>
             <AppColumn header="Done" style="width: 4rem">
                 <template #body="{ data }">
                     <AppButton
@@ -302,6 +355,18 @@ const dialogHeader = computed(() =>
                         text
                         @click="toggleCompleted(data as Task)"
                     />
+                </template>
+            </AppColumn>
+            <AppColumn header="" style="width: 2rem">
+                <template #body="{ data }">
+                    <span
+                        class="inline-block h-2.5 w-2.5 rounded-full"
+                        :class="
+                            PRIORITY_DOT[(data as Task).priority] ??
+                            'bg-gray-300'
+                        "
+                        :title="(data as Task).priority"
+                    ></span>
                 </template>
             </AppColumn>
             <AppColumn field="title" header="Title" sortable />
@@ -361,7 +426,7 @@ const dialogHeader = computed(() =>
             v-model:visible="showDialog"
             :header="dialogHeader"
             modal
-            :style="{ width: '28rem' }"
+            :style="{ width: '28rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>
@@ -400,6 +465,18 @@ const dialogHeader = computed(() =>
                         v-model="form.due_date"
                         class="w-full"
                         type="date"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Priority
+                    </label>
+                    <AppSelect
+                        v-model="form.priority"
+                        class="w-full"
+                        option-label="label"
+                        option-value="value"
+                        :options="priorityOptions"
                     />
                 </div>
                 <div>
@@ -467,7 +544,7 @@ const dialogHeader = computed(() =>
             v-model:visible="showDeleteConfirm"
             header="Confirm Delete"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <p>Are you sure you want to delete this task?</p>
             <div class="mt-4 flex justify-end gap-2">

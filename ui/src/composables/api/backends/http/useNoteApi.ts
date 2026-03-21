@@ -34,6 +34,9 @@ export function useNoteApi() {
         return api.postFormData<NoteImageUpload>('notes/images', formData);
     };
 
+    const searchNotes = (q: string) =>
+        api.getData<Note[]>('notes/search', { q });
+
     return {
         getNotes,
         createNote,
@@ -41,5 +44,6 @@ export function useNoteApi() {
         moveNote,
         deleteNote,
         uploadNoteImage,
+        searchNotes,
     };
 }

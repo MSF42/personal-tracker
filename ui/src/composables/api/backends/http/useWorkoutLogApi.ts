@@ -22,10 +22,10 @@ export function useWorkoutLogApi() {
         date: string,
         notes?: string | null,
     ) =>
-        api.postWithParams<WorkoutLog>('workout-logs', {
+        api.post<object, WorkoutLog>('workout-logs', {
             routine_id: routineId,
             date,
-            notes: notes || undefined,
+            notes: notes || null,
         });
 
     const logSet = async (
@@ -35,11 +35,11 @@ export function useWorkoutLogApi() {
         reps: number,
         weight?: number | null,
     ) =>
-        api.postWithParams<SetLog>(`workout-logs/${workoutLogId}/sets`, {
+        api.post<object, SetLog>(`workout-logs/${workoutLogId}/sets`, {
             exercise_id: exerciseId,
             set_number: setNumber,
             reps,
-            weight: weight || undefined,
+            weight: weight ?? null,
         });
 
     const getExerciseHistory = async (exerciseId: number) =>
@@ -58,6 +58,9 @@ export function useWorkoutLogApi() {
             'workout-logs/exercise-last-performed',
         );
 
+    const getExercisePRs = async () =>
+        api.getData<Record<number, number>>('workout-logs/exercise-prs');
+
     return {
         getWorkoutLogs,
         getWorkoutLog,
@@ -67,5 +70,6 @@ export function useWorkoutLogApi() {
         logSet,
         getExerciseHistory,
         getExerciseLastPerformed,
+        getExercisePRs,
     };
 }

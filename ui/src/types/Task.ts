@@ -8,6 +8,7 @@ export interface Task {
     repeat_type: string | null;
     repeat_interval: number | null;
     repeat_days: number[] | null;
+    priority: 'high' | 'medium' | 'low';
     created_at: string;
     updated_at: string;
 }
@@ -21,6 +22,7 @@ export interface TaskCreate {
     repeat_type?: 'daily' | 'weekly' | 'monthly' | null;
     repeat_interval?: number | null;
     repeat_days?: number[] | null;
+    priority?: 'high' | 'medium' | 'low';
 }
 
 export interface TaskUpdate {
@@ -32,4 +34,5 @@ export interface TaskUpdate {
     repeat_type?: 'daily' | 'weekly' | 'monthly' | null;
     repeat_interval?: number | null;
     repeat_days?: number[] | null;
+    priority?: 'high' | 'medium' | 'low' | null;
 }

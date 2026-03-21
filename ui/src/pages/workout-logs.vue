@@ -3,12 +3,14 @@ import { computed, onMounted, reactive, ref } from 'vue';
 
 import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
+import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type {
     ExerciseHistoryEntry,
     WorkoutLog,
     WorkoutLogDetail,
 } from '@/types/WorkoutLog';
+import { formatDate } from '@/utils/format';
 
 const {
     getWorkoutLogs,
@@ -17,6 +19,7 @@ const {
     updateWorkoutLog,
     deleteWorkoutLog,
 } = useWorkoutLogApi();
+const { loading, withLoading } = useLoading();
 const toast = useToast();
 
 const logs = ref<WorkoutLog[]>([]);
@@ -183,7 +186,7 @@ async function loadData() {
     if (res.success && res.data) logs.value = res.data;
 }
 
-onMounted(loadData);
+onMounted(() => withLoading(loadData));
 </script>
 
 <template>
@@ -216,7 +219,7 @@ onMounted(loadData);
                 <template #title>Last Workout</template>
                 <template #content>
                     <div class="text-2xl font-bold">
-                        {{ stats.lastWorkout ?? '—' }}
+                        {{ stats.lastWorkout ? formatDate(stats.lastWorkout) : '—' }}
                     </div>
                     <div class="text-surface-500 text-sm">most recent</div>
                 </template>
@@ -292,12 +295,24 @@ onMounted(loadData);
 
         <!-- Data Table -->
         <AppDataTable
+            :loading="loading"
             sort-field="date"
             :sort-order="-1"
             striped-rows
             :value="filteredLogs"
         >
-            <AppColumn field="date" header="Date" sortable />
+            <template #empty>
+                <div class="flex flex-col items-center py-10 text-center">
+                    <i class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"></i>
+                    <p class="text-surface-500 mb-3">No workout logs yet</p>
+                    <p class="text-surface-400 mb-3 text-sm">Log workouts from the <RouterLink class="text-primary underline" to="/workout-routines">Routines</RouterLink> page</p>
+                </div>
+            </template>
+            <AppColumn field="date" header="Date" sortable>
+                <template #body="{ data }">
+                    {{ formatDate((data as WorkoutLog).date) }}
+                </template>
+            </AppColumn>
             <AppColumn field="routine_name" header="Routine" sortable />
             <AppColumn field="notes" header="Notes">
                 <template #body="{ data }">
@@ -342,9 +357,9 @@ onMounted(loadData);
         <!-- Detail Dialog -->
         <AppDialog
             v-model:visible="showDetail"
-            :header="`Workout on ${detail?.date ?? ''}`"
+            :header="`Workout on ${detail?.date ? formatDate(detail.date) : ''}`"
             modal
-            :style="{ width: '36rem' }"
+            :style="{ width: '36rem', maxWidth: '92vw' }"
         >
             <div v-if="detail" class="flex flex-col gap-4">
                 <div class="text-surface-600 dark:text-surface-400 text-sm">
@@ -395,7 +410,7 @@ onMounted(loadData);
                             <span>
                                 {{
                                     set.weight !== null
-                                        ? `${set.weight} lbs`
+                                        ? `${set.weight} kg`
                                         : '—'
                                 }}
                             </span>
@@ -420,7 +435,7 @@ onMounted(loadData);
             v-model:visible="showEdit"
             header="Edit Workout Log"
             modal
-            :style="{ width: '28rem' }"
+            :style="{ width: '28rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
                 <div>
@@ -453,7 +468,7 @@ onMounted(loadData);
             v-model:visible="showDeleteConfirm"
             header="Confirm Delete"
             modal
-            :style="{ width: '24rem' }"
+            :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <p>Are you sure you want to delete this workout log?</p>
             <div class="mt-4 flex justify-end gap-2">
