@@ -125,6 +125,10 @@ const taskForm = reactive({
     category: '',
     due_date: '',
 });
+const isTaskFormValid = computed(() => taskForm.title.trim() !== '');
+const taskSaveTooltip = computed(() =>
+    isTaskFormValid.value ? undefined : 'Title is required',
+);
 
 function openAddTask() {
     taskForm.title = '';
@@ -526,7 +530,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
             <div class="flex flex-col gap-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Title
+                        Title <span class="text-red-500">*</span>
                     </label>
                     <AppInputText v-model="taskForm.title" class="w-full" />
                 </div>
@@ -562,7 +566,13 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                         text
                         @click="showAddTask = false"
                     />
-                    <AppButton label="Save" @click="saveTask" />
+                    <span v-tooltip.top="taskSaveTooltip">
+                        <AppButton
+                            :disabled="!isTaskFormValid"
+                            label="Save"
+                            @click="saveTask"
+                        />
+                    </span>
                 </div>
             </div>
         </AppDialog>

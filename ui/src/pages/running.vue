@@ -153,6 +153,9 @@ const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
 const formError = ref('');
 
+const isFormValid = computed(() => form.date.trim() !== '');
+const saveTooltip = computed(() => (isFormValid.value ? undefined : 'Date is required'));
+
 const form = reactive({
     date: today.toISOString().split('T')[0] as string,
     title: '',
@@ -192,10 +195,6 @@ function openEditDialog(run: RunningActivity) {
 
 async function saveRun() {
     formError.value = '';
-    if (!form.date.trim()) {
-        formError.value = 'Date is required';
-        return;
-    }
     const durationSeconds = form.minutes * 60 + form.seconds;
     const distance_km = toKm(form.distance_km);
     if (editingId.value) {
@@ -898,7 +897,9 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
         >
             <div class="flex flex-col gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium"> Date </label>
+                    <label class="mb-1 block text-sm font-medium">
+                        Date <span class="text-red-500">*</span>
+                    </label>
                     <AppInputText
                         v-model="form.date"
                         class="w-full"
@@ -963,7 +964,13 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                         text
                         @click="showDialog = false"
                     />
-                    <AppButton label="Save" @click="saveRun" />
+                    <span v-tooltip.top="saveTooltip">
+                        <AppButton
+                            :disabled="!isFormValid"
+                            label="Save"
+                            @click="saveRun"
+                        />
+                    </span>
                 </div>
             </div>
         </AppDialog>

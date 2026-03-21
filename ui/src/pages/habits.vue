@@ -83,7 +83,9 @@ const showDialog = ref(false);
 const editingId = ref<number | null>(null);
 const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
-const formError = ref('');
+
+const isFormValid = computed(() => form.name.trim() !== '');
+const saveTooltip = computed(() => (isFormValid.value ? undefined : 'Name is required'));
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -108,7 +110,6 @@ function resetForm() {
     form.frequency_days = [];
     form.color = '#3b82f6';
     editingId.value = null;
-    formError.value = '';
 }
 
 function openAddDialog() {
@@ -137,11 +138,6 @@ function toggleDay(day: number) {
 }
 
 async function saveHabit() {
-    if (!form.name.trim()) {
-        formError.value = 'Name is required';
-        return;
-    }
-    formError.value = '';
     if (editingId.value) {
         const payload: HabitUpdate = {
             name: form.name,
@@ -763,11 +759,10 @@ const dialogHeader = computed(() =>
         >
             <div class="flex flex-col gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium">Name</label>
+                    <label class="mb-1 block text-sm font-medium">
+                        Name <span class="text-red-500">*</span>
+                    </label>
                     <AppInputText v-model="form.name" class="w-full" />
-                    <p v-if="formError" class="mt-1 text-sm text-red-500">
-                        {{ formError }}
-                    </p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium"
@@ -830,7 +825,13 @@ const dialogHeader = computed(() =>
                         text
                         @click="showDialog = false"
                     />
-                    <AppButton label="Save" @click="saveHabit" />
+                    <span v-tooltip.top="saveTooltip">
+                        <AppButton
+                            :disabled="!isFormValid"
+                            label="Save"
+                            @click="saveHabit"
+                        />
+                    </span>
                 </div>
             </div>
         </AppDialog>

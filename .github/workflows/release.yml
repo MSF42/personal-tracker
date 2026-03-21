@@ -1,0 +1,176 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        working-directory: api
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build API binary
+        working-directory: api
+        run: pyinstaller personal-tracker-api.spec
+
+      - name: Stage binary
+        run: |
+          mkdir -p ui/electron/binaries
+          cp api/dist/personal-tracker-api ui/electron/binaries/personal-tracker-api
+          chmod +x ui/electron/binaries/personal-tracker-api
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - run: npm ci
+        working-directory: ui
+
+      - name: Build frontend
+        working-directory: ui
+        run: VITE_API_BASE_URL=http://127.0.0.1:8743 npm run build-only
+
+      - name: Package (macOS)
+        working-directory: ui
+        run: npm run electron:build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: ui/dist-electron/*.dmg
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        working-directory: api
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build API binary
+        working-directory: api
+        run: pyinstaller personal-tracker-api.spec
+
+      - name: Stage binary
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ui/electron/binaries
+          Copy-Item api/dist/personal-tracker-api.exe ui/electron/binaries/personal-tracker-api.exe
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - run: npm ci
+        working-directory: ui
+
+      - name: Build frontend
+        working-directory: ui
+        run: npm run build-only
+        env:
+          VITE_API_BASE_URL: http://127.0.0.1:8743
+
+      - name: Package (Windows)
+        working-directory: ui
+        run: npx electron-builder --win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: ui/dist-electron/*.exe
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        working-directory: api
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build API binary
+        working-directory: api
+        run: pyinstaller personal-tracker-api.spec
+
+      - name: Stage binary
+        run: |
+          mkdir -p ui/electron/binaries
+          cp api/dist/personal-tracker-api ui/electron/binaries/personal-tracker-api
+          chmod +x ui/electron/binaries/personal-tracker-api
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - run: npm ci
+        working-directory: ui
+
+      - name: Build frontend
+        working-directory: ui
+        run: VITE_API_BASE_URL=http://127.0.0.1:8743 npm run build-only
+
+      - name: Package (Linux)
+        working-directory: ui
+        run: npx electron-builder --linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: ui/dist-electron/*.AppImage
+          if-no-files-found: error
+
+  release:
+    needs: [build-macos, build-windows, build-linux]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            artifacts/macos-dmg/*.dmg
+            artifacts/windows-installer/*.exe
+            artifacts/linux-appimage/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

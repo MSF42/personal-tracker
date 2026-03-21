@@ -14,6 +14,7 @@ const backendDir =
         : './src/composables/api/backends/http';
 
 export default defineConfig(({ mode }) => ({
+    base: mode === 'production' ? './' : '/',
     plugins: [
         VueRouter({ dts: 'src/route-map.d.ts' }),
         vue(),

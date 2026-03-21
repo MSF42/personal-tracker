@@ -29,7 +29,7 @@ chmod +x "$BINARY_DEST"
 
 echo "==> Building Vue frontend..."
 cd "$UI_DIR"
-VITE_API_BASE_URL=http://localhost:8743 npm run build-only
+VITE_API_BASE_URL=http://127.0.0.1:8743 npm run build-only
 
 echo "==> Packaging with electron-builder..."
 npm run electron:build

@@ -16,6 +16,8 @@
         "electron:dev": "npm run dev",
         "electron:start": "electron .",
         "electron:build": "electron-builder --mac",
+        "electron:build:win": "electron-builder --win",
+        "electron:build:linux": "electron-builder --linux",
         "build-macos": "bash scripts/build-macos.sh",
         "test": "vitest run",
         "test:ui": "vitest --ui"
@@ -73,15 +75,38 @@
             "electron/**",
             "!electron/binaries"
         ],
-        "extraResources": [
-            {
-                "from": "electron/binaries/personal-tracker-api",
-                "to": "personal-tracker-api"
-            }
-        ],
+        "icon": "electron/icons/icon.png",
         "mac": {
             "target": "dmg",
-            "icon": "electron/icons/icon.icns"
+            "icon": "electron/icons/icon.icns",
+            "artifactName": "PersonalTracker-${version}-mac.dmg",
+            "extraResources": [
+                {
+                    "from": "electron/binaries/personal-tracker-api",
+                    "to": "personal-tracker-api"
+                }
+            ]
+        },
+        "win": {
+            "target": "nsis",
+            "artifactName": "PersonalTracker-${version}-win-setup.exe",
+            "extraResources": [
+                {
+                    "from": "electron/binaries/personal-tracker-api.exe",
+                    "to": "personal-tracker-api.exe"
+                }
+            ]
+        },
+        "linux": {
+            "target": "AppImage",
+            "category": "Utility",
+            "artifactName": "PersonalTracker-${version}-linux.AppImage",
+            "extraResources": [
+                {
+                    "from": "electron/binaries/personal-tracker-api",
+                    "to": "personal-tracker-api"
+                }
+            ]
         }
     }
 }

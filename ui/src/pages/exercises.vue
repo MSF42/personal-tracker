@@ -109,6 +109,9 @@ const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
 const formError = ref('');
 
+const isFormValid = computed(() => form.name.trim() !== '');
+const saveTooltip = computed(() => (isFormValid.value ? undefined : 'Name is required'));
+
 const form = reactive({
     name: '',
     muscle_group: '',
@@ -145,10 +148,6 @@ function openEditDialog(exercise: Exercise) {
 
 async function saveExercise() {
     formError.value = '';
-    if (!form.name.trim()) {
-        formError.value = 'Name is required';
-        return;
-    }
     if (editingId.value) {
         const payload: ExerciseUpdate = {
             name: form.name,
@@ -465,7 +464,9 @@ const dialogHeader = computed(() =>
         >
             <div class="flex flex-col gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium">Name</label>
+                    <label class="mb-1 block text-sm font-medium">
+                        Name <span class="text-red-500">*</span>
+                    </label>
                     <AppInputText v-model="form.name" class="w-full" />
                     <p v-if="formError" class="mt-1 text-sm text-red-500">
                         {{ formError }}
@@ -520,7 +521,13 @@ const dialogHeader = computed(() =>
                         text
                         @click="showDialog = false"
                     />
-                    <AppButton label="Save" @click="saveExercise" />
+                    <span v-tooltip.top="saveTooltip">
+                        <AppButton
+                            :disabled="!isFormValid"
+                            label="Save"
+                            @click="saveExercise"
+                        />
+                    </span>
                 </div>
             </div>
         </AppDialog>

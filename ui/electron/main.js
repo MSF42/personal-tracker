@@ -5,12 +5,16 @@ const { spawn } = require('child_process')
 let apiProcess = null
 
 function getApiBinaryPath() {
+    const binaryName =
+        process.platform === 'win32'
+            ? 'personal-tracker-api.exe'
+            : 'personal-tracker-api'
     if (app.isPackaged) {
         // electron-builder places extraResources at process.resourcesPath
-        return path.join(process.resourcesPath, 'personal-tracker-api')
+        return path.join(process.resourcesPath, binaryName)
     }
     // Dev: binary staged in electron/binaries/
-    return path.join(__dirname, 'binaries', 'personal-tracker-api')
+    return path.join(__dirname, 'binaries', binaryName)
 }
 
 function startApi() {
@@ -23,8 +27,11 @@ function startApi() {
     require('fs').mkdirSync(uploadsPath, { recursive: true })
 
     apiProcess = spawn(binaryPath, [], {
+        cwd: userDataPath,
         env: {
-            ...process.env,
+            HOME: process.env.HOME,
+            TMPDIR: process.env.TMPDIR || '/tmp',
+            PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
             PORT: '8743',
             HOST: '127.0.0.1',
             DATABASE_PATH: dbPath,
@@ -35,6 +42,7 @@ function startApi() {
     apiProcess.stdout.on('data', (d) => console.log('[api]', d.toString()))
     apiProcess.stderr.on('data', (d) => console.error('[api]', d.toString()))
     apiProcess.on('error', (err) => console.error('[api] failed to start:', err))
+    apiProcess.on('exit', (code, signal) => console.error('[api] exited — code:', code, 'signal:', signal))
 }
 
 function waitForApi(url, retries, delay, callback) {

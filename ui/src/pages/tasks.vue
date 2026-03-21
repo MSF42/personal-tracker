@@ -54,7 +54,9 @@ const showDialog = ref(false);
 const editingId = ref<number | null>(null);
 const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
-const formError = ref('');
+
+const isFormValid = computed(() => form.title.trim() !== '');
+const saveTooltip = computed(() => (isFormValid.value ? undefined : 'Title is required'));
 
 const form = reactive({
     title: '',
@@ -77,7 +79,6 @@ function resetForm() {
     form.repeat_days = [];
     form.priority = 'medium';
     editingId.value = null;
-    formError.value = '';
 }
 
 function openAddDialog() {
@@ -99,11 +100,6 @@ function openEditDialog(task: Task) {
 }
 
 async function saveTask() {
-    if (!form.title.trim()) {
-        formError.value = 'Title is required';
-        return;
-    }
-    formError.value = '';
     if (editingId.value) {
         const payload: TaskUpdate = {
             title: form.title,
@@ -455,12 +451,9 @@ const dialogHeader = computed(() =>
             <div class="flex flex-col gap-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Title
+                        Title <span class="text-red-500">*</span>
                     </label>
                     <AppInputText v-model="form.title" class="w-full" />
-                    <p v-if="formError" class="mt-1 text-sm text-red-500">
-                        {{ formError }}
-                    </p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
@@ -561,7 +554,13 @@ const dialogHeader = computed(() =>
                         text
                         @click="showDialog = false"
                     />
-                    <AppButton label="Save" @click="saveTask" />
+                    <span v-tooltip.top="saveTooltip">
+                        <AppButton
+                            :disabled="!isFormValid"
+                            label="Save"
+                            @click="saveTask"
+                        />
+                    </span>
                 </div>
             </div>
         </AppDialog>

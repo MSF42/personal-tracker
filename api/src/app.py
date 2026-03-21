@@ -2,6 +2,8 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -46,8 +48,33 @@ def create_app():
         lifespan=lifespan,
     )
     app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Exception handlers
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(request: Request, exc: RequestValidationError):
+        messages = []
+        for error in exc.errors():
+            field = error["loc"][-1] if error["loc"] else None
+            msg = error["msg"]
+            if field and field != "body":
+                label = str(field).replace("_", " ").capitalize()
+                messages.append(f"{label}: {msg}")
+            else:
+                messages.append(msg)
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "; ".join(messages),
+                "code": "VALIDATION_ERROR",
+            },
+        )
+
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError):
         return JSONResponse(

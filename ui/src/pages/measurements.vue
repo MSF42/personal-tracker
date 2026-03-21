@@ -55,6 +55,9 @@ const showAddMeasurement = ref(false);
 const measurementForm = reactive({ name: '', unit: '' });
 const addMeasurementError = ref('');
 
+const isAddFormValid = computed(() => measurementForm.name.trim() !== '');
+const addSaveTooltip = computed(() => (isAddFormValid.value ? undefined : 'Name is required'));
+
 function openAddMeasurement() {
     measurementForm.name = '';
     measurementForm.unit = '';
@@ -64,10 +67,6 @@ function openAddMeasurement() {
 
 async function saveMeasurement() {
     addMeasurementError.value = '';
-    if (!measurementForm.name.trim()) {
-        addMeasurementError.value = 'Name is required';
-        return;
-    }
     const res = await createMeasurement({
         name: measurementForm.name,
         unit: measurementForm.unit,
@@ -87,6 +86,9 @@ const showEditMeasurement = ref(false);
 const editMeasurementForm = reactive({ name: '', unit: '' });
 const editMeasurementError = ref('');
 
+const isEditFormValid = computed(() => editMeasurementForm.name.trim() !== '');
+const editSaveTooltip = computed(() => (isEditFormValid.value ? undefined : 'Name is required'));
+
 function openEditMeasurement() {
     if (!selectedMeasurement.value) return;
     editMeasurementForm.name = selectedMeasurement.value.name;
@@ -98,10 +100,6 @@ function openEditMeasurement() {
 async function saveEditMeasurement() {
     if (!selectedId.value) return;
     editMeasurementError.value = '';
-    if (!editMeasurementForm.name.trim()) {
-        editMeasurementError.value = 'Name is required';
-        return;
-    }
     const res = await updateMeasurement(selectedId.value, {
         name: editMeasurementForm.name,
         unit: editMeasurementForm.unit,
@@ -423,7 +421,9 @@ const entryDialogHeader = computed(() =>
         >
             <div class="flex flex-col gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium"> Name </label>
+                    <label class="mb-1 block text-sm font-medium">
+                        Name <span class="text-red-500">*</span>
+                    </label>
                     <AppInputText
                         v-model="measurementForm.name"
                         class="w-full"
@@ -450,7 +450,13 @@ const entryDialogHeader = computed(() =>
                         text
                         @click="showAddMeasurement = false"
                     />
-                    <AppButton label="Save" @click="saveMeasurement" />
+                    <span v-tooltip.top="addSaveTooltip">
+                        <AppButton
+                            :disabled="!isAddFormValid"
+                            label="Save"
+                            @click="saveMeasurement"
+                        />
+                    </span>
                 </div>
             </div>
         </AppDialog>
@@ -464,7 +470,9 @@ const entryDialogHeader = computed(() =>
         >
             <div class="flex flex-col gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium"> Name </label>
+                    <label class="mb-1 block text-sm font-medium">
+                        Name <span class="text-red-500">*</span>
+                    </label>
                     <AppInputText
                         v-model="editMeasurementForm.name"
                         class="w-full"
@@ -489,7 +497,13 @@ const entryDialogHeader = computed(() =>
                         text
                         @click="showEditMeasurement = false"
                     />
-                    <AppButton label="Save" @click="saveEditMeasurement" />
+                    <span v-tooltip.top="editSaveTooltip">
+                        <AppButton
+                            :disabled="!isEditFormValid"
+                            label="Save"
+                            @click="saveEditMeasurement"
+                        />
+                    </span>
                 </div>
             </div>
         </AppDialog>

@@ -40,6 +40,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/habits': RouteRecordInfo<
+      '/habits',
+      '/habits',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/measurements': RouteRecordInfo<
       '/measurements',
       '/measurements',
@@ -64,6 +71,13 @@ declare module 'vue-router/auto-routes' {
     '/settings': RouteRecordInfo<
       '/settings',
       '/settings',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/strength': RouteRecordInfo<
+      '/strength',
+      '/strength',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -114,6 +128,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/habits.vue': {
+      routes:
+        | '/habits'
+      views:
+        | never
+    }
     'src/pages/measurements.vue': {
       routes:
         | '/measurements'
@@ -135,6 +155,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/settings.vue': {
       routes:
         | '/settings'
+      views:
+        | never
+    }
+    'src/pages/strength.vue': {
+      routes:
+        | '/strength'
       views:
         | never
     }
