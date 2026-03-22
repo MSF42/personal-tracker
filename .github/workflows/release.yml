@@ -57,9 +57,8 @@ jobs:
 
       - name: Package (macOS)
         working-directory: ui
-        run: npm run electron:build
+        run: npx electron-builder --mac --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -112,9 +111,7 @@ jobs:
 
       - name: Package (Windows)
         working-directory: ui
-        run: npx electron-builder --win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish never
 
       - uses: actions/upload-artifact@v4
         with:
@@ -160,9 +157,7 @@ jobs:
 
       - name: Package (Linux)
         working-directory: ui
-        run: npx electron-builder --linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --linux --publish never
 
       - uses: actions/upload-artifact@v4
         with:
