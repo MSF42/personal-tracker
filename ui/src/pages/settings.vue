@@ -11,7 +11,7 @@ const { getSetting, setSetting, deleteSetting, resetAllData, seedSampleData } =
 const { uploadNoteImage } = useNoteApi();
 const toast = useToast();
 
-const appVersion = ref<string | null>(null);
+const appVersion = window.electron?.appVersion ?? null;
 const profilePicture = ref<string | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const displayName = ref('');
@@ -25,10 +25,6 @@ const weightOptions = ['kg', 'lbs'];
 const distanceOptions = ['km', 'mi'];
 
 onMounted(async () => {
-    if (window.electron) {
-        appVersion.value = await window.electron.appVersion();
-    }
-
     const [profileRes, nameRes] = await Promise.all([
         getSetting('profile_picture'),
         getSetting('user_name'),

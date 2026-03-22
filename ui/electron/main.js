@@ -1,9 +1,8 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron')
+const { app, BrowserWindow, dialog } = require('electron')
 const path = require('path')
 const { spawn } = require('child_process')
 const { autoUpdater } = require('electron-updater')
 
-ipcMain.handle('get-app-version', () => app.getVersion())
 
 let apiProcess = null
 
@@ -109,6 +108,7 @@ function setupAutoUpdater() {
 }
 
 app.whenReady().then(() => {
+    process.env.APP_VERSION = app.getVersion()
     startApi()
     // Poll until API is up, then open the window
     waitForApi('http://127.0.0.1:8743/api/v1/health', 30, 500, () => {

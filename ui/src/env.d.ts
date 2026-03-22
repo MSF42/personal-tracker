@@ -1,5 +1,5 @@
 interface Window {
     electron?: {
-        appVersion: () => Promise<string>
+        appVersion: string
     }
 }
