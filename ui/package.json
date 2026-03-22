@@ -1,7 +1,7 @@
 {
     "name": "personal-tracker-ui",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.1.0",
     "type": "module",
     "main": "electron/main.js",
     "scripts": {
@@ -80,6 +80,11 @@
             "target": "dmg",
             "icon": "electron/icons/icon.icns",
             "artifactName": "PersonalTracker-${version}-mac.dmg",
+            "hardenedRuntime": true,
+            "gatekeeperAssess": false,
+            "entitlements": "electron/entitlements.mac.plist",
+            "entitlementsInherit": "electron/entitlements.mac.plist",
+            "notarize": true,
             "extraResources": [
                 {
                     "from": "electron/binaries/personal-tracker-api",
