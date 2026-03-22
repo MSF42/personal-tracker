@@ -11,6 +11,7 @@ const { getSetting, setSetting, deleteSetting, resetAllData, seedSampleData } =
 const { uploadNoteImage } = useNoteApi();
 const toast = useToast();
 
+const appVersion = ref<string | null>(null);
 const profilePicture = ref<string | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const displayName = ref('');
@@ -24,6 +25,10 @@ const weightOptions = ['kg', 'lbs'];
 const distanceOptions = ['km', 'mi'];
 
 onMounted(async () => {
+    if (window.electron) {
+        appVersion.value = await window.electron.appVersion();
+    }
+
     const [profileRes, nameRes] = await Promise.all([
         getSetting('profile_picture'),
         getSetting('user_name'),
@@ -245,6 +250,21 @@ async function confirmReset() {
                 severity="secondary"
                 @click="generateSampleData"
             />
+        </section>
+
+        <!-- About -->
+        <section
+            class="border-surface-200 dark:border-surface-700 mb-8 rounded-lg border p-6"
+        >
+            <h2
+                class="text-surface-800 dark:text-surface-100 mb-1 text-lg font-semibold"
+            >
+                About
+            </h2>
+            <p class="text-surface-500 dark:text-surface-400 text-sm">
+                Personal Tracker
+                <span v-if="appVersion">v{{ appVersion }} Beta</span>
+            </p>
         </section>
 
         <!-- Danger Zone -->

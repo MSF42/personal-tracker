@@ -1,1 +1,5 @@
-// No Node APIs exposed to renderer — contextIsolation is on
+const { contextBridge, ipcRenderer } = require('electron')
+
+contextBridge.exposeInMainWorld('electron', {
+    appVersion: () => ipcRenderer.invoke('get-app-version'),
+})

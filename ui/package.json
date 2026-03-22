@@ -1,7 +1,7 @@
 {
     "name": "personal-tracker-ui",
     "private": true,
-    "version": "0.1.0",
+    "version": "0.1.4",
     "repository": {
         "type": "git",
         "url": "https://github.com/MSF42/personal-tracker.git"
@@ -33,6 +33,7 @@
         "@tailwindcss/vite": "^4.1.18",
         "chart.js": "^4.5.1",
         "dompurify": "^3.3.3",
+        "electron-updater": "^6.8.3",
         "highlight.js": "^11.11.1",
         "marked": "^17.0.3",
         "primeicons": "^7.0.0",
@@ -71,6 +72,11 @@
     "build": {
         "appId": "com.stevefurches.personaltracker",
         "productName": "Personal Tracker",
+        "publish": {
+            "provider": "github",
+            "owner": "MSF42",
+            "repo": "personal-tracker"
+        },
         "directories": {
             "output": "dist-electron"
         },

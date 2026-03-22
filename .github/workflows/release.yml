@@ -68,7 +68,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos-dmg
-          path: ui/dist-electron/*.dmg
+          path: |
+            ui/dist-electron/*.dmg
+            ui/dist-electron/latest-mac.yml
           if-no-files-found: error
 
   build-windows:
@@ -116,7 +118,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: ui/dist-electron/*.exe
+          path: |
+            ui/dist-electron/*.exe
+            ui/dist-electron/latest.yml
           if-no-files-found: error
 
   build-linux:
@@ -162,7 +166,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: linux-appimage
-          path: ui/dist-electron/*.AppImage
+          path: |
+            ui/dist-electron/*.AppImage
+            ui/dist-electron/latest-linux.yml
           if-no-files-found: error
 
   release:
@@ -183,7 +189,10 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             artifacts/macos-dmg/*.dmg
+            artifacts/macos-dmg/latest-mac.yml
             artifacts/windows-installer/*.exe
+            artifacts/windows-installer/latest.yml
             artifacts/linux-appimage/*.AppImage
+            artifacts/linux-appimage/latest-linux.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
