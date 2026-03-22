@@ -2,6 +2,10 @@
     "name": "personal-tracker-ui",
     "private": true,
     "version": "0.1.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/MSF42/personal-tracker.git"
+    },
     "type": "module",
     "main": "electron/main.js",
     "scripts": {
