@@ -1,7 +1,6 @@
 const { app, BrowserWindow, dialog } = require('electron')
 const path = require('path')
 const { spawn } = require('child_process')
-const { autoUpdater } = require('electron-updater')
 
 
 let apiProcess = null
@@ -80,30 +79,33 @@ function createWindow() {
 }
 
 function setupAutoUpdater() {
-    autoUpdater.autoDownload = true
-    autoUpdater.autoInstallOnAppQuit = true
+    if (!app.isPackaged) return
+    try {
+        const { autoUpdater } = require('electron-updater')
+        autoUpdater.autoDownload = true
+        autoUpdater.autoInstallOnAppQuit = true
 
-    autoUpdater.on('update-downloaded', (info) => {
-        dialog
-            .showMessageBox({
-                type: 'info',
-                title: 'Update ready',
-                message: `Version ${info.version} has been downloaded and will be installed when you quit the app.`,
-                buttons: ['Install now', 'Later'],
-                defaultId: 0,
-            })
-            .then(({ response }) => {
-                if (response === 0) autoUpdater.quitAndInstall()
-            })
-    })
+        autoUpdater.on('update-downloaded', (info) => {
+            dialog
+                .showMessageBox({
+                    type: 'info',
+                    title: 'Update ready',
+                    message: `Version ${info.version} has been downloaded and will be installed when you quit the app.`,
+                    buttons: ['Install now', 'Later'],
+                    defaultId: 0,
+                })
+                .then(({ response }) => {
+                    if (response === 0) autoUpdater.quitAndInstall()
+                })
+        })
 
-    autoUpdater.on('error', (err) => {
-        console.error('[updater] error:', err.message)
-    })
+        autoUpdater.on('error', (err) => {
+            console.error('[updater] error:', err.message)
+        })
 
-    // Check for updates (only when packaged — no update server in dev)
-    if (app.isPackaged) {
         autoUpdater.checkForUpdates()
+    } catch (err) {
+        console.error('[updater] failed to initialise:', err.message)
     }
 }
 
