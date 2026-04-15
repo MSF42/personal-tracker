@@ -259,7 +259,7 @@ async function confirmReset() {
             </h2>
             <p class="text-surface-500 dark:text-surface-400 text-sm">
                 Personal Tracker
-                <span v-if="appVersion">v{{ appVersion }} Beta</span>
+                <span v-if="appVersion">v{{ appVersion }}</span>
             </p>
         </section>
 
