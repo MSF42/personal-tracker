@@ -288,11 +288,52 @@ MIGRATIONS = [
                CREATE INDEX IF NOT EXISTS idx_set_logs_workout_log_id ON set_logs (workout_log_id);
                """,
     },
+    {
+        "version": 23,
+        "name": "extend_notes_schema",
+        "sql": """
+               ALTER TABLE notes ADD COLUMN due_date TEXT;
+               ALTER TABLE notes ADD COLUMN recurrence_type TEXT;
+               ALTER TABLE notes ADD COLUMN recurrence_interval INTEGER;
+               ALTER TABLE notes ADD COLUMN repeat_days TEXT;
+               ALTER TABLE notes ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+               CREATE INDEX IF NOT EXISTS idx_notes_due_date ON notes (due_date);
+               CREATE INDEX IF NOT EXISTS idx_notes_archived ON notes (archived);
+               """,
+    },
+    {
+        "version": 24,
+        "name": "create_search_index_fts5",
+        "sql": """
+               CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+                   kind UNINDEXED,
+                   entity_id UNINDEXED,
+                   parent_id UNINDEXED,
+                   title,
+                   body,
+                   tokenize = 'porter unicode61'
+               );
+               """,
+    },
+    {
+        "version": 25,
+        "name": "create_node_links",
+        "sql": """
+               CREATE TABLE IF NOT EXISTS node_links (
+                   node_id INTEGER NOT NULL,
+                   target_name TEXT NOT NULL,
+                   PRIMARY KEY (node_id, target_name)
+               );
+               CREATE INDEX IF NOT EXISTS idx_node_links_target ON node_links (target_name);
+               """,
+    },
 ]
 
 
 async def run_migrations(db_path: str):
     async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+
         # Step 1: Always create schema_migrations first (version 1)
         await db.executescript(MIGRATIONS[0]["sql"])
         await db.commit()
@@ -319,4 +360,128 @@ async def run_migrations(db_path: str):
             )
             await db.commit()
 
+        # Post-migration: idempotent seed steps that need Python logic
+        await _backfill_search_index(db)
+        await _ensure_inbox_note(db)
+
         print("Migrations complete")
+
+
+async def _backfill_search_index(db: aiosqlite.Connection) -> None:
+    """Populate search_index from existing rows if the index is empty.
+
+    Runs on every startup but only does work when the index contains nothing,
+    which happens immediately after the FTS5 migration applies or after a
+    restore that didn't carry the FTS table across.
+    """
+    cursor = await db.execute("SELECT COUNT(*) AS c FROM search_index")
+    row = await cursor.fetchone()
+    if row and row["c"] > 0:
+        return
+
+    # Import here to avoid circular imports during module load
+    from src.utils.wiki import parse_wiki_targets
+
+    # Notes
+    cursor = await db.execute("SELECT id, content FROM notes")
+    for n in await cursor.fetchall():
+        await db.execute(
+            "INSERT INTO search_index (kind, entity_id, parent_id, title, body) "
+            "VALUES ('note', ?, NULL, '', ?)",
+            (n["id"], n["content"] or ""),
+        )
+        for target in parse_wiki_targets(n["content"] or ""):
+            await db.execute(
+                "INSERT OR IGNORE INTO node_links (node_id, target_name) VALUES (?, ?)",
+                (n["id"], target),
+            )
+
+    # Tasks
+    cursor = await db.execute("SELECT id, title, description FROM tasks")
+    for t in await cursor.fetchall():
+        body = f"{t['title']}\n{t['description'] or ''}"
+        await db.execute(
+            "INSERT INTO search_index (kind, entity_id, parent_id, title, body) "
+            "VALUES ('task', ?, NULL, ?, ?)",
+            (t["id"], t["title"], body),
+        )
+
+    # Habits
+    cursor = await db.execute("SELECT id, name, description FROM habits")
+    for h in await cursor.fetchall():
+        body = f"{h['name']}\n{h['description'] or ''}"
+        await db.execute(
+            "INSERT INTO search_index (kind, entity_id, parent_id, title, body) "
+            "VALUES ('habit', ?, NULL, ?, ?)",
+            (h["id"], h["name"], body),
+        )
+
+    # Exercises
+    cursor = await db.execute("SELECT id, name, description FROM exercises")
+    for e in await cursor.fetchall():
+        body = f"{e['name']}\n{e['description'] or ''}"
+        await db.execute(
+            "INSERT INTO search_index (kind, entity_id, parent_id, title, body) "
+            "VALUES ('exercise', ?, NULL, ?, ?)",
+            (e["id"], e["name"], body),
+        )
+
+    # Workout routines
+    cursor = await db.execute("SELECT id, name, description FROM workout_routines")
+    for r in await cursor.fetchall():
+        body = f"{r['name']}\n{r['description'] or ''}"
+        await db.execute(
+            "INSERT INTO search_index (kind, entity_id, parent_id, title, body) "
+            "VALUES ('routine', ?, NULL, ?, ?)",
+            (r["id"], r["name"], body),
+        )
+
+    await db.commit()
+
+
+async def _ensure_inbox_note(db: aiosqlite.Connection) -> None:
+    """Guarantee an 'Inbox' root note exists and its id is tracked in user_settings.
+
+    If the stored inbox id points to a missing note, re-create and update the
+    setting.
+    """
+    cursor = await db.execute(
+        "SELECT value FROM user_settings WHERE key = 'inbox_note_id'"
+    )
+    row = await cursor.fetchone()
+    existing_id: int | None = None
+    if row:
+        try:
+            existing_id = int(row["value"])
+        except (TypeError, ValueError):
+            existing_id = None
+
+    if existing_id is not None:
+        cursor = await db.execute(
+            "SELECT id FROM notes WHERE id = ?", (existing_id,)
+        )
+        found = await cursor.fetchone()
+        if found:
+            return
+
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    cursor = await db.execute(
+        "INSERT INTO notes (parent_id, content, sort_order, collapsed, created_at, updated_at) "
+        "VALUES (NULL, 'Inbox', -1, 0, ?, ?)",
+        (now, now),
+    )
+    new_id = cursor.lastrowid
+    await db.execute(
+        "INSERT INTO user_settings (key, value) VALUES ('inbox_note_id', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = ?",
+        (str(new_id), str(new_id)),
+    )
+    # Seed the new inbox row into the search index too
+    await db.execute(
+        "INSERT INTO search_index (kind, entity_id, parent_id, title, body) "
+        "VALUES ('note', ?, NULL, '', 'Inbox')",
+        (new_id,),
+    )
+    await db.commit()

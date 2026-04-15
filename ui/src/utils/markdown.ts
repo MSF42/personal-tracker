@@ -10,6 +10,8 @@ import typescript from 'highlight.js/lib/languages/typescript';
 import xml from 'highlight.js/lib/languages/xml';
 import { Marked } from 'marked';
 
+import { preprocessNoteMarkdown } from './wiki';
+
 hljs.registerLanguage('javascript', javascript);
 hljs.registerLanguage('js', javascript);
 hljs.registerLanguage('typescript', typescript);
@@ -33,11 +35,17 @@ const marked = new Marked({
     },
 });
 
+// DOMPurify normally drops non-standard attributes, but the outliner relies on
+// data-wiki/data-tag/data-mention being preserved so a delegated click handler
+// can drive navigation.
+const PURIFY_CONFIG = { ADD_ATTR: ['data-wiki', 'data-tag', 'data-mention'] };
+
 export function renderMarkdown(content: string): string {
     if (!content) return '';
-    const isMultiLine = content.includes('\n');
-    if (isMultiLine) {
-        return DOMPurify.sanitize(marked.parse(content) as string);
-    }
-    return DOMPurify.sanitize(marked.parseInline(content) as string);
+    const pre = preprocessNoteMarkdown(content);
+    const isMultiLine = pre.includes('\n');
+    const html = isMultiLine
+        ? (marked.parse(pre) as string)
+        : (marked.parseInline(pre) as string);
+    return DOMPurify.sanitize(html, PURIFY_CONFIG);
 }

@@ -1,15 +1,22 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
+import CommandPalette from '@/components/CommandPalette.vue';
+import { useNoteApi } from '@/composables/api/useNoteApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useBackup } from '@/composables/useBackup';
+import { useUiState } from '@/composables/useUiState';
 import { useUnits } from '@/composables/useUnits';
 import { useUserProfile } from '@/composables/useUserProfile';
 
 const route = useRoute();
 const router = useRouter();
 const { getSetting, setSetting } = useSettingsApi();
+const { createNote } = useNoteApi();
+const ui = useUiState();
+
+const captureText = ref('');
 
 const restoreFileInput = ref<HTMLInputElement | null>(null);
 
@@ -41,6 +48,7 @@ const navItems = [
     { label: 'Running', to: '/running', icon: 'pi pi-bolt' },
     { label: 'Strength', to: '/strength', icon: 'pi pi-heart' },
     { label: 'Notes', to: '/notes', icon: 'pi pi-file-edit' },
+    { label: 'Timeline', to: '/timeline', icon: 'pi pi-clock' },
     { label: 'Measurements', to: '/measurements', icon: 'pi pi-chart-line' },
 ];
 
@@ -54,8 +62,62 @@ onMounted(async () => {
     } else {
         document.documentElement.classList.add('dark');
     }
+    const inboxRes = await getSetting('inbox_note_id');
+    if (inboxRes.success && inboxRes.data?.value) {
+        const parsed = Number(inboxRes.data.value);
+        if (!Number.isNaN(parsed)) ui.setInboxNoteId(parsed);
+    }
     await Promise.all([loadProfile(), loadUnits()]);
+    window.addEventListener('keydown', onGlobalKeydown);
 });
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', onGlobalKeydown);
+});
+
+function onGlobalKeydown(e: KeyboardEvent) {
+    const isMod = e.metaKey || e.ctrlKey;
+    const target = e.target as HTMLElement | null;
+    const inField =
+        !!target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+
+    // Cmd/Ctrl+K opens the palette. Intercept even when focused inside a
+    // textarea so the outliner shortcut is always reachable.
+    if (isMod && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        ui.openPalette();
+        return;
+    }
+    // Cmd/Ctrl+. toggles focus mode from anywhere.
+    if (isMod && e.key === '.') {
+        e.preventDefault();
+        ui.toggleFocusMode();
+        return;
+    }
+    // Escape exits focus mode only when not editing text (so the outliner's
+    // own escape handling keeps working).
+    if (e.key === 'Escape' && ui.focusMode.value && !inField) {
+        ui.exitFocusMode();
+    }
+}
+
+async function submitCapture() {
+    const text = captureText.value.trim();
+    if (!text) return;
+    const inboxId = ui.inboxNoteId.value;
+    if (inboxId == null) return;
+    await createNote({
+        parent_id: inboxId,
+        content: text,
+        sort_order: 0,
+    });
+    captureText.value = '';
+    // If the notes page is already open on Inbox, notify it to reload so the
+    // newly-captured child shows up immediately. Uses a window event since
+    // App.vue doesn't otherwise communicate with child route components.
+    window.dispatchEvent(new CustomEvent('outboard:inbox-captured'));
+}
 
 function toggleMenu(event: Event) {
     popover.value.toggle(event);
@@ -83,6 +145,7 @@ function goToSettings() {
         style="margin-top: env(safe-area-inset-top, 0px)"
     />
     <nav
+        v-show="!ui.focusMode.value"
         class="border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900 sticky top-0 z-50 border-b px-4 pb-3"
         style="padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem)"
     >
@@ -104,6 +167,33 @@ function goToSettings() {
                     <span class="hidden sm:inline">{{ item.label }}</span>
                 </RouterLink>
             </div>
+            <!-- Quick-capture input: Enter prepends the text as a child of
+                 the Inbox note. Hidden on very narrow viewports to avoid
+                 crowding the nav. -->
+            <form
+                v-if="ui.inboxNoteId.value"
+                class="mx-2 hidden md:block"
+                @submit.prevent="submitCapture"
+            >
+                <div class="relative">
+                    <i
+                        class="pi pi-bolt text-primary-500 pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs"
+                    ></i>
+                    <input
+                        v-model="captureText"
+                        class="border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900 placeholder:text-surface-400 focus:border-primary-500 w-56 rounded-md border py-1 pr-2 pl-7 text-xs outline-none"
+                        placeholder="quick capture → inbox"
+                        type="text"
+                    />
+                </div>
+            </form>
+            <button
+                class="text-surface-400 hover:text-primary-500 mx-1 hidden cursor-pointer text-[10px] tracking-widest uppercase md:inline"
+                title="Command palette (⌘K)"
+                @click="ui.openPalette()"
+            >
+                ⌘K
+            </button>
             <button
                 class="text-surface-600 hover:text-surface-900 dark:text-surface-400 dark:hover:text-surface-100 ml-auto flex shrink-0 cursor-pointer items-center gap-2 transition-colors"
                 @click="toggleMenu"
@@ -233,4 +323,17 @@ function goToSettings() {
     >
         <RouterView />
     </div>
+
+    <!-- Mounted once globally; visibility is driven by useUiState. -->
+    <CommandPalette />
+
+    <!-- Focus-mode exit hint, since the nav is hidden in that state. -->
+    <button
+        v-if="ui.focusMode.value"
+        class="text-surface-400 hover:text-primary-500 fixed top-3 right-3 z-40 text-[10px] tracking-widest uppercase"
+        title="Exit focus mode (Esc)"
+        @click="ui.exitFocusMode()"
+    >
+        exit focus
+    </button>
 </template>

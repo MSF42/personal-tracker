@@ -10,6 +10,7 @@ from src.models.task import (
     UpdateTaskRequest,
     task_from_db,
 )
+from src.repositories.search_sync import index_task, remove_from_index
 from src.repositories.utils import execute_update
 from src.services.task_recurrence import calculate_next_due_date
 
@@ -44,10 +45,12 @@ class SQLiteTaskRepository:
                 now,
             ),
         )
+        task_id = cursor.lastrowid
+        await index_task(self.db, task_id, task.title, task.description)
         await self.db.commit()
 
         # Fetch and return the created task
-        return await self.find_by_id(cursor.lastrowid)
+        return await self.find_by_id(task_id)
 
     async def find_by_id(self, task_id: int) -> TaskResponse | None:
         cursor = await self.db.execute(
@@ -74,6 +77,7 @@ class SQLiteTaskRepository:
             "DELETE FROM tasks WHERE id = ?",
             (task_id,),
         )
+        await remove_from_index(self.db, "task", task_id)
         await self.db.commit()
 
         return cursor.rowcount > 0  # True if a row was deleted
@@ -119,6 +123,16 @@ class SQLiteTaskRepository:
                 update_data["repeat_days"] = None
 
         await execute_update(self.db, "tasks", update_data, task_id)
+
+        # Keep FTS index in sync if the searchable fields changed
+        if "title" in update_data or "description" in update_data:
+            refreshed = await self.find_by_id(task_id)
+            if refreshed is not None:
+                await index_task(
+                    self.db, task_id, refreshed.title, refreshed.description
+                )
+                await self.db.commit()
+            return refreshed
         return await self.find_by_id(task_id)
 
     async def find_with_filters(

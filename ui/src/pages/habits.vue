@@ -85,7 +85,9 @@ const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
 
 const isFormValid = computed(() => form.name.trim() !== '');
-const saveTooltip = computed(() => (isFormValid.value ? undefined : 'Name is required'));
+const saveTooltip = computed(() =>
+    isFormValid.value ? undefined : 'Name is required',
+);
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -155,7 +157,7 @@ async function saveHabit() {
             showDialog.value = false;
             await loadData();
         } else {
-            toast.showError(res.error ?? 'Failed to save habit');
+            toast.showError(res.error?.message ?? 'Failed to save habit');
         }
     } else {
         const payload: HabitCreate = {
@@ -174,7 +176,7 @@ async function saveHabit() {
             showDialog.value = false;
             await loadData();
         } else {
-            toast.showError(res.error ?? 'Failed to save habit');
+            toast.showError(res.error?.message ?? 'Failed to save habit');
         }
     }
 }

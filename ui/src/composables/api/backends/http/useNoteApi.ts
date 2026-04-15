@@ -37,6 +37,24 @@ export function useNoteApi() {
     const searchNotes = (q: string) =>
         api.getData<Note[]>('notes/search', { q });
 
+    const completeDueNote = (id: number) =>
+        api.post<undefined, Note>(
+            `notes/${id}/complete-due`,
+            undefined as unknown as undefined,
+        );
+
+    const exportNoteMarkdown = async (id: number): Promise<string | null> => {
+        try {
+            const base =
+                import.meta.env.VITE_API_BASE_URL ?? window.location.origin;
+            const res = await fetch(`${base}/api/v1/notes/${id}/export`);
+            if (!res.ok) return null;
+            return await res.text();
+        } catch {
+            return null;
+        }
+    };
+
     return {
         getNotes,
         createNote,
@@ -45,5 +63,7 @@ export function useNoteApi() {
         deleteNote,
         uploadNoteImage,
         searchNotes,
+        completeDueNote,
+        exportNoteMarkdown,
     };
 }

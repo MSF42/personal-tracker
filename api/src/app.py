@@ -12,14 +12,18 @@ from src.db.database import DATABASE_PATH
 from src.db.migrations import run_migrations
 from src.errors import AppError
 from src.middleware.logging import RequestLoggingMiddleware
+from src.routes.backlinks import router as backlinks_router
 from src.routes.exercises import router as exercise_router
 from src.routes.habits import router as habits_router
 from src.routes.health import router
 from src.routes.measurements import router as measurements_router
 from src.routes.notes import router as notes_router
 from src.routes.running import router as running_router
+from src.routes.search import router as search_router
 from src.routes.settings import router as settings_router
+from src.routes.tags import router as tags_router
 from src.routes.tasks import router as tasks_router
+from src.routes.today import router as today_router
 from src.routes.workout_logs import router as workout_logs_router
 from src.routes.workout_routines import router as workout_routine_router
 
@@ -108,6 +112,10 @@ def create_app():
     app.include_router(measurements_router)
     app.include_router(notes_router)
     app.include_router(settings_router)
+    app.include_router(search_router)
+    app.include_router(today_router)
+    app.include_router(tags_router)
+    app.include_router(backlinks_router)
 
     app.mount("/uploads", StaticFiles(directory=settings.uploads_path), name="uploads")
 

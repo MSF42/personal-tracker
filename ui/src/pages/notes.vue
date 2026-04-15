@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import NoteRow from '@/components/NoteRow.vue';
 import { useNoteApi } from '@/composables/api/useNoteApi';
+import { useSearchApi } from '@/composables/api/useSearchApi';
 import { useNoteTree } from '@/composables/useNoteTree';
+import { useUiState } from '@/composables/useUiState';
 import type { Note, NoteTreeNode } from '@/types/Note';
+import type { BacklinkRow, TagCount } from '@/types/Search';
 
 const {
     tree,
@@ -25,9 +29,17 @@ const {
     handleInput,
     handleBlur,
     handleKeydown,
+    openNode,
+    setNodeDueDate,
+    cycleRecurrence,
+    completeDueNodeAction,
 } = useNoteTree();
 
-const { searchNotes } = useNoteApi();
+const { searchNotes, exportNoteMarkdown } = useNoteApi();
+const { getTags, getBacklinks } = useSearchApi();
+const ui = useUiState();
+const route = useRoute();
+const router = useRouter();
 
 // --- Sidebar toggle (mobile) ---
 const sidebarOpen = ref(true);
@@ -77,12 +89,136 @@ function selectSearchResult(id: number) {
 function noteFirstLine(note: Note): string {
     return note.content.split('\n')[0] || 'Untitled';
 }
+
+// --- Tags + backlinks ---
+
+const tags = ref<TagCount[]>([]);
+const mentions = ref<TagCount[]>([]);
+
+async function loadTags() {
+    const res = await getTags();
+    if (res.success && res.data) {
+        tags.value = res.data.tags;
+        mentions.value = res.data.mentions;
+    }
+}
+
+function openTag(name: string) {
+    ui.openPalette(name);
+}
+
+const backlinks = ref<BacklinkRow[]>([]);
+
+async function loadBacklinksFor(note: NoteTreeNode | null) {
+    if (!note) {
+        backlinks.value = [];
+        return;
+    }
+    const title = noteTitle(note);
+    if (!title || title === 'Untitled') {
+        backlinks.value = [];
+        return;
+    }
+    const res = await getBacklinks(title, note.id);
+    if (res.success && res.data) {
+        backlinks.value = res.data.links;
+    } else {
+        backlinks.value = [];
+    }
+}
+
+watch(selectedNote, (note) => {
+    loadBacklinksFor(note);
+});
+
+// --- Archive toggle: filter the sidebar tree client-side ---
+
+const visibleTree = computed<NoteTreeNode[]>(() => {
+    if (ui.showArchive.value) return tree.value;
+    return tree.value.filter((n) => !n.archived);
+});
+
+// --- Query-param deep link (from palette search results) ---
+
+async function handleRouteNoteParam() {
+    const raw = route.query.note;
+    if (!raw) return;
+    const id = Number(Array.isArray(raw) ? raw[0] : raw);
+    if (Number.isNaN(id)) return;
+    await openNode(id);
+    // Clear the query param so refreshes don't re-trigger the jump.
+    const next = { ...route.query };
+    delete next.note;
+    router.replace({ query: next });
+}
+
+watch(() => route.query.note, handleRouteNoteParam);
+
+onMounted(async () => {
+    await loadTags();
+    // Slight delay so useNoteTree's own onMounted load finishes first.
+    setTimeout(handleRouteNoteParam, 50);
+    window.addEventListener('outboard:inbox-captured', onInboxCaptured);
+});
+
+onUnmounted(() => {
+    window.removeEventListener('outboard:inbox-captured', onInboxCaptured);
+});
+
+async function onInboxCaptured() {
+    // If we're viewing the Inbox note, refresh the tree so the captured
+    // child appears; otherwise just refresh tags.
+    if (
+        ui.inboxNoteId.value != null &&
+        selectedNoteId.value === ui.inboxNoteId.value
+    ) {
+        const reloadedRes = await useNoteApi().getNotes();
+        if (reloadedRes.success && reloadedRes.data) {
+            tree.value = reloadedRes.data;
+        }
+    }
+    await loadTags();
+}
+
+// --- Export + note-row event handlers ---
+
+async function exportCurrentNote() {
+    if (!selectedNote.value) return;
+    const md = await exportNoteMarkdown(selectedNote.value.id);
+    if (md == null) return;
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${noteTitle(selectedNote.value)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+async function onSaveDue(node: NoteTreeNode, due: string | null) {
+    await setNodeDueDate(node, due);
+}
+
+async function onCycleRecurrence(node: NoteTreeNode) {
+    await cycleRecurrence(node);
+}
+
+async function onComplete(node: NoteTreeNode) {
+    await completeDueNodeAction(node);
+    // A completed recurring node will have a new due date; a completed
+    // non-recurring node will have none. Either way, re-run tags in case
+    // content changed; no-op here but cheap.
+    loadTags();
+}
 </script>
 
 <template>
     <div class="flex h-full">
         <!-- Left sidebar -->
         <div
+            v-show="!ui.focusMode.value"
             class="border-surface-200 dark:border-surface-700 flex shrink-0 flex-col border-r bg-slate-100 md:w-64 dark:bg-slate-800"
             :class="sidebarOpen ? 'w-64' : 'hidden md:flex'"
         >
@@ -151,8 +287,28 @@ function noteFirstLine(note: Note): string {
 
                 <!-- Normal tree list -->
                 <template v-else>
+                    <div class="mb-1 flex items-center justify-end px-2">
+                        <button
+                            class="text-[9px] font-semibold tracking-widest uppercase"
+                            :class="
+                                ui.showArchive.value
+                                    ? 'text-primary-500'
+                                    : 'text-surface-400 hover:text-surface-600'
+                            "
+                            :title="
+                                ui.showArchive.value
+                                    ? 'Hide archived'
+                                    : 'Show archived'
+                            "
+                            @click="ui.toggleArchive()"
+                        >
+                            {{
+                                ui.showArchive.value ? 'hide arch' : 'show arch'
+                            }}
+                        </button>
+                    </div>
                     <div
-                        v-for="note in tree"
+                        v-for="note in visibleTree"
                         :key="note.id"
                         class="group relative flex cursor-pointer items-center gap-1 rounded px-3 py-1.5 text-sm"
                         :class="
@@ -180,10 +336,52 @@ function noteFirstLine(note: Note): string {
                     </div>
 
                     <div
-                        v-if="tree.length === 0"
+                        v-if="visibleTree.length === 0"
                         class="text-surface-400 px-2 py-4 text-center text-xs"
                     >
                         No notes yet
+                    </div>
+
+                    <!-- Tag + mention index -->
+                    <div v-if="tags.length" class="mt-4">
+                        <div
+                            class="text-surface-500 mb-1 px-3 text-[9px] font-semibold tracking-widest uppercase"
+                        >
+                            Tags
+                        </div>
+                        <div class="flex flex-wrap gap-1 px-3">
+                            <button
+                                v-for="t in tags.slice(0, 30)"
+                                :key="'tag-' + t.name"
+                                class="border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-300 hover:border-primary-400 hover:text-primary-500 rounded border bg-white/40 px-1.5 py-0.5 text-[10px] dark:bg-slate-900/40"
+                                @click="openTag('#' + t.name)"
+                            >
+                                #{{ t.name }}
+                                <span class="text-surface-400">{{
+                                    t.count
+                                }}</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div v-if="mentions.length" class="mt-2">
+                        <div
+                            class="text-surface-500 mb-1 px-3 text-[9px] font-semibold tracking-widest uppercase"
+                        >
+                            Mentions
+                        </div>
+                        <div class="flex flex-wrap gap-1 px-3 pb-2">
+                            <button
+                                v-for="m in mentions.slice(0, 30)"
+                                :key="'m-' + m.name"
+                                class="border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-300 hover:border-primary-400 hover:text-primary-500 rounded border bg-white/40 px-1.5 py-0.5 text-[10px] dark:bg-slate-900/40"
+                                @click="openTag('@' + m.name)"
+                            >
+                                @{{ m.name }}
+                                <span class="text-surface-400">{{
+                                    m.count
+                                }}</span>
+                            </button>
+                        </div>
                     </div>
                 </template>
             </div>
@@ -252,25 +450,56 @@ function noteFirstLine(note: Note): string {
             >
                 <!-- Normal: editable title -->
                 <template v-if="!focusedNodeId">
-                    <textarea
-                        class="text-surface-900 dark:text-surface-100 mb-2 w-full resize-none border-none bg-transparent text-2xl leading-snug font-bold tracking-tight outline-none"
-                        data-title-area
-                        placeholder="Untitled"
-                        rows="1"
-                        :value="selectedNote.content"
-                        @blur="handleBlur(selectedNote)"
-                        @input="handleInput($event, selectedNote)"
-                        @vue:mounted="
-                            ($event: any) => {
-                                const el = $event.el as HTMLTextAreaElement;
-                                el.style.height = 'auto';
-                                el.style.height = el.scrollHeight + 'px';
-                            }
-                        "
-                    />
+                    <div class="flex items-start gap-2">
+                        <textarea
+                            class="text-surface-900 dark:text-surface-100 mb-2 w-full resize-none border-none bg-transparent text-2xl leading-snug font-bold tracking-tight outline-none"
+                            data-title-area
+                            placeholder="Untitled"
+                            rows="1"
+                            :value="selectedNote.content"
+                            @blur="handleBlur(selectedNote)"
+                            @input="handleInput($event, selectedNote)"
+                            @vue:mounted="
+                                ($event: any) => {
+                                    const el = $event.el as HTMLTextAreaElement;
+                                    el.style.height = 'auto';
+                                    el.style.height = el.scrollHeight + 'px';
+                                }
+                            "
+                        />
+                        <button
+                            class="text-surface-400 hover:text-primary-500 shrink-0 pt-3 text-[10px] tracking-widest uppercase"
+                            title="Export as markdown"
+                            @click="exportCurrentNote"
+                        >
+                            ↓ export
+                        </button>
+                    </div>
                     <div
                         class="mt-1.5 mb-4 h-0.5 w-9 rounded bg-blue-500"
                     ></div>
+
+                    <!-- Backlinks pane (only for top-level notes with links) -->
+                    <div
+                        v-if="backlinks.length"
+                        class="border-surface-200 dark:border-surface-700 mb-4 rounded-md border p-3"
+                    >
+                        <div
+                            class="text-surface-500 mb-1 text-[9px] font-semibold tracking-widest uppercase"
+                        >
+                            Linked from ({{ backlinks.length }})
+                        </div>
+                        <div class="space-y-0.5">
+                            <button
+                                v-for="b in backlinks"
+                                :key="'bl-' + b.id"
+                                class="text-surface-600 hover:text-primary-500 block w-full truncate text-left text-xs"
+                                @click="openNode(b.id)"
+                            >
+                                {{ b.content.split('\n')[0] || '(empty)' }}
+                            </button>
+                        </div>
+                    </div>
                 </template>
 
                 <!-- Zoomed: breadcrumb navigation -->
@@ -319,9 +548,12 @@ function noteFirstLine(note: Note): string {
                                 if (focusId === n.id) focusId = null;
                             }
                         "
+                        @complete="onComplete"
+                        @cycle-recurrence="onCycleRecurrence"
                         @delete="handleDelete"
                         @input="handleInput"
                         @keydown="handleKeydown"
+                        @save-due="onSaveDue"
                         @set-focus="(n) => setFocus(n.id)"
                         @toggle-collapse="toggleCollapse"
                         @zoom="(id) => (focusedNodeId = id)"

@@ -112,3 +112,58 @@ html.dark,
 .dark .p-card {
     border: 1px solid var(--p-surface-700);
 }
+
+/* --- Outliner extras: wiki-links, tags, mentions, search-highlight --- */
+
+.note-prose .wikilink {
+    color: var(--p-primary-500, rgb(59 130 246));
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.22);
+    padding: 0 5px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.note-prose .wikilink:hover {
+    background: rgba(59, 130, 246, 0.18);
+}
+
+.note-prose .tag {
+    color: rgb(14 165 233);
+    background: rgba(14, 165, 233, 0.1);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    cursor: pointer;
+}
+
+.note-prose .mention {
+    color: rgb(168 85 247);
+    background: rgba(168, 85, 247, 0.1);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    cursor: pointer;
+}
+
+/* Search snippet <mark> rendering in the command palette */
+mark {
+    background: rgba(245, 165, 36, 0.28);
+    color: inherit;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+@keyframes flash-highlight {
+    0% {
+        background-color: rgba(59, 130, 246, 0.22);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+.flash-highlight {
+    animation: flash-highlight 1.2s ease-out;
+}

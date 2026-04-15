@@ -74,7 +74,9 @@ const deletingId = ref<number | null>(null);
 const formError = ref('');
 
 const isFormValid = computed(() => form.name.trim() !== '');
-const saveTooltip = computed(() => (isFormValid.value ? undefined : 'Name is required'));
+const saveTooltip = computed(() =>
+    isFormValid.value ? undefined : 'Name is required',
+);
 
 const form = reactive({
     name: '',

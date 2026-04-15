@@ -9,6 +9,7 @@ from src.models.habit import (
     HabitUpdate,
     habit_from_db,
 )
+from src.repositories.search_sync import index_habit, remove_from_index
 from src.repositories.utils import execute_update
 
 
@@ -80,8 +81,10 @@ class SQLiteHabitRepository:
                 now,
             ),
         )
+        habit_id = cursor.lastrowid
+        await index_habit(self.db, habit_id, data.name, data.description)
         await self.db.commit()
-        return await self.find_by_id(cursor.lastrowid)
+        return await self.find_by_id(habit_id)
 
     async def update(self, habit_id: int, data: HabitUpdate) -> HabitResponse | None:
         existing = await self.find_by_id(habit_id)
@@ -104,10 +107,20 @@ class SQLiteHabitRepository:
                 update_data["frequency_days"] = None
 
         await execute_update(self.db, "habits", update_data, habit_id)
+
+        if "name" in update_data or "description" in update_data:
+            refreshed = await self.find_by_id(habit_id)
+            if refreshed is not None:
+                await index_habit(
+                    self.db, habit_id, refreshed.name, refreshed.description
+                )
+                await self.db.commit()
+            return refreshed
         return await self.find_by_id(habit_id)
 
     async def delete(self, habit_id: int) -> bool:
         cursor = await self.db.execute("DELETE FROM habits WHERE id = ?", (habit_id,))
+        await remove_from_index(self.db, "habit", habit_id)
         await self.db.commit()
         return cursor.rowcount > 0
 

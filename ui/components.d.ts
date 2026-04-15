@@ -11,7 +11,9 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    CommandPalette: typeof import('./src/components/CommandPalette.vue')['default']
     ExerciseHistoryDialog: typeof import('./src/components/ExerciseHistoryDialog.vue')['default']
+    NoteDueBadges: typeof import('./src/components/NoteDueBadges.vue')['default']
     NoteRow: typeof import('./src/components/NoteRow.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

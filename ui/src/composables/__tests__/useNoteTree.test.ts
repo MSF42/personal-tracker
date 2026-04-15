@@ -140,7 +140,9 @@ describe('useNoteTree', () => {
         it('assigns correct depth values', () => {
             nt.selectedNoteId.value = 1;
             const flat = nt.flatNodes.value;
-            const byId = Object.fromEntries(flat.map((f) => [f.node.id, f.depth]));
+            const byId = Object.fromEntries(
+                flat.map((f) => [f.node.id, f.depth]),
+            );
             expect(byId[2]).toBe(0); // child1 — depth 0
             expect(byId[4]).toBe(1); // grandchild — depth 1
             expect(byId[3]).toBe(0); // child2 — depth 0

@@ -8,6 +8,7 @@ from src.models.exercise import (
     ExerciseResponse,
     UpdateExerciseRequest,
 )
+from src.repositories.search_sync import index_exercise, remove_from_index
 from src.repositories.utils import execute_update
 
 
@@ -34,9 +35,11 @@ class SQLiteExerciseRepository:
                     now,
                 ),
             )
-            await self.db.commit()
-
             exercise_id = cursor.lastrowid
+            await index_exercise(
+                self.db, exercise_id, exercise.name, exercise.description
+            )
+            await self.db.commit()
             return await self.find_by_id(exercise_id)
         except sqlite3.IntegrityError as e:
             raise ValueError(f"Exercise with name {exercise.name} already exists") from e
@@ -72,6 +75,14 @@ class SQLiteExerciseRepository:
         if "muscle_group" in update_data and update_data["muscle_group"] is not None:
             update_data["muscle_group"] = update_data["muscle_group"].value
         await execute_update(self.db, "exercises", update_data, exercise_id)
+        if "name" in update_data or "description" in update_data:
+            refreshed = await self.find_by_id(exercise_id)
+            if refreshed is not None:
+                await index_exercise(
+                    self.db, exercise_id, refreshed.name, refreshed.description
+                )
+                await self.db.commit()
+            return refreshed
         return await self.find_by_id(exercise_id)
 
     # delete
@@ -80,5 +91,6 @@ class SQLiteExerciseRepository:
             "DELETE FROM exercises WHERE id = ?",
             (exercise_id,),
         )
+        await remove_from_index(self.db, "exercise", exercise_id)
         await self.db.commit()
         return cursor.rowcount > 0

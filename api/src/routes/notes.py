@@ -3,6 +3,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi.responses import PlainTextResponse
 
 from src.config.settings import get_settings
 from src.db.database import get_db
@@ -45,6 +46,34 @@ async def search_notes(
     repo: SQLiteNoteRepository = Depends(get_note_repository),
 ):
     return await repo.search(q)
+
+
+@router.post("/{note_id}/complete-due", response_model=NoteResponse)
+async def complete_due(
+    note_id: int,
+    repo: SQLiteNoteRepository = Depends(get_note_repository),
+):
+    note = await repo.complete_due(note_id)
+    if note is None:
+        raise NotFoundError("Note not found")
+    return note
+
+
+@router.get("/{note_id}/export", response_class=PlainTextResponse)
+async def export_note(
+    note_id: int,
+    repo: SQLiteNoteRepository = Depends(get_note_repository),
+):
+    markdown = await repo.export_markdown(note_id)
+    if markdown is None:
+        raise NotFoundError("Note not found")
+    return PlainTextResponse(
+        content=markdown,
+        media_type="text/markdown; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="note-{note_id}.md"'
+        },
+    )
 
 
 @router.put("/{note_id}", response_model=NoteResponse)

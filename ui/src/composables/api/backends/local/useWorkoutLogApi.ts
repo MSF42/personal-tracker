@@ -131,7 +131,8 @@ export function useWorkoutLogApi() {
                 `UPDATE set_logs SET ${fields.join(', ')} WHERE id = ? AND workout_log_id = ${workoutLogId}`,
                 values,
             );
-            if (!result.success) return { data: null, error: result.error, success: false };
+            if (!result.success)
+                return { data: null, error: result.error, success: false };
         }
 
         return queryOne<SetLog>(

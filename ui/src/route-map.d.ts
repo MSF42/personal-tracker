@@ -89,6 +89,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/timeline': RouteRecordInfo<
+      '/timeline',
+      '/timeline',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/workout-logs': RouteRecordInfo<
       '/workout-logs',
       '/workout-logs',
@@ -167,6 +174,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/tasks.vue': {
       routes:
         | '/tasks'
+      views:
+        | never
+    }
+    'src/pages/timeline.vue': {
+      routes:
+        | '/timeline'
       views:
         | never
     }

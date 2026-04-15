@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useRunningApi } from '@/composables/api/useRunningApi';
+import { useSearchApi } from '@/composables/api/useSearchApi';
 import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useToast } from '@/composables/useToast';
@@ -14,12 +15,16 @@ import { formatDate as formatIsoDate } from '@/utils/format';
 const { getActivities, createActivity } = useRunningApi();
 const { getTasks, createTask } = useTaskApi();
 const { getWorkoutLogs } = useWorkoutLogApi();
+const { getToday } = useSearchApi();
 const toast = useToast();
 const router = useRouter();
 
 const runs = ref<RunningActivity[]>([]);
 const tasks = ref<Task[]>([]);
 const workoutLogs = ref<WorkoutLog[]>([]);
+const notesDueToday = ref<
+    Array<{ id: number; content: string; due_date: string | null }>
+>([]);
 const calendarView = ref<'5-day' | 'month'>('5-day');
 
 const today = new Date();
@@ -28,17 +33,25 @@ const currentYear = today.getFullYear();
 const currentMonth = today.getMonth();
 
 onMounted(async () => {
-    const [runsRes, tasksRes, logsRes] = await Promise.all([
+    const [runsRes, tasksRes, logsRes, todayRes] = await Promise.all([
         getActivities(),
         getTasks(),
         getWorkoutLogs(),
+        getToday(),
     ]);
     if (runsRes.success && runsRes.data) runs.value = runsRes.data;
-    else if (!runsRes.success) toast.showError('Failed to load running activities');
+    else if (!runsRes.success)
+        toast.showError('Failed to load running activities');
     if (tasksRes.success && tasksRes.data) tasks.value = tasksRes.data;
     else if (!tasksRes.success) toast.showError('Failed to load tasks');
     if (logsRes.success && logsRes.data) workoutLogs.value = logsRes.data;
     else if (!logsRes.success) toast.showError('Failed to load workout logs');
+    // Today aggregation from the unified endpoint — used only for the notes
+    // subsection; tasks still come from the legacy tasks fetch so the other
+    // dashboard cards remain unchanged.
+    if (todayRes.success && todayRes.data) {
+        notesDueToday.value = todayRes.data.notes_due;
+    }
 });
 
 // --- Summary computations ---
@@ -379,6 +392,32 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                     </div>
                 </template>
             </AppCard>
+        </div>
+
+        <!-- Notes due today / overdue (from the unified /today endpoint) -->
+        <div
+            v-if="notesDueToday.length"
+            class="border-surface-200 dark:border-surface-700 mb-6 rounded-lg border p-4"
+        >
+            <h2
+                class="text-primary-500 mb-2 text-sm font-semibold tracking-widest uppercase"
+            >
+                Notes on your plate ({{ notesDueToday.length }})
+            </h2>
+            <div class="space-y-1">
+                <button
+                    v-for="n in notesDueToday"
+                    :key="n.id"
+                    class="text-surface-700 dark:text-surface-200 hover:text-primary-500 block w-full truncate text-left text-sm"
+                    @click="router.push(`/notes?note=${n.id}`)"
+                >
+                    <span class="text-amber-500">◆</span>
+                    {{ n.content.split('\n')[0] || '(empty)' }}
+                    <span class="text-surface-400 ml-2 text-xs">
+                        {{ n.due_date }}
+                    </span>
+                </button>
+            </div>
         </div>
 
         <!-- Calendar Section -->

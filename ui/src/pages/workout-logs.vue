@@ -487,7 +487,7 @@ onMounted(() => withLoading(loadData));
                                 />
                                 <span class="text-surface-500">kg</span>
                                 <button
-                                    class="hover:text-green-600 text-green-500"
+                                    class="text-green-500 hover:text-green-600"
                                     title="Save"
                                     @click="saveSet(set)"
                                 >

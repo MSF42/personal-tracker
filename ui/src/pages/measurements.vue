@@ -56,7 +56,9 @@ const measurementForm = reactive({ name: '', unit: '' });
 const addMeasurementError = ref('');
 
 const isAddFormValid = computed(() => measurementForm.name.trim() !== '');
-const addSaveTooltip = computed(() => (isAddFormValid.value ? undefined : 'Name is required'));
+const addSaveTooltip = computed(() =>
+    isAddFormValid.value ? undefined : 'Name is required',
+);
 
 function openAddMeasurement() {
     measurementForm.name = '';
@@ -77,7 +79,8 @@ async function saveMeasurement() {
         await loadMeasurements();
         await selectMeasurement(res.data.id);
     } else if (!res.success) {
-        addMeasurementError.value = res.error?.message ?? 'Something went wrong';
+        addMeasurementError.value =
+            res.error?.message ?? 'Something went wrong';
     }
 }
 
@@ -87,7 +90,9 @@ const editMeasurementForm = reactive({ name: '', unit: '' });
 const editMeasurementError = ref('');
 
 const isEditFormValid = computed(() => editMeasurementForm.name.trim() !== '');
-const editSaveTooltip = computed(() => (isEditFormValid.value ? undefined : 'Name is required'));
+const editSaveTooltip = computed(() =>
+    isEditFormValid.value ? undefined : 'Name is required',
+);
 
 function openEditMeasurement() {
     if (!selectedMeasurement.value) return;
@@ -109,7 +114,8 @@ async function saveEditMeasurement() {
         showEditMeasurement.value = false;
         await loadMeasurements();
     } else {
-        editMeasurementError.value = res.error?.message ?? 'Something went wrong';
+        editMeasurementError.value =
+            res.error?.message ?? 'Something went wrong';
     }
 }
 
@@ -551,10 +557,7 @@ const entryDialogHeader = computed(() =>
                         rows="2"
                     />
                 </div>
-                <p
-                    v-if="entryFormError"
-                    class="text-sm text-red-500"
-                >
+                <p v-if="entryFormError" class="text-sm text-red-500">
                     {{ entryFormError }}
                 </p>
                 <div class="flex justify-end gap-2">

@@ -154,7 +154,9 @@ const deletingId = ref<number | null>(null);
 const formError = ref('');
 
 const isFormValid = computed(() => form.date.trim() !== '');
-const saveTooltip = computed(() => (isFormValid.value ? undefined : 'Date is required'));
+const saveTooltip = computed(() =>
+    isFormValid.value ? undefined : 'Date is required',
+);
 
 const form = reactive({
     date: today.toISOString().split('T')[0] as string,
@@ -336,7 +338,8 @@ async function saveGoal() {
 async function loadData() {
     const runsRes = await getActivities();
     if (runsRes.success && runsRes.data) activities.value = runsRes.data;
-    else if (!runsRes.success) toast.showError('Failed to load running activities');
+    else if (!runsRes.success)
+        toast.showError('Failed to load running activities');
 }
 
 async function loadGoal() {

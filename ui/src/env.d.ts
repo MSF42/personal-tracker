@@ -1,5 +1,5 @@
 interface Window {
     electron?: {
-        appVersion: string
-    }
+        appVersion: string;
+    };
 }

@@ -1,11 +1,24 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import { useNoteApi } from '@/composables/api/useNoteApi';
-import type { NoteTreeNode } from '@/types/Note';
+import type { NoteTreeNode, RecurrenceType } from '@/types/Note';
+
+const RECURRENCE_CYCLE: Array<RecurrenceType | null> = [
+    null,
+    'daily',
+    'weekly',
+    'monthly',
+];
 
 export function useNoteTree() {
-    const { getNotes, createNote, updateNote, moveNote, deleteNote } =
-        useNoteApi();
+    const {
+        getNotes,
+        createNote,
+        updateNote,
+        moveNote,
+        deleteNote,
+        completeDueNote,
+    } = useNoteApi();
 
     const tree = ref<NoteTreeNode[]>([]);
     const focusId = ref<number | null>(null);
@@ -368,6 +381,89 @@ export function useNoteTree() {
         el.style.height = el.scrollHeight + 'px';
     }
 
+    // --- deep link / jump-to-node ---
+
+    /** Load (if necessary), expand ancestors, scroll into view, flash-highlight. */
+    async function openNode(noteId: number): Promise<void> {
+        if (tree.value.length === 0) {
+            await loadData();
+        }
+        const path = findPath(tree.value, noteId, []);
+        if (!path || path.length === 0) return;
+
+        // If the target lives inside a top-level note that isn't currently
+        // selected, switch to it so the outliner actually renders the path.
+        const topLevel = path[0]!;
+        if (selectedNoteId.value !== topLevel.id) {
+            selectedNoteId.value = topLevel.id;
+            await nextTick();
+        }
+
+        // Uncollapse every ancestor (excluding the target itself).
+        const mutations: Promise<unknown>[] = [];
+        for (const ancestor of path.slice(0, -1)) {
+            if (ancestor.collapsed) {
+                ancestor.collapsed = false;
+                mutations.push(updateNote(ancestor.id, { collapsed: false }));
+            }
+        }
+        await Promise.all(mutations);
+
+        setFocus(noteId);
+        await nextTick();
+
+        const el = document.querySelector(
+            `[data-note-id="${noteId}"]`,
+        ) as HTMLElement | null;
+        if (el) {
+            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            el.classList.add('flash-highlight');
+            setTimeout(() => el.classList.remove('flash-highlight'), 1200);
+        }
+    }
+
+    // --- due date / recurrence ---
+
+    async function setNodeDueDate(
+        node: NoteTreeNode,
+        due: string | null,
+    ): Promise<void> {
+        const prev = node.due_date ?? null;
+        node.due_date = due;
+        const res = await updateNote(node.id, { due_date: due });
+        if (!res.success) {
+            node.due_date = prev;
+        }
+    }
+
+    async function cycleRecurrence(node: NoteTreeNode): Promise<void> {
+        const current = (node.recurrence_type as RecurrenceType | null) ?? null;
+        const idx = RECURRENCE_CYCLE.indexOf(current);
+        const next =
+            RECURRENCE_CYCLE[(idx + 1) % RECURRENCE_CYCLE.length] ?? null;
+        const prev = current;
+        const prevInterval = node.recurrence_interval ?? null;
+        node.recurrence_type = next;
+        // Default interval to 1 whenever recurrence becomes active, matching
+        // the task model's default.
+        node.recurrence_interval = next ? 1 : null;
+        const res = await updateNote(node.id, {
+            recurrence_type: next,
+            recurrence_interval: next ? 1 : null,
+        });
+        if (!res.success) {
+            node.recurrence_type = prev;
+            node.recurrence_interval = prevInterval;
+        }
+    }
+
+    async function completeDueNodeAction(node: NoteTreeNode): Promise<void> {
+        const res = await completeDueNote(node.id);
+        if (res.success && res.data) {
+            node.due_date = res.data.due_date ?? null;
+        }
+    }
+
     return {
         // state
         tree,
@@ -402,5 +498,11 @@ export function useNoteTree() {
         flushNode,
         handleKeydown,
         autoResize,
+        // deep link
+        openNode,
+        // due / recurrence
+        setNodeDueDate,
+        cycleRecurrence,
+        completeDueNodeAction,
     };
 }

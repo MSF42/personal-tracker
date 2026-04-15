@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
+import NoteDueBadges from '@/components/NoteDueBadges.vue';
 import { useNoteApi } from '@/composables/api/useNoteApi';
+import { useUiState } from '@/composables/useUiState';
 import type { NoteTreeNode } from '@/types/Note';
 import { renderMarkdown } from '@/utils/markdown';
 
@@ -22,12 +25,19 @@ const emit = defineEmits<{
     paste: [event: ClipboardEvent, node: NoteTreeNode];
     'add-child': [node: NoteTreeNode];
     delete: [node: NoteTreeNode];
+    'save-due': [node: NoteTreeNode, due: string | null];
+    'cycle-recurrence': [node: NoteTreeNode];
+    complete: [node: NoteTreeNode];
 }>();
 
 const { uploadNoteImage } = useNoteApi();
+const ui = useUiState();
+const router = useRouter();
 
 const hovered = ref(false);
 const uploading = ref(false);
+const showDueEditor = ref(false);
+const dueDraft = ref('');
 
 async function uploadAndInsertImage(
     file: File,
@@ -82,6 +92,50 @@ function openFilePicker() {
     };
     input.click();
 }
+
+function openDueEditor() {
+    dueDraft.value = props.node.due_date ?? '';
+    showDueEditor.value = true;
+}
+
+function saveDue() {
+    showDueEditor.value = false;
+    const value = dueDraft.value.trim() || null;
+    emit('save-due', props.node, value);
+}
+
+// Delegated click handler for rendered markdown. Navigates on wiki-link
+// clicks and opens the palette pre-filled for tag/mention clicks so it never
+// falls through to the textarea focus path.
+function onRenderedClick(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    const wiki = target.closest('[data-wiki]') as HTMLElement | null;
+    if (wiki) {
+        e.preventDefault();
+        e.stopPropagation();
+        const name = wiki.getAttribute('data-wiki') || '';
+        ui.openPalette(name);
+        return;
+    }
+    const tag = target.closest('[data-tag]') as HTMLElement | null;
+    if (tag) {
+        e.preventDefault();
+        e.stopPropagation();
+        ui.openPalette(tag.getAttribute('data-tag') || '');
+        return;
+    }
+    const mention = target.closest('[data-mention]') as HTMLElement | null;
+    if (mention) {
+        e.preventDefault();
+        e.stopPropagation();
+        ui.openPalette(mention.getAttribute('data-mention') || '');
+        return;
+    }
+    emit('set-focus', props.node);
+}
+
+// Avoids an "unused import" warning when router is only consulted elsewhere.
+void router;
 </script>
 
 <template>
@@ -142,7 +196,7 @@ function openFilePicker() {
         <div
             v-if="!isFocused"
             class="note-prose prose prose-sm dark:prose-invert text-surface-800 dark:text-surface-200 min-h-[1.75rem] flex-1 cursor-text py-1 text-sm"
-            @click="emit('set-focus', node)"
+            @click="onRenderedClick"
             v-html="renderMarkdown(node.content)"
         ></div>
         <textarea
@@ -164,11 +218,33 @@ function openFilePicker() {
             "
         />
 
+        <!-- Due date / recurrence badges, always visible when set -->
+        <NoteDueBadges
+            :node="node"
+            @complete="emit('complete', node)"
+            @cycle-recurrence="emit('cycle-recurrence', node)"
+            @edit-due="openDueEditor()"
+        />
+
         <!-- Hover actions -->
         <div
             class="mt-1 flex shrink-0 gap-0.5 opacity-0 transition-opacity"
             :class="{ 'opacity-100': hovered }"
         >
+            <button
+                class="text-surface-400 hover:text-primary-500 rounded p-0.5"
+                title="Set due date"
+                @click="openDueEditor"
+            >
+                <i class="pi pi-calendar text-xs"></i>
+            </button>
+            <button
+                class="text-surface-400 hover:text-primary-500 rounded p-0.5"
+                title="Cycle recurrence"
+                @click="emit('cycle-recurrence', node)"
+            >
+                <i class="pi pi-replay text-xs"></i>
+            </button>
             <button
                 class="text-surface-400 hover:text-primary-500 rounded p-0.5"
                 title="Add image"
@@ -193,6 +269,39 @@ function openFilePicker() {
             >
                 <i class="pi pi-trash text-xs"></i>
             </button>
+        </div>
+
+        <!-- Due date popover -->
+        <div
+            v-if="showDueEditor"
+            class="border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900 absolute top-8 right-2 z-30 rounded-lg border p-2 shadow-xl"
+            @click.stop
+        >
+            <input
+                v-model="dueDraft"
+                class="border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900 rounded border px-2 py-1 text-xs outline-none"
+                type="date"
+                @keydown.enter="saveDue"
+                @keydown.escape="showDueEditor = false"
+            />
+            <div class="mt-1 flex gap-1">
+                <button
+                    class="bg-primary-500 hover:bg-primary-600 rounded px-2 py-0.5 text-[10px] text-white"
+                    @click="saveDue"
+                >
+                    Save
+                </button>
+                <button
+                    v-if="node.due_date"
+                    class="bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 rounded px-2 py-0.5 text-[10px] hover:text-red-500"
+                    @click="
+                        dueDraft = '';
+                        saveDue();
+                    "
+                >
+                    Clear
+                </button>
+            </div>
         </div>
     </div>
 </template>

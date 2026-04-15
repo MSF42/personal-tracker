@@ -56,7 +56,9 @@ const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
 
 const isFormValid = computed(() => form.title.trim() !== '');
-const saveTooltip = computed(() => (isFormValid.value ? undefined : 'Title is required'));
+const saveTooltip = computed(() =>
+    isFormValid.value ? undefined : 'Title is required',
+);
 
 const form = reactive({
     title: '',
@@ -120,7 +122,7 @@ async function saveTask() {
             showDialog.value = false;
             await loadData();
         } else {
-            toast.showError(res.error ?? 'Failed to save task');
+            toast.showError(res.error?.message ?? 'Failed to save task');
         }
     } else {
         const payload: TaskCreate = {
@@ -142,7 +144,7 @@ async function saveTask() {
             showDialog.value = false;
             await loadData();
         } else {
-            toast.showError(res.error ?? 'Failed to save task');
+            toast.showError(res.error?.message ?? 'Failed to save task');
         }
     }
 }

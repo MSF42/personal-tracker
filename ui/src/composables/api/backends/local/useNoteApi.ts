@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@/types/ApiResponse';
+import type { ApiError, ApiResponse } from '@/types/ApiResponse';
 import type {
     Note,
     NoteCreate,
@@ -201,6 +201,25 @@ export function useNoteApi() {
         throw new Error('Image upload is not supported in the local backend');
     };
 
+    // Stubs so the interface matches the http backend. Features layered on top
+    // of these (global search, complete-due, markdown export) are not yet
+    // implemented for the in-browser SQLite backend — callers in local mode
+    // get an empty / unsupported response and should degrade gracefully.
+    const searchNotes = async (_q: string): Promise<ApiResponse<Note[]>> => {
+        return { data: [], error: null, success: true };
+    };
+
+    const completeDueNote = async (_id: number): Promise<ApiResponse<Note>> => {
+        const error: ApiError = {
+            message: 'complete-due is not supported in the local backend',
+        };
+        return { data: null, error, success: false };
+    };
+
+    const exportNoteMarkdown = async (_id: number): Promise<string | null> => {
+        return null;
+    };
+
     return {
         getNotes,
         createNote,
@@ -208,5 +227,8 @@ export function useNoteApi() {
         moveNote,
         deleteNote,
         uploadNoteImage,
+        searchNotes,
+        completeDueNote,
+        exportNoteMarkdown,
     };
 }
