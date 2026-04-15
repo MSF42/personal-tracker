@@ -70,6 +70,8 @@ jobs:
           name: macos-dmg
           path: |
             ui/dist-electron/*.dmg
+            ui/dist-electron/*.zip
+            ui/dist-electron/*.zip.blockmap
             ui/dist-electron/latest-mac.yml
           if-no-files-found: error
 
@@ -189,6 +191,8 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             artifacts/macos-dmg/*.dmg
+            artifacts/macos-dmg/*.zip
+            artifacts/macos-dmg/*.zip.blockmap
             artifacts/macos-dmg/latest-mac.yml
             artifacts/windows-installer/*.exe
             artifacts/windows-installer/latest.yml
