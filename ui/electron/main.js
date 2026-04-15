@@ -84,6 +84,11 @@ function setupAutoUpdater() {
         const { autoUpdater } = require('electron-updater')
         autoUpdater.autoDownload = true
         autoUpdater.autoInstallOnAppQuit = true
+        // Always track the stable channel and accept upgrades from
+        // pre-release builds → stable. Without this an installation made
+        // from a -beta tag silently never sees stable releases.
+        autoUpdater.channel = 'latest'
+        autoUpdater.allowPrerelease = false
 
         autoUpdater.on('update-downloaded', (info) => {
             dialog
