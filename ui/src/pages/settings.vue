@@ -12,7 +12,7 @@ const { getSetting, setSetting, deleteSetting, resetAllData, seedSampleData } =
     useSettingsApi();
 const { uploadNoteImage } = useNoteApi();
 const toast = useToast();
-const { profilePicture, setProfilePicture } = useUserProfile();
+const { profilePicture, setProfilePicture, setUserName } = useUserProfile();
 
 const appVersion = window.electron?.appVersion ?? null;
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -51,8 +51,10 @@ onMounted(async () => {
 async function saveDisplayName() {
     if (displayName.value.trim()) {
         await setSetting('user_name', displayName.value.trim());
+        setUserName(displayName.value.trim());
     } else {
         await deleteSetting('user_name');
+        setUserName(null);
     }
 }
 
