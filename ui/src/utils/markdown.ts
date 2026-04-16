@@ -10,6 +10,7 @@ import typescript from 'highlight.js/lib/languages/typescript';
 import xml from 'highlight.js/lib/languages/xml';
 import { Marked } from 'marked';
 
+import { resolveUploadsUrl } from './uploads';
 import { preprocessNoteMarkdown } from './wiki';
 
 hljs.registerLanguage('javascript', javascript);
@@ -40,6 +41,15 @@ const marked = new Marked({
 // can drive navigation.
 const PURIFY_CONFIG = { ADD_ATTR: ['data-wiki', 'data-tag', 'data-mention'] };
 
+// In Electron the page is served from file:// so <img src="/uploads/...">
+// won't reach the API server. Rewrite those srcs after sanitization.
+function resolveImageSrcs(html: string): string {
+    return html.replace(
+        /(<img\s[^>]*\bsrc=")\/uploads\//g,
+        (_, before) => `${before}${resolveUploadsUrl('/uploads/')}`,
+    );
+}
+
 export function renderMarkdown(content: string): string {
     if (!content) return '';
     const pre = preprocessNoteMarkdown(content);
@@ -47,5 +57,5 @@ export function renderMarkdown(content: string): string {
     const html = isMultiLine
         ? (marked.parse(pre) as string)
         : (marked.parseInline(pre) as string);
-    return DOMPurify.sanitize(html, PURIFY_CONFIG);
+    return resolveImageSrcs(DOMPurify.sanitize(html, PURIFY_CONFIG));
 }

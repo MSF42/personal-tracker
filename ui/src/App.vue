@@ -167,14 +167,10 @@ function goToSettings() {
                     <span class="hidden sm:inline">{{ item.label }}</span>
                 </RouterLink>
             </div>
-            <!-- Quick-capture input: Enter prepends the text as a child of
-                 the Inbox note. Hidden on very narrow viewports to avoid
-                 crowding the nav. -->
-            <form
-                v-if="ui.inboxNoteId.value"
-                class="mx-2 hidden md:block"
-                @submit.prevent="submitCapture"
-            >
+            <!-- Quick-capture input: always rendered so it doesn't cause a
+                 layout shift when the inbox ID loads asynchronously. The
+                 submit handler is a no-op until the ID is available. -->
+            <form class="mx-2 hidden md:block" @submit.prevent="submitCapture">
                 <div class="relative">
                     <i
                         class="pi pi-bolt text-primary-500 pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs"

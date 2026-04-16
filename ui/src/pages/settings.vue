@@ -5,14 +5,16 @@ import { useNoteApi } from '@/composables/api/useNoteApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
+import { useUserProfile } from '@/composables/useUserProfile';
+import { resolveUploadsUrl } from '@/utils/uploads';
 
 const { getSetting, setSetting, deleteSetting, resetAllData, seedSampleData } =
     useSettingsApi();
 const { uploadNoteImage } = useNoteApi();
 const toast = useToast();
+const { profilePicture, setProfilePicture } = useUserProfile();
 
 const appVersion = window.electron?.appVersion ?? null;
-const profilePicture = ref<string | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const displayName = ref('');
 const confirmText = ref('');
@@ -36,9 +38,9 @@ onMounted(async () => {
         // Users must re-upload their profile picture once. Acceptable for a personal app.
         if (raw.startsWith('data:')) {
             await deleteSetting('profile_picture');
-            profilePicture.value = null;
+            setProfilePicture(null);
         } else {
-            profilePicture.value = raw;
+            setProfilePicture(resolveUploadsUrl(raw));
         }
     }
     if (nameRes.success && nameRes.data?.value) {
@@ -81,7 +83,7 @@ async function onFileSelected(event: Event) {
     const url = res.data.url;
     const saveRes = await setSetting('profile_picture', url);
     if (saveRes.success) {
-        profilePicture.value = url;
+        setProfilePicture(resolveUploadsUrl(url));
         toast.showSuccess('Profile picture updated');
     }
     input.value = '';
@@ -90,7 +92,7 @@ async function onFileSelected(event: Event) {
 async function removePicture() {
     const res = await deleteSetting('profile_picture');
     if (res.success) {
-        profilePicture.value = null;
+        setProfilePicture(null);
         toast.showSuccess('Profile picture removed');
     }
 }
