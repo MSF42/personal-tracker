@@ -6,6 +6,7 @@ from pathlib import Path
 from aiosqlite import Connection
 
 from src.config.settings import get_settings
+from src.repositories.utils import require_row_id
 
 
 def _days_ago(n: int) -> str:
@@ -53,15 +54,55 @@ async def seed_sample_data(db: Connection) -> None:
     # ── Tasks ─────────────────────────────────────────────────────────────────
     tasks = [
         ("Buy groceries", None, "Errands", _days_from_now(1), 0, None, None, None, "low"),
-        ("Complete quarterly report", "Q1 numbers due EOD", "Work", _days_ago(1), 0, None, None, None, "high"),
-        ("Call dentist", "Schedule 6-month cleaning", "Health", None, 0, None, None, None, "medium"),
+        (
+            "Complete quarterly report",
+            "Q1 numbers due EOD",
+            "Work",
+            _days_ago(1),
+            0,
+            None,
+            None,
+            None,
+            "high",
+        ),
+        (
+            "Call dentist",
+            "Schedule 6-month cleaning",
+            "Health",
+            None,
+            0,
+            None,
+            None,
+            None,
+            "medium",
+        ),
         ("Read 'Atomic Habits'", None, "Personal", _days_ago(5), 1, None, None, None, "low"),
         ("Fix leaky faucet", None, "Home", today, 0, None, None, None, "high"),
-        ("Plan team offsite", "Book venue, catering, agenda", "Work", _days_from_now(14), 0, None, None, None, "medium"),
+        (
+            "Plan team offsite",
+            "Book venue, catering, agenda",
+            "Work",
+            _days_from_now(14),
+            0,
+            None,
+            None,
+            None,
+            "medium",
+        ),
         ("Organize garage", None, "Home", None, 0, None, None, None, "low"),
         ("Review pull requests", None, "Work", today, 0, "daily", 1, "1,2,3,4,5", "medium"),
         ("Take vitamins", None, "Health", None, 1, "daily", 1, None, "low"),
-        ("Weekly review", "Review goals and plan next week", "Personal", _days_from_now(3), 0, "weekly", 1, "6", "medium"),
+        (
+            "Weekly review",
+            "Review goals and plan next week",
+            "Personal",
+            _days_from_now(3),
+            0,
+            "weekly",
+            1,
+            "6",
+            "medium",
+        ),
     ]
     for t in tasks:
         await db.execute(
@@ -99,12 +140,10 @@ async def seed_sample_data(db: Connection) -> None:
     # Drink water: most days (24/28)
     water_days = set(range(0, 28)) - {4, 9, 16, 22}
     # No sugar: weekdays only in last 28 days
-    no_sugar_days = {
-        i for i in range(0, 28) if (date.today() - timedelta(days=i)).weekday() < 5
-    }
+    no_sugar_days = {i for i in range(0, 28) if (date.today() - timedelta(days=i)).weekday() < 5}
 
     completion_patterns = [run_days, meditate_days, read_days, water_days, no_sugar_days]
-    for habit_id, days_set in zip(habit_ids, completion_patterns):
+    for habit_id, days_set in zip(habit_ids, completion_patterns, strict=True):
         for days_ago in days_set:
             d = _days_ago(days_ago)
             await db.execute(
@@ -142,7 +181,7 @@ async def seed_sample_data(db: Connection) -> None:
                 exercise_ids.append(row[0])
 
     # Map by name for easy reference
-    ex = {name: eid for name, eid in zip([e[0] for e in exercises_data], exercise_ids)}
+    ex = {name: eid for name, eid in zip([e[0] for e in exercises_data], exercise_ids, strict=True)}
 
     # ── Workout Routines ──────────────────────────────────────────────────────
     routines_data = [
@@ -151,12 +190,12 @@ async def seed_sample_data(db: Connection) -> None:
         ("Leg Day", "Quads, hamstrings, glutes"),
     ]
     routine_ids = []
-    for r in routines_data:
+    for routine in routines_data:
         cursor = await db.execute(
             "INSERT INTO workout_routines (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (*r, now_iso, now_iso),
+            (*routine, now_iso, now_iso),
         )
-        routine_ids.append(cursor.lastrowid)
+        routine_ids.append(require_row_id(cursor.lastrowid))
 
     push_id, pull_id, leg_id = routine_ids
 
@@ -256,69 +295,6 @@ async def seed_sample_data(db: Connection) -> None:
             (*r, now_iso, now_iso),
         )
 
-    # ── Notes ─────────────────────────────────────────────────────────────────
-    async def insert_note(parent_id, content, sort_order=0):
-        cursor = await db.execute(
-            "INSERT INTO notes (parent_id, content, sort_order, collapsed, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)",
-            (parent_id, content, sort_order, now_iso, now_iso),
-        )
-        return cursor.lastrowid
-
-    # ── Fitness ──
-    fitness = await insert_note(None, "Fitness", 0)
-
-    running_node = await insert_note(fitness, "Running", 0)
-    await insert_note(running_node, "Goal: 10k under 50 min by June", 0)
-    await insert_note(running_node, "Weekly target: 40km", 1)
-    races = await insert_note(running_node, "Race calendar", 2)
-    await insert_note(races, "10k — June 2026", 0)
-    await insert_note(races, "Half marathon — October 2026", 1)
-
-    strength_node = await insert_note(fitness, "Strength", 1)
-    await insert_note(strength_node, "Bench PR: 90kg × 3 (Mar 2026)", 0)
-    await insert_note(strength_node, "Squat target: 120kg by end of Q2", 1)
-    await insert_note(strength_node, "Current program: 5/3/1", 2)
-
-    # ── 2026 Goals ──
-    goals = await insert_note(None, "2026 Goals", 1)
-
-    fitness_goals = await insert_note(goals, "Fitness", 0)
-    await insert_note(fitness_goals, "Run 500km total", 0)
-    await insert_note(fitness_goals, "Meditate every day for 90 days straight", 1)
-
-    personal_goals = await insert_note(goals, "Personal", 1)
-    await insert_note(personal_goals, "Read 24 books", 0)
-    book_list = await insert_note(personal_goals, "Book list", 1)
-    await insert_note(book_list, "Atomic Habits — James Clear ✓", 0)
-    await insert_note(book_list, "Deep Work — Cal Newport", 1)
-    await insert_note(book_list, "The Pragmatic Programmer", 2)
-
-    work_goals = await insert_note(goals, "Work", 2)
-    await insert_note(work_goals, "Launch side project", 0)
-    await insert_note(work_goals, "Complete cloud certification", 1)
-
-    # ── Ideas ──
-    ideas = await insert_note(None, "Ideas", 2)
-
-    app_ideas = await insert_note(ideas, "Apps", 0)
-    await insert_note(app_ideas, "Habit tracker with social accountability", 0)
-    await insert_note(app_ideas, "Workout logger with AI coaching feedback", 1)
-
-    writing_ideas = await insert_note(ideas, "Writing", 1)
-    await insert_note(writing_ideas, "Blog: lessons from 6 months of consistent exercise", 0)
-    await insert_note(writing_ideas, "Newsletter: weekly fitness + productivity roundup", 1)
-
-    # ── Recipes ──
-    recipes = await insert_note(None, "Recipes", 3)
-
-    breakfast = await insert_note(recipes, "Breakfast", 0)
-    await insert_note(breakfast, "High-protein overnight oats: oats + greek yogurt + protein powder + berries", 0)
-    await insert_note(breakfast, "Green smoothie: spinach + banana + almond milk + chia seeds", 1)
-
-    post_workout = await insert_note(recipes, "Post-workout", 1)
-    await insert_note(post_workout, "Shake: banana + spinach + protein powder + almond milk", 0)
-    await insert_note(post_workout, "Rice bowl: 200g rice + 180g chicken + roasted veg", 1)
-
     # ── Measurements ─────────────────────────────────────────────────────────
     # Update the default Weight measurement (already inserted by migration 19, unit 'lbs')
     # Add body fat and update weight unit to kg
@@ -339,10 +315,18 @@ async def seed_sample_data(db: Connection) -> None:
 
     # Weight entries: gradual downward trend over 6 months
     weight_entries = [
-        (_days_ago(180), 84.5), (_days_ago(165), 84.0), (_days_ago(150), 83.2),
-        (_days_ago(135), 82.8), (_days_ago(120), 82.0), (_days_ago(105), 81.5),
-        (_days_ago(90), 81.0),  (_days_ago(75), 80.3),  (_days_ago(60), 79.8),
-        (_days_ago(45), 79.2),  (_days_ago(30), 78.9),  (_days_ago(15), 78.4),
+        (_days_ago(180), 84.5),
+        (_days_ago(165), 84.0),
+        (_days_ago(150), 83.2),
+        (_days_ago(135), 82.8),
+        (_days_ago(120), 82.0),
+        (_days_ago(105), 81.5),
+        (_days_ago(90), 81.0),
+        (_days_ago(75), 80.3),
+        (_days_ago(60), 79.8),
+        (_days_ago(45), 79.2),
+        (_days_ago(30), 78.9),
+        (_days_ago(15), 78.4),
         (today, 78.1),
     ]
     if weight_id:
@@ -353,8 +337,12 @@ async def seed_sample_data(db: Connection) -> None:
             )
 
     bf_entries = [
-        (_days_ago(180), 22.1), (_days_ago(150), 21.5), (_days_ago(120), 20.8),
-        (_days_ago(90), 20.1),  (_days_ago(60), 19.4),  (_days_ago(30), 18.9),
+        (_days_ago(180), 22.1),
+        (_days_ago(150), 21.5),
+        (_days_ago(120), 20.8),
+        (_days_ago(90), 20.1),
+        (_days_ago(60), 19.4),
+        (_days_ago(30), 18.9),
         (today, 18.3),
     ]
     if bf_id:

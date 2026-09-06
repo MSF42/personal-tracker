@@ -13,8 +13,10 @@ declare module 'vue' {
   export interface GlobalComponents {
     CommandPalette: typeof import('./src/components/CommandPalette.vue')['default']
     ExerciseHistoryDialog: typeof import('./src/components/ExerciseHistoryDialog.vue')['default']
-    NoteDueBadges: typeof import('./src/components/NoteDueBadges.vue')['default']
-    NoteRow: typeof import('./src/components/NoteRow.vue')['default']
+    LoadingState: typeof import('./src/components/LoadingState.vue')['default']
+    LogWorkoutDialog: typeof import('./src/components/LogWorkoutDialog.vue')['default']
+    RouteMap: typeof import('./src/components/RouteMap.vue')['default']
+    RouteOutline: typeof import('./src/components/RouteOutline.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

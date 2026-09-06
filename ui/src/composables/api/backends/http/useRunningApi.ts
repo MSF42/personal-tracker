@@ -1,12 +1,14 @@
 import type { ApiResponse } from '@/types/ApiResponse';
 import type {
-    GpxImportResponse,
     GpxSegment,
     MonthlyRunStats,
     PersonalBests,
+    RunImportResponse,
+    RunLap,
     RunningActivity,
     RunningActivityCreate,
     RunningActivityUpdate,
+    RunSample,
 } from '@/types/Running';
 
 import { useApi } from './useApi';
@@ -38,14 +40,30 @@ export function useRunningApi() {
 
     const importGpx = async (
         file: File,
-    ): Promise<ApiResponse<GpxImportResponse>> => {
+    ): Promise<ApiResponse<RunImportResponse>> => {
         const formData = new FormData();
         formData.append('file', file);
-        return api.postFormData<GpxImportResponse>('runs/import-gpx', formData);
+        return api.postFormData<RunImportResponse>('runs/import-gpx', formData);
+    };
+
+    const importFit = async (
+        file: File,
+    ): Promise<ApiResponse<RunImportResponse>> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return api.postFormData<RunImportResponse>('runs/import-fit', formData);
     };
 
     const getSegments = async (runId: number) =>
         api.getData<GpxSegment[]>(`runs/${runId}/segments`);
+
+    const getLaps = async (runId: number) =>
+        api.getData<RunLap[]>(`runs/${runId}/laps`);
+
+    const getSamples = async (runId: number, maxPoints = 600) =>
+        api.getData<RunSample[]>(`runs/${runId}/samples`, {
+            max_points: maxPoints,
+        });
 
     return {
         getActivities,
@@ -56,6 +74,9 @@ export function useRunningApi() {
         getYearlyStats,
         getPersonalBests,
         importGpx,
+        importFit,
         getSegments,
+        getLaps,
+        getSamples,
     };
 }

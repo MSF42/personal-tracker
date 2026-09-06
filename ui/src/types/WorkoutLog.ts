@@ -39,8 +39,18 @@ export interface WorkoutLogUpdate {
 export interface WorkoutLogDetail {
     id: number;
     routine_id: number;
+    routine_name: string | null;
     date: string;
     notes: string | null;
     created_at: string;
     sets: SetLog[];
+}
+
+export interface RoutineLogSummary {
+    id: number;
+    date: string;
+    notes: string | null;
+    created_at: string | null;
+    total_sets: number;
+    total_volume: number;
 }

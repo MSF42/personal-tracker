@@ -10,26 +10,26 @@ from src.services.task_recurrence import calculate_next_due_date
 # ---------------------------------------------------------------------------
 
 
-def test_daily_advances_by_one_day():
+def test_daily_advances_by_one_day() -> None:
     result = calculate_next_due_date("2024-03-01T10:00:00Z", RepeatType.daily, interval=1)
     dt = datetime.fromisoformat(result)
     assert dt.date() == datetime(2024, 3, 2).date()
 
 
-def test_daily_advances_by_interval_days():
+def test_daily_advances_by_interval_days() -> None:
     result = calculate_next_due_date("2024-03-01T10:00:00Z", RepeatType.daily, interval=3)
     dt = datetime.fromisoformat(result)
     assert dt.date() == datetime(2024, 3, 4).date()
 
 
-def test_daily_preserves_time():
+def test_daily_preserves_time() -> None:
     result = calculate_next_due_date("2024-03-01T15:30:00Z", RepeatType.daily, interval=1)
     dt = datetime.fromisoformat(result)
     assert dt.hour == 15
     assert dt.minute == 30
 
 
-def test_daily_crosses_month_boundary():
+def test_daily_crosses_month_boundary() -> None:
     result = calculate_next_due_date("2024-01-31T10:00:00Z", RepeatType.daily, interval=1)
     dt = datetime.fromisoformat(result)
     assert dt.date() == datetime(2024, 2, 1).date()
@@ -40,19 +40,19 @@ def test_daily_crosses_month_boundary():
 # ---------------------------------------------------------------------------
 
 
-def test_weekly_no_repeat_days_advances_one_week():
+def test_weekly_no_repeat_days_advances_one_week() -> None:
     result = calculate_next_due_date("2024-03-01T10:00:00Z", RepeatType.weekly, interval=1)
     dt = datetime.fromisoformat(result)
     assert dt.date() == datetime(2024, 3, 8).date()
 
 
-def test_weekly_interval_two_advances_two_weeks():
+def test_weekly_interval_two_advances_two_weeks() -> None:
     result = calculate_next_due_date("2024-03-01T10:00:00Z", RepeatType.weekly, interval=2)
     dt = datetime.fromisoformat(result)
     assert dt.date() == datetime(2024, 3, 15).date()
 
 
-def test_weekly_empty_repeat_days_falls_back_to_weekly_advance():
+def test_weekly_empty_repeat_days_falls_back_to_weekly_advance() -> None:
     """Empty list is falsy — should follow the plain weekly branch."""
     result_no_days = calculate_next_due_date(
         "2024-03-01T10:00:00Z", RepeatType.weekly, interval=1, repeat_days=[]
@@ -68,7 +68,7 @@ def test_weekly_empty_repeat_days_falls_back_to_weekly_advance():
 # ---------------------------------------------------------------------------
 
 
-def test_weekly_repeat_days_finds_next_matching_day():
+def test_weekly_repeat_days_finds_next_matching_day() -> None:
     # 2024-03-01 is a Friday (weekday=4). Ask for Monday (0) and Wednesday (2).
     # Next Monday is 2024-03-04.
     result = calculate_next_due_date(
@@ -82,7 +82,7 @@ def test_weekly_repeat_days_finds_next_matching_day():
     assert dt.date() == datetime(2024, 3, 4).date()  # nearest match is Monday 4 Mar
 
 
-def test_weekly_repeat_days_skips_same_day():
+def test_weekly_repeat_days_skips_same_day() -> None:
     # 2024-03-04 is a Monday (weekday=0). repeat_days=[0] — next Monday is 11 Mar.
     result = calculate_next_due_date(
         "2024-03-04T10:00:00Z",
@@ -94,7 +94,7 @@ def test_weekly_repeat_days_skips_same_day():
     assert dt.date() == datetime(2024, 3, 11).date()
 
 
-def test_weekly_every_two_weeks_with_repeat_days():
+def test_weekly_every_two_weeks_with_repeat_days() -> None:
     # 2024-03-01 is a Friday (weekday=4). interval=2, repeat_days=[4] (Friday).
     # Jump (2-1)=1 week to 2024-03-08 (also Friday), then scan next 7 days:
     # 2024-03-09 Sat, 2024-03-10 Sun, 2024-03-11 Mon, 2024-03-12 Tue, 2024-03-13 Wed,
@@ -115,33 +115,33 @@ def test_weekly_every_two_weeks_with_repeat_days():
 # ---------------------------------------------------------------------------
 
 
-def test_monthly_advances_by_one_month():
+def test_monthly_advances_by_one_month() -> None:
     result = calculate_next_due_date("2024-03-15T10:00:00Z", RepeatType.monthly, interval=1)
     dt = datetime.fromisoformat(result)
     assert dt.date() == datetime(2024, 4, 15).date()
 
 
-def test_monthly_advances_by_interval_months():
+def test_monthly_advances_by_interval_months() -> None:
     result = calculate_next_due_date("2024-01-15T10:00:00Z", RepeatType.monthly, interval=3)
     dt = datetime.fromisoformat(result)
     assert dt.date() == datetime(2024, 4, 15).date()
 
 
-def test_monthly_end_of_month_clamps_to_last_day():
+def test_monthly_end_of_month_clamps_to_last_day() -> None:
     # Jan 31 + 1 month — Feb has no 31st; dateutil clamps to Feb 29 (2024 is leap year).
     result = calculate_next_due_date("2024-01-31T10:00:00Z", RepeatType.monthly, interval=1)
     dt = datetime.fromisoformat(result)
     assert dt.date() == datetime(2024, 2, 29).date()
 
 
-def test_monthly_end_of_month_non_leap_year():
+def test_monthly_end_of_month_non_leap_year() -> None:
     # Jan 31, 2023 + 1 month → Feb 28, 2023 (non-leap).
     result = calculate_next_due_date("2023-01-31T10:00:00Z", RepeatType.monthly, interval=1)
     dt = datetime.fromisoformat(result)
     assert dt.date() == datetime(2023, 2, 28).date()
 
 
-def test_monthly_crosses_year_boundary():
+def test_monthly_crosses_year_boundary() -> None:
     result = calculate_next_due_date("2024-12-15T10:00:00Z", RepeatType.monthly, interval=1)
     dt = datetime.fromisoformat(result)
     assert dt.date() == datetime(2025, 1, 15).date()
@@ -152,7 +152,7 @@ def test_monthly_crosses_year_boundary():
 # ---------------------------------------------------------------------------
 
 
-def test_unknown_repeat_type_returns_original():
+def test_unknown_repeat_type_returns_original() -> None:
     # Pass a raw string that doesn't match any RepeatType — the match default branch
     # returns current_due unchanged.  We bypass enum validation intentionally.
     current = "2024-03-01T10:00:00+00:00"

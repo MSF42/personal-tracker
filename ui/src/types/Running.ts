@@ -6,6 +6,20 @@ export interface RunningActivity {
     notes: string | null;
     has_gpx: boolean;
     title: string | null;
+    source?: 'manual' | 'gpx' | 'fit';
+    start_time?: string | null;
+    elapsed_seconds?: number | null;
+    is_indoor?: boolean;
+    avg_hr?: number | null;
+    max_hr?: number | null;
+    avg_cadence?: number | null;
+    max_cadence?: number | null;
+    calories?: number | null;
+    total_ascent_m?: number | null;
+    total_descent_m?: number | null;
+    avg_power?: number | null;
+    max_power?: number | null;
+    avg_temperature_c?: number | null;
     created_at: string;
     updated_at: string;
     pace: number;
@@ -20,12 +34,46 @@ export interface GpxSegment {
     duration_seconds: number;
     pace: number;
     pace_formatted: string;
+    start_seconds?: number | null;
+    end_seconds?: number | null;
 }
 
-export interface GpxImportResponse {
+export interface RunLap {
+    id: number;
+    lap_index: number;
+    start_time: string | null;
+    timer_seconds: number;
+    elapsed_seconds: number | null;
+    distance_km: number;
+    pace: number | null;
+    avg_hr: number | null;
+    max_hr: number | null;
+    avg_cadence: number | null;
+    avg_power: number | null;
+    total_ascent_m: number | null;
+    trigger: string | null;
+}
+
+export interface RunSample {
+    t_seconds: number;
+    distance_km: number | null;
+    heart_rate: number | null;
+    cadence: number | null;
+    speed_mps: number | null;
+    altitude_m: number | null;
+    power: number | null;
+    lat: number | null;
+    lon: number | null;
+}
+
+export interface RunImportResponse {
     activity: RunningActivity;
     segments: GpxSegment[];
+    laps: RunLap[];
 }
+
+/** Historical name; GPX imports return the same shape with an empty laps list. */
+export type GpxImportResponse = RunImportResponse;
 
 export interface RunningActivityCreate {
     date: string;

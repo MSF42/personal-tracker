@@ -1,12 +1,13 @@
 from datetime import date
 
 import pytest
+from httpx import AsyncClient
 
 BASE = "/api/v1/habits"
 
 
 @pytest.mark.asyncio
-async def test_create_habit_returns_201_with_correct_fields(client):
+async def test_create_habit_returns_201_with_correct_fields(client: AsyncClient) -> None:
     response = await client.post(
         BASE,
         json={"name": "Drink Water", "frequency": "daily", "color": "#10b981"},
@@ -26,7 +27,7 @@ async def test_create_habit_returns_201_with_correct_fields(client):
 
 
 @pytest.mark.asyncio
-async def test_create_habit_defaults(client):
+async def test_create_habit_defaults(client: AsyncClient) -> None:
     response = await client.post(BASE, json={"name": "Meditate"})
     assert response.status_code == 201
     data = response.json()
@@ -37,7 +38,7 @@ async def test_create_habit_defaults(client):
 
 
 @pytest.mark.asyncio
-async def test_get_habit_by_id_returns_200(client):
+async def test_get_habit_by_id_returns_200(client: AsyncClient) -> None:
     create_resp = await client.post(
         BASE,
         json={"name": "Morning Run", "frequency": "daily", "color": "#f59e0b"},
@@ -55,7 +56,7 @@ async def test_get_habit_by_id_returns_200(client):
 
 
 @pytest.mark.asyncio
-async def test_update_habit_returns_updated_fields(client):
+async def test_update_habit_returns_updated_fields(client: AsyncClient) -> None:
     create_resp = await client.post(
         BASE,
         json={"name": "Old Name", "frequency": "daily", "color": "#3b82f6"},
@@ -76,7 +77,7 @@ async def test_update_habit_returns_updated_fields(client):
 
 
 @pytest.mark.asyncio
-async def test_list_habits_contains_created_habit(client):
+async def test_list_habits_contains_created_habit(client: AsyncClient) -> None:
     await client.post(BASE, json={"name": "Read Books"})
     response = await client.get(BASE)
     assert response.status_code == 200
@@ -85,7 +86,7 @@ async def test_list_habits_contains_created_habit(client):
 
 
 @pytest.mark.asyncio
-async def test_list_habits_excludes_archived_by_default(client):
+async def test_list_habits_excludes_archived_by_default(client: AsyncClient) -> None:
     # Create a habit then archive it
     create_resp = await client.post(BASE, json={"name": "To Archive"})
     habit_id = create_resp.json()["id"]
@@ -98,7 +99,7 @@ async def test_list_habits_excludes_archived_by_default(client):
 
 
 @pytest.mark.asyncio
-async def test_list_habits_include_archived_param(client):
+async def test_list_habits_include_archived_param(client: AsyncClient) -> None:
     # Create a habit then archive it
     create_resp = await client.post(BASE, json={"name": "Archived Habit"})
     habit_id = create_resp.json()["id"]
@@ -117,7 +118,7 @@ async def test_list_habits_include_archived_param(client):
 
 
 @pytest.mark.asyncio
-async def test_toggle_completion_marks_completed(client):
+async def test_toggle_completion_marks_completed(client: AsyncClient) -> None:
     create_resp = await client.post(BASE, json={"name": "Exercise"})
     habit_id = create_resp.json()["id"]
 
@@ -137,7 +138,7 @@ async def test_toggle_completion_marks_completed(client):
 
 
 @pytest.mark.asyncio
-async def test_toggle_completion_reverts_on_second_call(client):
+async def test_toggle_completion_reverts_on_second_call(client: AsyncClient) -> None:
     create_resp = await client.post(BASE, json={"name": "Yoga"})
     habit_id = create_resp.json()["id"]
     date_str = date.today().isoformat()
@@ -156,14 +157,14 @@ async def test_toggle_completion_reverts_on_second_call(client):
 
 
 @pytest.mark.asyncio
-async def test_get_habit_completions_returns_dict(client):
+async def test_get_habit_completions_returns_dict(client: AsyncClient) -> None:
     response = await client.get(f"{BASE}/completions")
     assert response.status_code == 200
     assert isinstance(response.json(), dict)
 
 
 @pytest.mark.asyncio
-async def test_delete_habit_returns_204(client):
+async def test_delete_habit_returns_204(client: AsyncClient) -> None:
     create_resp = await client.post(BASE, json={"name": "Temp Habit"})
     habit_id = create_resp.json()["id"]
 
@@ -172,7 +173,7 @@ async def test_delete_habit_returns_204(client):
 
 
 @pytest.mark.asyncio
-async def test_delete_habit_then_get_returns_404(client):
+async def test_delete_habit_then_get_returns_404(client: AsyncClient) -> None:
     create_resp = await client.post(BASE, json={"name": "Gone Habit"})
     habit_id = create_resp.json()["id"]
 
@@ -183,13 +184,13 @@ async def test_delete_habit_then_get_returns_404(client):
 
 
 @pytest.mark.asyncio
-async def test_delete_nonexistent_habit_returns_404(client):
+async def test_delete_nonexistent_habit_returns_404(client: AsyncClient) -> None:
     response = await client.delete(f"{BASE}/99999")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_toggle_completion_nonexistent_habit_returns_404(client):
+async def test_toggle_completion_nonexistent_habit_returns_404(client: AsyncClient) -> None:
     response = await client.post(
         f"{BASE}/99999/complete",
         json={"date": date.today().isoformat()},

@@ -12,11 +12,11 @@ from src.services.gpx_parser import GpxParseResult, haversine_km, parse_gpx
 # ---------------------------------------------------------------------------
 
 
-def test_haversine_same_point_is_zero():
+def test_haversine_same_point_is_zero() -> None:
     assert haversine_km(51.5074, -0.1278, 51.5074, -0.1278) == 0.0
 
 
-def test_haversine_nyc_to_london():
+def test_haversine_nyc_to_london() -> None:
     # New York City → London is well-known at roughly 5,570 km.
     nyc_lat, nyc_lon = 40.7128, -74.0060
     lon_lat, lon_lon = 51.5074, -0.1278
@@ -24,20 +24,20 @@ def test_haversine_nyc_to_london():
     assert 5500 < d < 5650, f"Expected ~5570 km, got {d:.1f} km"
 
 
-def test_haversine_close_points_small_distance():
+def test_haversine_close_points_small_distance() -> None:
     # Two points on the equator separated by 0.001 degree longitude ≈ 0.069 km.
     d = haversine_km(0.0, 0.0, 0.0, 0.001)
     assert 0.05 < d < 0.12, f"Expected small distance ~0.069 km, got {d:.4f} km"
 
 
-def test_haversine_symmetry():
+def test_haversine_symmetry() -> None:
     # Distance A→B should equal distance B→A.
     d_ab = haversine_km(48.8566, 2.3522, 41.9028, 12.4964)  # Paris → Rome
     d_ba = haversine_km(41.9028, 12.4964, 48.8566, 2.3522)  # Rome → Paris
     assert math.isclose(d_ab, d_ba, rel_tol=1e-9)
 
 
-def test_haversine_paris_to_rome():
+def test_haversine_paris_to_rome() -> None:
     # Paris (48.8566, 2.3522) → Rome (41.9028, 12.4964) ≈ 1105 km.
     d = haversine_km(48.8566, 2.3522, 41.9028, 12.4964)
     assert 1050 < d < 1160, f"Expected ~1105 km, got {d:.1f} km"
@@ -60,18 +60,12 @@ _GPX_TEMPLATE = """\
 
 
 def _make_trkpt(lat: float, lon: float, time_str: str) -> str:
-    return (
-        f'<trkpt lat="{lat}" lon="{lon}">'
-        f"<time>{time_str}</time>"
-        f"</trkpt>"
-    )
+    return f'<trkpt lat="{lat}" lon="{lon}"><time>{time_str}</time></trkpt>'
 
 
 def _build_gpx(trackpoints: list[tuple[float, float, str]], title: str | None = None) -> bytes:
     name_el = f"<name>{title}</name>" if title else ""
-    trkpts = "\n      ".join(
-        _make_trkpt(lat, lon, ts) for lat, lon, ts in trackpoints
-    )
+    trkpts = "\n      ".join(_make_trkpt(lat, lon, ts) for lat, lon, ts in trackpoints)
     xml = _GPX_TEMPLATE.format(name_element=name_el, trackpoints=trkpts)
     return xml.encode()
 
@@ -81,25 +75,29 @@ def _build_gpx(trackpoints: list[tuple[float, float, str]], title: str | None = 
 # ---------------------------------------------------------------------------
 
 
-def test_parse_gpx_returns_gpx_parse_result():
-    gpx = _build_gpx([
-        (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
-        (51.5074, -0.1268, "2024-01-01T10:05:00Z"),
-    ])
+def test_parse_gpx_returns_gpx_parse_result() -> None:
+    gpx = _build_gpx(
+        [
+            (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
+            (51.5074, -0.1268, "2024-01-01T10:05:00Z"),
+        ]
+    )
     result = parse_gpx(gpx)
     assert isinstance(result, GpxParseResult)
 
 
-def test_parse_gpx_date():
-    gpx = _build_gpx([
-        (51.5074, -0.1278, "2024-03-15T08:00:00Z"),
-        (51.5074, -0.1268, "2024-03-15T08:05:00Z"),
-    ])
+def test_parse_gpx_date() -> None:
+    gpx = _build_gpx(
+        [
+            (51.5074, -0.1278, "2024-03-15T08:00:00Z"),
+            (51.5074, -0.1268, "2024-03-15T08:05:00Z"),
+        ]
+    )
     result = parse_gpx(gpx)
     assert result.date == "2024-03-15"
 
 
-def test_parse_gpx_title_from_trk_name():
+def test_parse_gpx_title_from_trk_name() -> None:
     gpx = _build_gpx(
         [
             (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
@@ -111,40 +109,48 @@ def test_parse_gpx_title_from_trk_name():
     assert result.title == "Morning Run"
 
 
-def test_parse_gpx_no_title_is_none():
-    gpx = _build_gpx([
-        (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
-        (51.5074, -0.1268, "2024-01-01T10:05:00Z"),
-    ])
+def test_parse_gpx_no_title_is_none() -> None:
+    gpx = _build_gpx(
+        [
+            (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
+            (51.5074, -0.1268, "2024-01-01T10:05:00Z"),
+        ]
+    )
     result = parse_gpx(gpx)
     assert result.title is None
 
 
-def test_parse_gpx_duration_seconds():
+def test_parse_gpx_duration_seconds() -> None:
     # 5 minutes = 300 seconds
-    gpx = _build_gpx([
-        (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
-        (51.5074, -0.1268, "2024-01-01T10:05:00Z"),
-    ])
+    gpx = _build_gpx(
+        [
+            (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
+            (51.5074, -0.1268, "2024-01-01T10:05:00Z"),
+        ]
+    )
     result = parse_gpx(gpx)
     assert result.duration_seconds == 300
 
 
-def test_parse_gpx_distance_positive():
-    gpx = _build_gpx([
-        (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
-        (51.5074, -0.1268, "2024-01-01T10:05:00Z"),
-    ])
+def test_parse_gpx_distance_positive() -> None:
+    gpx = _build_gpx(
+        [
+            (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
+            (51.5074, -0.1268, "2024-01-01T10:05:00Z"),
+        ]
+    )
     result = parse_gpx(gpx)
     assert result.distance_km > 0
 
 
-def test_parse_gpx_distance_reasonable():
+def test_parse_gpx_distance_reasonable() -> None:
     # Two points ~0.069 km apart on the same latitude.
-    gpx = _build_gpx([
-        (0.0, 0.0, "2024-01-01T10:00:00Z"),
-        (0.0, 0.001, "2024-01-01T10:05:00Z"),
-    ])
+    gpx = _build_gpx(
+        [
+            (0.0, 0.0, "2024-01-01T10:00:00Z"),
+            (0.0, 0.001, "2024-01-01T10:05:00Z"),
+        ]
+    )
     result = parse_gpx(gpx)
     assert 0.05 < result.distance_km < 0.12
 
@@ -154,24 +160,28 @@ def test_parse_gpx_distance_reasonable():
 # ---------------------------------------------------------------------------
 
 
-def test_parse_gpx_1k_segment_detected():
+def test_parse_gpx_1k_segment_detected() -> None:
     # A single ~1.0 km hop in 5 minutes should trigger the "1K" segment.
     # At lat=0, lon offset 0.00900 ≈ 1.00075 km, which is in [1.0, 1.05].
-    gpx = _build_gpx([
-        (0.0, 0.0,    "2024-01-01T10:00:00Z"),
-        (0.0, 0.009,  "2024-01-01T10:05:00Z"),
-    ])
+    gpx = _build_gpx(
+        [
+            (0.0, 0.0, "2024-01-01T10:00:00Z"),
+            (0.0, 0.009, "2024-01-01T10:05:00Z"),
+        ]
+    )
     result = parse_gpx(gpx)
     assert result.distance_km >= 1.0
     segment_names = [s.name for s in result.segments]
     assert "1K" in segment_names, f"Expected '1K' segment, got: {segment_names}"
 
 
-def test_parse_gpx_1k_segment_fields():
-    gpx = _build_gpx([
-        (0.0, 0.0,   "2024-01-01T10:00:00Z"),
-        (0.0, 0.009, "2024-01-01T10:05:00Z"),
-    ])
+def test_parse_gpx_1k_segment_fields() -> None:
+    gpx = _build_gpx(
+        [
+            (0.0, 0.0, "2024-01-01T10:00:00Z"),
+            (0.0, 0.009, "2024-01-01T10:05:00Z"),
+        ]
+    )
     result = parse_gpx(gpx)
     seg = next(s for s in result.segments if s.name == "1K")
     assert seg.distance_km > 0
@@ -180,12 +190,14 @@ def test_parse_gpx_1k_segment_fields():
     assert ":" in seg.pace_formatted  # e.g. "4:58"
 
 
-def test_parse_gpx_no_segments_for_short_route():
+def test_parse_gpx_no_segments_for_short_route() -> None:
     # Two very close points — total < 1 km, so no segment should be found.
-    gpx = _build_gpx([
-        (0.0, 0.0,     "2024-01-01T10:00:00Z"),
-        (0.0, 0.0001,  "2024-01-01T10:01:00Z"),
-    ])
+    gpx = _build_gpx(
+        [
+            (0.0, 0.0, "2024-01-01T10:00:00Z"),
+            (0.0, 0.0001, "2024-01-01T10:01:00Z"),
+        ]
+    )
     result = parse_gpx(gpx)
     assert result.segments == []
 
@@ -195,21 +207,23 @@ def test_parse_gpx_no_segments_for_short_route():
 # ---------------------------------------------------------------------------
 
 
-def test_parse_gpx_raises_for_one_trackpoint():
-    gpx = _build_gpx([
-        (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
-    ])
+def test_parse_gpx_raises_for_one_trackpoint() -> None:
+    gpx = _build_gpx(
+        [
+            (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
+        ]
+    )
     with pytest.raises(ValueError, match="at least 2 trackpoints"):
         parse_gpx(gpx)
 
 
-def test_parse_gpx_raises_for_zero_trackpoints():
+def test_parse_gpx_raises_for_zero_trackpoints() -> None:
     gpx = _build_gpx([])
     with pytest.raises(ValueError, match="at least 2 trackpoints"):
         parse_gpx(gpx)
 
 
-def test_parse_gpx_malformed_missing_time_skipped():
+def test_parse_gpx_malformed_missing_time_skipped() -> None:
     # A trkpt without <time> is silently skipped; only the two valid ones count.
     xml = textwrap.dedent("""\
         <?xml version="1.0"?>

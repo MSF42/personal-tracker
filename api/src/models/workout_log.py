@@ -32,6 +32,7 @@ class SetLogResponse(BaseModel):
     reps: int | None = None
     weight: float | None = None
     created_at: str | None = None
+    exercise_name: str | None = None
 
 
 class SetHistoryEntry(BaseModel):
@@ -51,3 +52,14 @@ class WorkoutLogResponse(BaseModel):
     notes: str | None = None
     created_at: str | None = None
     sets: list[SetLogResponse] = []
+
+
+class RoutineLogSummaryResponse(BaseModel):
+    """One past session against a routine, with aggregates for a history view."""
+
+    id: int
+    date: str
+    notes: str | None = None
+    created_at: str | None = None
+    total_sets: int = 0
+    total_volume: float = 0

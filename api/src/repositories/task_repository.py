@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from aiosqlite import Connection
 
@@ -11,7 +11,7 @@ from src.models.task import (
     task_from_db,
 )
 from src.repositories.search_sync import index_task, remove_from_index
-from src.repositories.utils import execute_update
+from src.repositories.utils import execute_update, require_found, require_row_id
 from src.services.task_recurrence import calculate_next_due_date
 
 
@@ -20,7 +20,7 @@ class SQLiteTaskRepository:
         self.db = db
 
     async def create(self, task: CreateTaskRequest) -> TaskResponse:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         repeat_days_str = ",".join(str(d) for d in task.repeat_days) if task.repeat_days else None
 
@@ -45,12 +45,12 @@ class SQLiteTaskRepository:
                 now,
             ),
         )
-        task_id = cursor.lastrowid
+        task_id = require_row_id(cursor.lastrowid)
         await index_task(self.db, task_id, task.title, task.description)
         await self.db.commit()
 
         # Fetch and return the created task
-        return await self.find_by_id(task_id)
+        return require_found(await self.find_by_id(task_id), "Task")
 
     async def find_by_id(self, task_id: int) -> TaskResponse | None:
         cursor = await self.db.execute(
@@ -128,9 +128,7 @@ class SQLiteTaskRepository:
         if "title" in update_data or "description" in update_data:
             refreshed = await self.find_by_id(task_id)
             if refreshed is not None:
-                await index_task(
-                    self.db, task_id, refreshed.title, refreshed.description
-                )
+                await index_task(self.db, task_id, refreshed.title, refreshed.description)
                 await self.db.commit()
             return refreshed
         return await self.find_by_id(task_id)
@@ -143,8 +141,8 @@ class SQLiteTaskRepository:
         offset: int = 0,
     ) -> tuple[list[TaskResponse], int]:
         # Build WHERE clause dynamically
-        conditions = []
-        params = []
+        conditions: list[str] = []
+        params: list[object] = []
 
         if completed is not None:
             conditions.append("completed = ?")
@@ -161,7 +159,9 @@ class SQLiteTaskRepository:
             f"SELECT COUNT(*) FROM tasks WHERE {where_clause}",  # noqa: S608 — where_clause built from validated condition strings, not user input
             params,
         )
-        total = (await count_cursor.fetchone())[0]
+        count_row = await count_cursor.fetchone()
+        # COUNT(*) always yields exactly one row.
+        total = count_row[0] if count_row else 0
 
         # Get paginated results
         cursor = await self.db.execute(

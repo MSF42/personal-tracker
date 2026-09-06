@@ -12,29 +12,45 @@ Personal Tracker — a FastAPI backend with a Vue 3 frontend for tracking tasks,
 
 ## Common Commands
 
+Dependencies are managed with [uv](https://docs.astral.sh/uv/); `uv.lock` is the
+source of truth and every Python command runs through `uv run`.
+
+```bash
+# Run both servers from the repo root (Ctrl-C stops both)
+./run.sh
+
+# Run every quality gate (ruff, mypy, pytest, eslint, vue-tsc, vitest)
+./check.sh
+```
+
 ### API (run from `api/` directory)
 
 ```bash
-# Run the dev server
-python src/main.py
-# or: uvicorn src.main:app --reload --host 127.0.0.1 --port 8742
+# Sync the venv to uv.lock (idempotent)
+uv sync
 
-# Lint and format
-ruff check .
-ruff check --fix .
-ruff format .
+# Run the dev server
+uv run python src/main.py
+# or: uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8742
+
+# Lint, format, type-check
+uv run ruff check .
+uv run ruff check --fix .
+uv run ruff format .
+uv run mypy src tests
 
 # Run all tests
-pytest
+uv run pytest
 
 # Run a single test file
-pytest tests/test_tasks.py
+uv run pytest tests/test_tasks.py
 
 # Run a single test by name
-pytest tests/test_tasks.py -k "test_create_task"
+uv run pytest tests/test_tasks.py -k "test_create_task"
 
 # Build standalone executable
-pyinstaller personal-tracker-api.spec
+uv sync --group build
+uv run pyinstaller personal-tracker-api.spec
 ```
 
 ### UI (run from `ui/` directory)
@@ -88,13 +104,22 @@ Vue 3 + PrimeVue + Tailwind CSS application built with Vite.
 - Dev server proxies `/api` to FastAPI backend at `localhost:8000`
 - No authentication (personal app)
 - API errors parsed from FastAPI format `{error: string, code: string}`
+- Run detail page (`pages/running/[id].vue`) draws the route with Leaflet + OpenStreetMap tiles (`components/RouteMap.vue`); when tiles fail or the app is offline it falls back to a pure SVG outline (`components/RouteOutline.vue`, maths in `utils/route.ts`). `run_samples` therefore holds GPS coordinates — mind that when sharing backups or screenshots. Hovering a lap or best-effort row highlights that time span on the map and charts; best efforts store `start_seconds`/`end_seconds` (migration 29) and `backfill_segment_bounds()` recomputes them at startup for runs that have samples but no offsets.
+
+**Page vs. dialog:** an entity gets a routed detail page (own URL, deep-linkable, back/forward) when it has enough content to need multi-section layout — Running, Workout Logs, and Workout Routines all have this (maps/charts, per-set tables, session history). An entity stays on an edit dialog when it's fundamentally one short record — Tasks, Habits, Measurements, and Exercises (whose "detail" is the shared `ExerciseHistoryDialog` lookup, not a multi-section view). If an entity's dialog starts accumulating that kind of multi-section content, that's the signal to promote it to a page rather than keep expanding the dialog.
+
+**Page container widths:** list/index pages default to `max-w-6xl`. Detail pages pick from three tiers by content shape, not by feel — `max-w-3xl` for a single narrow column (`settings.vue`, `workout-logs/[id].vue`), `max-w-4xl` for a single column with tables (`workout-routines/[id].vue`), `max-w-7xl` for a two-column layout with a map/chart panel (`running/[id].vue`).
 
 ## Configuration
 
-**API:** Ruff is configured in `pyproject.toml`: line length 100, Python 3.14 target, rules E/F/I (ignoring E501). Pytest uses `asyncio_mode = "auto"` for async test support.
+**API:** `pyproject.toml` holds everything. Ruff: line length 100, target py312, rules E/F/I/UP/B (ignoring E501), with FastAPI's `Depends`/`File`/etc. in `extend-immutable-calls` so B008 doesn't fire on dependency injection. Mypy runs in `strict` mode over `src` and `tests` and is expected to stay clean (`fitdecode` has no stubs, so it is the one `ignore_missing_imports` override). Pytest uses `asyncio_mode = "auto"`.
+
+The py312 target is deliberate: the release workflow builds the shipped binary on Python 3.12, so targeting anything newer risks emitting syntax that CI cannot parse.
 
 **UI:** ESLint with Vue + TypeScript rules and `simple-import-sort`. Prettier with single quotes, 4-space tabs, 80 char width, and `prettier-plugin-tailwindcss`. TypeScript strict mode targeting ES2023.
 
 ## Domains
 
-Tasks (with recurring task support: daily/weekly/monthly), Running Activities (with computed pace/speed and yearly stats), Exercises (categorized by muscle group), Workout Routines (with routine_exercises junction table), and Workout Logs (with per-set tracking).
+`scripts/import/` holds a one-off importer (`import_steve2026.py` + JSON snapshot) that replays the Steve2026 training spreadsheet through the API; see its README.
+
+Tasks (with recurring task support: daily/weekly/monthly), Running Activities (with computed pace/speed, yearly stats, and GPX/FIT import — FIT via `fitdecode` adds heart rate, cadence, power, laps and per-second samples in `run_laps`/`run_samples`), Exercises (categorized by muscle group: back/chest/biceps/triceps/shoulders/legs/core), Workout Routines (with routine_exercises junction table), Workout Logs (with per-set tracking), and Countdowns (title + date, shown on the Home page as days until / days since).

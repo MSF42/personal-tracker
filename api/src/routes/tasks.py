@@ -1,3 +1,6 @@
+from typing import Any
+
+from aiosqlite import Connection
 from fastapi import APIRouter, Depends, Query
 
 from src.db.database import get_db
@@ -8,7 +11,7 @@ from src.repositories.task_repository import SQLiteTaskRepository
 router = APIRouter(prefix="/api/v1/tasks", tags=["Tasks"])
 
 
-async def get_task_repository(db=Depends(get_db)):
+async def get_task_repository(db: Connection = Depends(get_db)) -> SQLiteTaskRepository:
     return SQLiteTaskRepository(db)
 
 
@@ -16,7 +19,7 @@ async def get_task_repository(db=Depends(get_db)):
 async def create_task(
     task: CreateTaskRequest,
     repo: SQLiteTaskRepository = Depends(get_task_repository),
-):
+) -> TaskResponse:
     return await repo.create(task)
 
 
@@ -24,7 +27,7 @@ async def create_task(
 async def get_task(
     task_id: int,
     repo: SQLiteTaskRepository = Depends(get_task_repository),
-):
+) -> TaskResponse:
     task = await repo.find_by_id(task_id)
     if task is None:
         raise NotFoundError("Task not found")
@@ -36,7 +39,7 @@ async def update_task(
     task_id: int,
     data: UpdateTaskRequest,
     repo: SQLiteTaskRepository = Depends(get_task_repository),
-):
+) -> TaskResponse:
     task = await repo.update(task_id, data)
     if task is None:
         raise NotFoundError("Task not found")
@@ -47,7 +50,7 @@ async def update_task(
 async def delete_task(
     task_id: int,
     repo: SQLiteTaskRepository = Depends(get_task_repository),
-):
+) -> None:
     deleted = await repo.delete(task_id)
     if not deleted:
         raise NotFoundError("Task not found")
@@ -60,7 +63,7 @@ async def list_tasks(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     repo: SQLiteTaskRepository = Depends(get_task_repository),
-):
+) -> dict[str, Any]:
     tasks, total = await repo.find_with_filters(
         completed=completed,
         category=category,

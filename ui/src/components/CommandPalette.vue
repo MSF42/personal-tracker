@@ -53,9 +53,18 @@ async function runSearch() {
     }
 }
 
+// Mirrors the nav bar's icon for each domain, so a result reads at a glance
+// the same way the nav does (task/habit match App.vue exactly; exercise and
+// routine both live under "Strength" so get their own distinct icons).
+const KIND_ICONS: Record<SearchKind, string> = {
+    task: 'pi-check-square',
+    habit: 'pi-check-circle',
+    exercise: 'pi-heart',
+    routine: 'pi-list',
+};
+
 function routeFor(hit: SearchHit): string {
     const routes: Record<SearchKind, string> = {
-        note: `/notes?note=${hit.entity_id}`,
         task: `/tasks?task=${hit.entity_id}`,
         habit: `/habits?habit=${hit.entity_id}`,
         exercise: `/exercises?exercise=${hit.entity_id}`,
@@ -115,7 +124,7 @@ function onKeydown(e: KeyboardEvent) {
                         ref="inputRef"
                         v-model="query"
                         class="text-surface-900 dark:text-surface-100 placeholder:text-surface-400 flex-1 bg-transparent text-sm outline-none"
-                        placeholder="Search notes, tasks, habits, exercises, routines…"
+                        placeholder="Search tasks, habits, exercises, routines…"
                         type="text"
                         @keydown="onKeydown"
                     />
@@ -149,11 +158,19 @@ function onKeydown(e: KeyboardEvent) {
                         @click="jumpTo(hit)"
                         @mouseenter="selectedIdx = i"
                     >
-                        <span
-                            class="text-surface-400 w-16 shrink-0 text-[10px] tracking-widest uppercase"
+                        <div
+                            class="flex w-12 shrink-0 flex-col items-center gap-1 pt-0.5"
                         >
-                            {{ hit.kind }}
-                        </span>
+                            <i
+                                class="text-primary-500 text-sm"
+                                :class="['pi', KIND_ICONS[hit.kind]]"
+                            ></i>
+                            <span
+                                class="text-surface-400 text-[9px] tracking-widest uppercase"
+                            >
+                                {{ hit.kind }}
+                            </span>
+                        </div>
                         <div class="min-w-0 flex-1">
                             <div
                                 class="text-surface-900 dark:text-surface-100 truncate text-sm font-semibold"
@@ -174,49 +191,11 @@ function onKeydown(e: KeyboardEvent) {
 </template>
 
 <style>
-.wikilink {
-    color: rgb(59 130 246);
-    background: rgba(59, 130, 246, 0.08);
-    border: 1px solid rgba(59, 130, 246, 0.22);
-    padding: 0 5px;
-    border-radius: 4px;
-    text-decoration: none;
-    font-weight: 500;
-}
-.wikilink:hover {
-    background: rgba(59, 130, 246, 0.18);
-}
-.tag {
-    color: rgb(14 165 233);
-    background: rgba(14, 165, 233, 0.1);
-    padding: 0 4px;
-    border-radius: 3px;
-    font-size: 12px;
-    cursor: pointer;
-}
-.mention {
-    color: rgb(168 85 247);
-    background: rgba(168, 85, 247, 0.1);
-    padding: 0 4px;
-    border-radius: 3px;
-    font-size: 12px;
-    cursor: pointer;
-}
+/* Highlights the matched terms inside the FTS5 snippet returned by /search. */
 mark {
     background: rgba(245, 165, 36, 0.25);
     color: inherit;
     padding: 0 2px;
     border-radius: 2px;
-}
-@keyframes flash-highlight {
-    0% {
-        background-color: rgba(59, 130, 246, 0.25);
-    }
-    100% {
-        background-color: transparent;
-    }
-}
-.flash-highlight {
-    animation: flash-highlight 1.2s ease-out;
 }
 </style>

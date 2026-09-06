@@ -61,7 +61,6 @@ export function useSettingsApi() {
             'tasks',
             'measurement_entries',
             'measurements',
-            'notes',
             'user_settings',
         ];
 
@@ -96,7 +95,6 @@ export function useSettingsApi() {
             'workout_logs',
             'set_logs',
             'user_settings',
-            'notes',
             'measurements',
             'measurement_entries',
         ];

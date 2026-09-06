@@ -1,3 +1,4 @@
+from aiosqlite import Connection
 from fastapi import APIRouter, Depends
 
 from src.db.database import get_db
@@ -15,7 +16,9 @@ from src.repositories.measurement_repository import SQLiteMeasurementRepository
 router = APIRouter(prefix="/api/v1/measurements", tags=["Measurements"])
 
 
-async def get_measurement_repository(db=Depends(get_db)):
+async def get_measurement_repository(
+    db: Connection = Depends(get_db),
+) -> SQLiteMeasurementRepository:
     return SQLiteMeasurementRepository(db)
 
 
@@ -23,14 +26,14 @@ async def get_measurement_repository(db=Depends(get_db)):
 async def create_measurement(
     data: CreateMeasurementRequest,
     repo: SQLiteMeasurementRepository = Depends(get_measurement_repository),
-):
+) -> MeasurementResponse:
     return await repo.create_measurement(data)
 
 
 @router.get("", response_model=list[MeasurementResponse])
 async def list_measurements(
     repo: SQLiteMeasurementRepository = Depends(get_measurement_repository),
-):
+) -> list[MeasurementResponse]:
     return await repo.find_all_measurements()
 
 
@@ -39,7 +42,7 @@ async def update_measurement(
     measurement_id: int,
     data: UpdateMeasurementRequest,
     repo: SQLiteMeasurementRepository = Depends(get_measurement_repository),
-):
+) -> MeasurementResponse:
     measurement = await repo.update_measurement(measurement_id, data)
     if measurement is None:
         raise NotFoundError("Measurement not found")
@@ -50,7 +53,7 @@ async def update_measurement(
 async def delete_measurement(
     measurement_id: int,
     repo: SQLiteMeasurementRepository = Depends(get_measurement_repository),
-):
+) -> None:
     deleted = await repo.delete_measurement(measurement_id)
     if not deleted:
         raise NotFoundError("Measurement not found")
@@ -61,7 +64,7 @@ async def create_entry(
     measurement_id: int,
     data: CreateMeasurementEntryRequest,
     repo: SQLiteMeasurementRepository = Depends(get_measurement_repository),
-):
+) -> MeasurementEntryResponse:
     measurement = await repo.find_measurement_by_id(measurement_id)
     if measurement is None:
         raise NotFoundError("Measurement not found")
@@ -72,7 +75,7 @@ async def create_entry(
 async def list_entries(
     measurement_id: int,
     repo: SQLiteMeasurementRepository = Depends(get_measurement_repository),
-):
+) -> list[MeasurementEntryResponse]:
     measurement = await repo.find_measurement_by_id(measurement_id)
     if measurement is None:
         raise NotFoundError("Measurement not found")
@@ -84,7 +87,7 @@ async def update_entry(
     entry_id: int,
     data: UpdateMeasurementEntryRequest,
     repo: SQLiteMeasurementRepository = Depends(get_measurement_repository),
-):
+) -> MeasurementEntryResponse:
     entry = await repo.update_entry(entry_id, data)
     if entry is None:
         raise NotFoundError("Measurement entry not found")
@@ -95,7 +98,7 @@ async def update_entry(
 async def delete_entry(
     entry_id: int,
     repo: SQLiteMeasurementRepository = Depends(get_measurement_repository),
-):
+) -> None:
     deleted = await repo.delete_entry(entry_id)
     if not deleted:
         raise NotFoundError("Measurement entry not found")

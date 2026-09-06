@@ -1,0 +1,328 @@
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+
+import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
+import LoadingState from '@/components/LoadingState.vue';
+import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
+import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
+import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
+import { useSmartBack } from '@/composables/useSmartBack';
+import { useUnits } from '@/composables/useUnits';
+import type {
+    ExerciseHistoryEntry,
+    RoutineLogSummary,
+} from '@/types/WorkoutLog';
+import type { RoutineExercise, WorkoutRoutine } from '@/types/WorkoutRoutine';
+import { formatDate } from '@/utils/format';
+
+const route = useRoute<'/workout-routines/[id]'>();
+const { back } = useSmartBack('/workout-routines');
+const { getWorkoutRoutine, getRoutineExercises } = useWorkoutRoutineApi();
+const {
+    getLogsByRoutine,
+    getExercisePRs,
+    getExerciseLastPerformed,
+    getExerciseHistory,
+} = useWorkoutLogApi();
+const { fmtWeight } = useUnits();
+
+const routine = ref<WorkoutRoutine | null>(null);
+const exercises = ref<RoutineExercise[]>([]);
+const logs = ref<RoutineLogSummary[]>([]);
+const exercisePRs = ref<Record<number, number>>({});
+const exerciseLastPerformed = ref<Record<number, string>>({});
+const loading = ref(true);
+const notFound = ref(false);
+
+const todayStr = new Date().toISOString().split('T')[0] as string;
+const currentMonthPrefix = todayStr.slice(0, 7);
+
+async function load(id: number) {
+    loading.value = true;
+    notFound.value = false;
+    routine.value = null;
+    exercises.value = [];
+    logs.value = [];
+
+    const routineRes = await getWorkoutRoutine(id);
+    if (!routineRes.success || !routineRes.data) {
+        notFound.value = true;
+        loading.value = false;
+        return;
+    }
+    routine.value = routineRes.data;
+
+    const [exercisesRes, logsRes, prsRes, lastPerformedRes] = await Promise.all(
+        [
+            getRoutineExercises(id),
+            getLogsByRoutine(id),
+            getExercisePRs(),
+            getExerciseLastPerformed(),
+        ],
+    );
+    if (exercisesRes.success && exercisesRes.data)
+        exercises.value = exercisesRes.data;
+    if (logsRes.success && logsRes.data) logs.value = logsRes.data;
+    if (prsRes.success && prsRes.data) exercisePRs.value = prsRes.data;
+    if (lastPerformedRes.success && lastPerformedRes.data)
+        exerciseLastPerformed.value = lastPerformedRes.data;
+    loading.value = false;
+}
+
+// Vue Router reuses this component instance across param changes, so the
+// fetch must react to the param, not only mount.
+watch(
+    () => route.params.id,
+    (value) => {
+        const id = Number(value);
+        if (Number.isNaN(id)) {
+            notFound.value = true;
+            loading.value = false;
+            return;
+        }
+        void load(id);
+    },
+    { immediate: true },
+);
+
+const heroTiles = computed(() => {
+    const timesPerformed = logs.value.length;
+    const lastPerformed = logs.value[0]?.date; // logs are ordered by date desc
+    const thisMonth = logs.value.filter((l) =>
+        l.date.startsWith(currentMonthPrefix),
+    ).length;
+    return [
+        { label: 'Times Performed', value: String(timesPerformed) },
+        {
+            label: 'Last Performed',
+            value: lastPerformed ? formatDate(lastPerformed) : '—',
+        },
+        { label: 'This Month', value: String(thisMonth) },
+    ];
+});
+
+// --- Exercise history dialog ---------------------------------------------------
+const showHistory = ref(false);
+const historyExerciseName = ref('');
+const historyEntries = ref<ExerciseHistoryEntry[]>([]);
+
+async function openExerciseHistory(exerciseId: number, exerciseName: string) {
+    historyExerciseName.value = exerciseName;
+    const res = await getExerciseHistory(exerciseId);
+    if (res.success && res.data) {
+        historyEntries.value = res.data;
+        showHistory.value = true;
+    }
+}
+
+// --- Log Workout ---------------------------------------------------------------
+const showLogDialog = ref(false);
+
+async function refreshHistory() {
+    if (!routine.value) return;
+    const res = await getLogsByRoutine(routine.value.id);
+    if (res.success && res.data) logs.value = res.data;
+}
+</script>
+
+<template>
+    <div class="mx-auto max-w-4xl p-6">
+        <button
+            class="text-surface-500 hover:text-surface-900 dark:hover:text-surface-100 mb-4 inline-flex cursor-pointer items-center gap-1.5 text-sm"
+            type="button"
+            @click="back"
+        >
+            <i class="pi pi-arrow-left text-xs"></i>
+            Back
+        </button>
+
+        <LoadingState v-if="loading" />
+
+        <div v-else-if="notFound" class="flex flex-col gap-3">
+            <h1 class="text-2xl font-bold">Routine not found</h1>
+            <p class="text-surface-500 text-sm">
+                This routine may have been deleted.
+                <RouterLink
+                    class="text-primary-600 dark:text-primary-400"
+                    to="/workout-routines"
+                >
+                    Back to Workout Routines
+                </RouterLink>
+            </p>
+        </div>
+
+        <div v-else-if="routine" class="flex flex-col gap-6">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold">{{ routine.name }}</h1>
+                    <p
+                        v-if="routine.description"
+                        class="text-surface-500 mt-1 text-sm"
+                    >
+                        {{ routine.description }}
+                    </p>
+                </div>
+                <AppButton
+                    icon="pi pi-play"
+                    label="Log Workout"
+                    @click="showLogDialog = true"
+                />
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+                <div
+                    v-for="tile in heroTiles"
+                    :key="tile.label"
+                    class="border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/60 rounded-lg border p-4"
+                >
+                    <div
+                        class="text-surface-500 text-xs font-medium tracking-wide uppercase"
+                    >
+                        {{ tile.label }}
+                    </div>
+                    <div
+                        class="text-primary-600 dark:text-primary-400 mt-1 text-2xl font-bold tabular-nums"
+                    >
+                        {{ tile.value }}
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="mb-2 text-sm font-medium">Exercises</h3>
+                <div
+                    v-if="exercises.length === 0"
+                    class="text-surface-500 text-sm"
+                >
+                    No exercises in this routine yet.
+                </div>
+                <div v-else class="overflow-x-auto">
+                    <table class="detail-table">
+                        <thead>
+                            <tr>
+                                <th>Exercise</th>
+                                <th>Muscle Group</th>
+                                <th>Prescription</th>
+                                <th>PR</th>
+                                <th>Last Performed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="ex in exercises" :key="ex.id">
+                                <td>
+                                    <button
+                                        class="text-primary cursor-pointer hover:underline"
+                                        @click="
+                                            openExerciseHistory(ex.id, ex.name)
+                                        "
+                                    >
+                                        {{ ex.name }}
+                                    </button>
+                                </td>
+                                <td><AppTag :value="ex.muscle_group" /></td>
+                                <td>{{ ex.sets }} × {{ ex.reps }}</td>
+                                <td>
+                                    {{
+                                        exercisePRs[ex.id]
+                                            ? fmtWeight(exercisePRs[ex.id])
+                                            : '—'
+                                    }}
+                                </td>
+                                <td>
+                                    {{
+                                        exerciseLastPerformed[ex.id]
+                                            ? formatDate(
+                                                  exerciseLastPerformed[ex.id]!,
+                                              )
+                                            : '—'
+                                    }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="mb-2 text-sm font-medium">Session History</h3>
+                <div v-if="logs.length === 0" class="text-surface-500 text-sm">
+                    No sessions logged for this routine yet.
+                </div>
+                <div v-else class="overflow-x-auto">
+                    <table class="detail-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Notes</th>
+                                <th>Sets</th>
+                                <th>Volume</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="log in logs" :key="log.id">
+                                <td>{{ formatDate(log.date) }}</td>
+                                <td class="max-w-xs truncate">
+                                    {{ log.notes ?? '—' }}
+                                </td>
+                                <td>{{ log.total_sets }}</td>
+                                <td>
+                                    {{
+                                        log.total_volume > 0
+                                            ? fmtWeight(log.total_volume)
+                                            : '—'
+                                    }}
+                                </td>
+                                <td>
+                                    <RouterLink
+                                        class="text-primary hover:underline"
+                                        :to="`/workout-logs/${log.id}`"
+                                    >
+                                        View
+                                    </RouterLink>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <LogWorkoutDialog
+            v-model:visible="showLogDialog"
+            :routine="routine"
+            @logged="refreshHistory"
+        />
+        <ExerciseHistoryDialog
+            v-model:visible="showHistory"
+            :entries="historyEntries"
+            :exercise-name="historyExerciseName"
+        />
+    </div>
+</template>
+
+<style scoped>
+.detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+.detail-table th {
+    text-align: left;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--p-surface-200);
+}
+.detail-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--p-surface-100);
+    white-space: nowrap;
+}
+.dark .detail-table th {
+    border-bottom-color: var(--p-surface-700);
+}
+.dark .detail-table td {
+    border-bottom-color: var(--p-surface-800);
+}
+</style>

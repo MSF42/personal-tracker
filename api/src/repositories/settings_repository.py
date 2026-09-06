@@ -25,15 +25,17 @@ class SQLiteSettingsRepository:
         tables = [
             "set_logs",
             "workout_logs",
+            "run_samples",
+            "run_laps",
             "gpx_segments",
             "routine_exercises",
             "workout_routines",
             "exercises",
             "running_activities",
             "tasks",
-            "notes",
             "measurement_entries",
             "measurements",
+            "countdowns",
             "user_settings",
         ]
         for table in tables:

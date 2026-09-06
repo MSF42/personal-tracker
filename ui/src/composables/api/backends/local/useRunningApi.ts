@@ -1,12 +1,14 @@
 import type { ApiResponse } from '@/types/ApiResponse';
 import type {
-    GpxImportResponse,
     GpxSegment,
     MonthlyRunStats,
     PersonalBests,
+    RunImportResponse,
+    RunLap,
     RunningActivity,
     RunningActivityCreate,
     RunningActivityUpdate,
+    RunSample,
 } from '@/types/Running';
 
 import { useDb } from './useDb';
@@ -183,17 +185,41 @@ export function useRunningApi() {
         };
     };
 
+    const unsupportedImport = (
+        kind: string,
+    ): ApiResponse<RunImportResponse> => ({
+        data: null,
+        error: { message: `${kind} import is not supported in local mode` },
+        success: false,
+    });
+
     const importGpx = async (
         file: File,
-    ): Promise<ApiResponse<GpxImportResponse>> => {
+    ): Promise<ApiResponse<RunImportResponse>> => {
         void file;
-        return {
-            data: null,
-            error: {
-                message: 'GPX import is not supported in local mode',
-            },
-            success: false,
-        };
+        return unsupportedImport('GPX');
+    };
+
+    const importFit = async (
+        file: File,
+    ): Promise<ApiResponse<RunImportResponse>> => {
+        void file;
+        return unsupportedImport('FIT');
+    };
+
+    const getLaps = async (runId: number) =>
+        query<RunLap>(
+            'SELECT * FROM run_laps WHERE running_activity_id = ? ORDER BY lap_index ASC',
+            [runId],
+        );
+
+    const getSamples = async (runId: number, maxPoints = 600) => {
+        void maxPoints;
+        return query<RunSample>(
+            `SELECT t_seconds, distance_km, heart_rate, cadence, speed_mps, altitude_m, power, lat, lon
+             FROM run_samples WHERE running_activity_id = ? ORDER BY t_seconds ASC`,
+            [runId],
+        );
     };
 
     const getSegments = async (runId: number) =>
@@ -214,6 +240,9 @@ export function useRunningApi() {
         getYearlyStats,
         getPersonalBests,
         importGpx,
+        importFit,
         getSegments,
+        getLaps,
+        getSamples,
     };
 }

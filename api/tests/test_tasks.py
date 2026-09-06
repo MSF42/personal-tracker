@@ -1,14 +1,15 @@
 import pytest
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_health_check(client):
+async def test_health_check(client: AsyncClient) -> None:
     response = await client.get("/health")
     assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_create_task(client):
+async def test_create_task(client: AsyncClient) -> None:
     response = await client.post(
         "/api/v1/tasks",
         json={"title": "Test Task", "description": "A test task"},
@@ -20,13 +21,13 @@ async def test_create_task(client):
 
 
 @pytest.mark.asyncio
-async def test_get_task_not_found(client):
+async def test_get_task_not_found(client: AsyncClient) -> None:
     response = await client.get("/api/v1/tasks/99999")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_create_and_get_task(client):
+async def test_create_and_get_task(client: AsyncClient) -> None:
     # Create
     create_response = await client.post(
         "/api/v1/tasks",
@@ -41,6 +42,6 @@ async def test_create_and_get_task(client):
 
 
 @pytest.mark.asyncio
-async def test_create_task_missing_fields_returns_422(client):
+async def test_create_task_missing_fields_returns_422(client: AsyncClient) -> None:
     response = await client.post("/api/v1/tasks", json={})
     assert response.status_code == 422

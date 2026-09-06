@@ -3,8 +3,8 @@ import { onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import ExercisesPage from './exercises.vue';
-import WorkoutLogsPage from './workout-logs.vue';
-import WorkoutRoutinesPage from './workout-routines.vue';
+import WorkoutLogsPage from './workout-logs/index.vue';
+import WorkoutRoutinesPage from './workout-routines/index.vue';
 
 const route = useRoute();
 const router = useRouter();

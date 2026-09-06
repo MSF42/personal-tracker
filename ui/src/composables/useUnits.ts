@@ -5,6 +5,7 @@ import { useSettingsApi } from '@/composables/api/useSettingsApi';
 // Module-level shared state — one instance across the whole app
 const weightUnit = ref<'kg' | 'lbs'>('kg');
 const distanceUnit = ref<'km' | 'mi'>('km');
+const temperatureUnit = ref<'c' | 'f'>('c');
 let loaded = false;
 
 const KG_TO_LBS = 2.20462;
@@ -17,15 +18,19 @@ export function useUnits() {
     async function loadUnits() {
         if (loaded) return;
         loaded = true;
-        const [wRes, dRes] = await Promise.all([
+        const [wRes, dRes, tRes] = await Promise.all([
             getSetting('unit_weight'),
             getSetting('unit_distance'),
+            getSetting('unit_temperature'),
         ]);
         if (wRes.success && wRes.data?.value) {
             weightUnit.value = wRes.data.value as 'kg' | 'lbs';
         }
         if (dRes.success && dRes.data?.value) {
             distanceUnit.value = dRes.data.value as 'km' | 'mi';
+        }
+        if (tRes.success && tRes.data?.value) {
+            temperatureUnit.value = tRes.data.value as 'c' | 'f';
         }
     }
 
@@ -39,6 +44,21 @@ export function useUnits() {
         distanceUnit.value = unit;
         loaded = true;
         await setSetting('unit_distance', unit);
+    }
+
+    async function setTemperatureUnit(unit: 'c' | 'f') {
+        temperatureUnit.value = unit;
+        loaded = true;
+        await setSetting('unit_temperature', unit);
+    }
+
+    /** Format a temperature stored in °C for display */
+    function fmtTemperature(celsius: number | null | undefined): string {
+        if (celsius == null) return '—';
+        if (temperatureUnit.value === 'f') {
+            return `${Math.round(celsius * 1.8 + 32)} °F`;
+        }
+        return `${Math.round(celsius)} °C`;
     }
 
     /** Format a weight stored in kg for display */
@@ -93,10 +113,13 @@ export function useUnits() {
     return {
         weightUnit,
         distanceUnit,
+        temperatureUnit,
         loadUnits,
         setWeightUnit,
         setDistanceUnit,
+        setTemperatureUnit,
         fmtWeight,
+        fmtTemperature,
         fmtDistance,
         fmtPace,
         toKm,

@@ -15,32 +15,57 @@ Pre-built installers are available on the [Releases](../../releases) page:
 ## Features
 
 - **Tasks** — create, categorize, prioritize, and set due dates; supports daily/weekly/monthly recurrence
-- **Running** — log runs with distance, duration, and notes; auto-calculates pace and speed; GPX import; weekly goal tracking
-- **Exercises** — manage an exercise library categorized by muscle group
+- **Running** — log runs with distance, duration, and notes; auto-calculates pace and speed; GPX and FIT import (HealthFit/Garmin FIT brings heart rate, cadence, power, laps and per-second charts; duplicates are detected and skipped); each imported run gets a route map (OpenStreetMap tiles, with an offline outline fallback), heart-rate/pace/elevation charts, laps and best efforts; weekly goal tracking
+- **Exercises** — manage an exercise library categorized by muscle group (incl. core)
 - **Workout Routines** — build routines from your exercise library and log sets/reps/weight
 - **Habits** — track daily habits with streak counting and a 28-day chain view
 - **Measurements** — log any body measurement over time with trend charts
-- **Notes** — freeform notes organized in a tree structure
 - **Dashboard** — daily summary with a 5-day and monthly calendar view
+- **Search** — one command palette (⌘K) across tasks, habits, exercises and routines
 
 ## Development Setup
 
 ### Requirements
 
-- Python 3.12+
+- Python 3.12+ and [uv](https://docs.astral.sh/uv/)
 - Node.js 22+
 
 ### API
 
 ```bash
 cd api
-python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+uv sync
 
 # Run dev server (port 8742)
-python src/main.py
+uv run python src/main.py
 ```
+
+Or start the API and UI together from the repo root with `./run.sh`.
+
+On macOS, `scripts/launch.command` is double-clickable — it starts both servers
+and opens the UI in your browser. To put it on the Desktop, write a shortcut
+that points at it (don't copy the file: it locates the project relative to
+itself):
+
+```bash
+printf '#!/usr/bin/env bash\nexec "%s/scripts/launch.command"\n' "$PWD" \
+  > ~/Desktop/"Personal Tracker.command" && chmod +x ~/Desktop/"Personal Tracker.command"
+```
+
+Closing the Terminal window, or Ctrl-C, stops both servers.
+
+For a Dock icon, build a small `.app` wrapper around the same launcher (the
+Dock only accepts `.app` bundles, not scripts):
+
+```bash
+./scripts/install-dock-app.sh
+```
+
+That writes `~/Applications/Personal Tracker Dev.app`, which opens the launcher
+in Terminal so you still get the logs. Launching it when the stack is already
+running just opens the browser instead of starting a second one. It is
+generated rather than committed because it hard-codes the path to your
+checkout; re-run the script if you move the project.
 
 ### UI
 
@@ -81,8 +106,8 @@ npm run verify    # runs Prettier + ESLint + vue-tsc
 ```bash
 # 1. Build the API binary
 cd api
-pip install pyinstaller
-pyinstaller personal-tracker-api.spec
+uv sync --group build
+uv run pyinstaller personal-tracker-api.spec
 
 # 2. Stage the binary
 mkdir -p ui/electron/binaries

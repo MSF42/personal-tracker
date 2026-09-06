@@ -1,4 +1,5 @@
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -7,33 +8,38 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.config.settings import get_settings
+from src.config.settings import Settings, get_settings
 from src.db.database import DATABASE_PATH
 from src.db.migrations import run_migrations
 from src.errors import AppError
 from src.middleware.logging import RequestLoggingMiddleware
-from src.routes.backlinks import router as backlinks_router
+from src.routes.countdowns import router as countdowns_router
 from src.routes.exercises import router as exercise_router
 from src.routes.habits import router as habits_router
 from src.routes.health import router
+from src.routes.images import router as images_router
 from src.routes.measurements import router as measurements_router
-from src.routes.notes import router as notes_router
 from src.routes.running import router as running_router
 from src.routes.search import router as search_router
 from src.routes.settings import router as settings_router
-from src.routes.tags import router as tags_router
 from src.routes.tasks import router as tasks_router
 from src.routes.today import router as today_router
 from src.routes.workout_logs import router as workout_logs_router
 from src.routes.workout_routines import router as workout_routine_router
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: create data directory, ensure DB exists
-    settings = get_settings()
+def ensure_data_dirs(settings: Settings) -> None:
+    # Also called from create_app(): mounting StaticFiles raises if the uploads
+    # directory is missing, and that happens before lifespan runs.
     os.makedirs("data", exist_ok=True)  # Create data/ if missing
     os.makedirs(settings.uploads_path, exist_ok=True)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Startup: create data directory, ensure DB exists
+    settings = get_settings()
+    ensure_data_dirs(settings)
     await run_migrations(DATABASE_PATH)
     print("Starting up...")
     yield
@@ -41,8 +47,9 @@ async def lifespan(app: FastAPI):
     print("Shutting down...")
 
 
-def create_app():
+def create_app() -> FastAPI:
     settings = get_settings()
+    ensure_data_dirs(settings)
 
     app = FastAPI(
         title=settings.api_title,
@@ -61,7 +68,9 @@ def create_app():
 
     # Exception handlers
     @app.exception_handler(RequestValidationError)
-    async def validation_error_handler(request: Request, exc: RequestValidationError):
+    async def validation_error_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
         messages = []
         for error in exc.errors():
             field = error["loc"][-1] if error["loc"] else None
@@ -80,7 +89,7 @@ def create_app():
         )
 
     @app.exception_handler(AppError)
-    async def app_error_handler(request: Request, exc: AppError):
+    async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -90,7 +99,7 @@ def create_app():
         )
 
     @app.exception_handler(Exception)
-    async def generic_error_handler(request: Request, exc: Exception):
+    async def generic_error_handler(request: Request, exc: Exception) -> JSONResponse:
         # Log the error here (we'll add proper logging in Step 19)
         print(f"Unexpected error: {exc}")
         return JSONResponse(
@@ -110,12 +119,11 @@ def create_app():
     app.include_router(workout_routine_router)
     app.include_router(workout_logs_router)
     app.include_router(measurements_router)
-    app.include_router(notes_router)
+    app.include_router(countdowns_router)
+    app.include_router(images_router)
     app.include_router(settings_router)
     app.include_router(search_router)
     app.include_router(today_router)
-    app.include_router(tags_router)
-    app.include_router(backlinks_router)
 
     app.mount("/uploads", StaticFiles(directory=settings.uploads_path), name="uploads")
 

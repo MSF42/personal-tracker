@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import aiosqlite
 import pytest
@@ -6,29 +6,29 @@ import pytest
 from src.repositories.utils import execute_update
 
 
-async def test_execute_update_updates_field_and_stamps_updated_at():
+async def test_execute_update_updates_field_and_stamps_updated_at() -> None:
     async with aiosqlite.connect(":memory:") as db:
         db.row_factory = aiosqlite.Row
-        await db.execute(
-            "CREATE TABLE tasks (id INTEGER PRIMARY KEY, name TEXT, updated_at TEXT)"
-        )
+        await db.execute("CREATE TABLE tasks (id INTEGER PRIMARY KEY, name TEXT, updated_at TEXT)")
         await db.execute("INSERT INTO tasks (name, updated_at) VALUES ('old', '2020-01-01')")
         await db.commit()
 
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         update_data = {"name": "new"}
         await execute_update(db, "tasks", update_data, 1)
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
 
         cursor = await db.execute("SELECT * FROM tasks WHERE id = 1")
-        row = dict(await cursor.fetchone())
+        fetched = await cursor.fetchone()
+        assert fetched is not None
+        row = dict(fetched)
 
         assert row["name"] == "new"
         updated_at = datetime.fromisoformat(row["updated_at"])
         assert before <= updated_at <= after
 
 
-async def test_execute_update_handles_multiple_fields():
+async def test_execute_update_handles_multiple_fields() -> None:
     async with aiosqlite.connect(":memory:") as db:
         db.row_factory = aiosqlite.Row
         await db.execute(
@@ -42,18 +42,18 @@ async def test_execute_update_handles_multiple_fields():
         await execute_update(db, "tasks", {"name": "new", "value": 42}, 1)
 
         cursor = await db.execute("SELECT * FROM tasks WHERE id = 1")
-        row = dict(await cursor.fetchone())
+        fetched = await cursor.fetchone()
+        assert fetched is not None
+        row = dict(fetched)
 
         assert row["name"] == "new"
         assert row["value"] == 42
 
 
-async def test_execute_update_does_not_mutate_caller_dict():
+async def test_execute_update_does_not_mutate_caller_dict() -> None:
     async with aiosqlite.connect(":memory:") as db:
         db.row_factory = aiosqlite.Row
-        await db.execute(
-            "CREATE TABLE tasks (id INTEGER PRIMARY KEY, name TEXT, updated_at TEXT)"
-        )
+        await db.execute("CREATE TABLE tasks (id INTEGER PRIMARY KEY, name TEXT, updated_at TEXT)")
         await db.execute("INSERT INTO tasks (name, updated_at) VALUES ('orig', '2020-01-01')")
         await db.commit()
 
@@ -61,10 +61,12 @@ async def test_execute_update_does_not_mutate_caller_dict():
         original_keys = set(update_data.keys())
         await execute_update(db, "tasks", update_data, 1)
 
-        assert set(update_data.keys()) == original_keys, "execute_update must not mutate caller's dict"
+        assert set(update_data.keys()) == original_keys, (
+            "execute_update must not mutate caller's dict"
+        )
 
 
-async def test_execute_update_rejects_invalid_table():
+async def test_execute_update_rejects_invalid_table() -> None:
     async with aiosqlite.connect(":memory:") as db:
         with pytest.raises(ValueError, match="not permitted"):
             await execute_update(db, "unknown_table", {"name": "x"}, 1)

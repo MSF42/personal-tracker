@@ -17,6 +17,25 @@ describe('useUnits', () => {
         // Reset module-level shared state between tests
         units.distanceUnit.value = 'km';
         units.weightUnit.value = 'kg';
+        units.temperatureUnit.value = 'c';
+    });
+
+    // --- fmtTemperature ---
+
+    describe('fmtTemperature', () => {
+        it('formats celsius when unit is c', () => {
+            expect(units.fmtTemperature(22)).toBe('22 °C');
+        });
+
+        it('converts to fahrenheit when unit is f', () => {
+            units.temperatureUnit.value = 'f';
+            expect(units.fmtTemperature(22)).toBe('72 °F');
+            expect(units.fmtTemperature(0)).toBe('32 °F');
+        });
+
+        it('shows a dash for missing values', () => {
+            expect(units.fmtTemperature(null)).toBe('—');
+        });
     });
 
     // --- fmtDistance ---

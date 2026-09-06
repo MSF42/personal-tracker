@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from aiosqlite import Connection
 
@@ -10,7 +10,7 @@ from src.models.habit import (
     habit_from_db,
 )
 from src.repositories.search_sync import index_habit, remove_from_index
-from src.repositories.utils import execute_update
+from src.repositories.utils import execute_update, require_found, require_row_id
 
 
 class SQLiteHabitRepository:
@@ -18,7 +18,7 @@ class SQLiteHabitRepository:
         self.db = db
 
     def _today(self) -> str:
-        return datetime.now(timezone.utc).date().isoformat()
+        return datetime.now(UTC).date().isoformat()
 
     async def _fetch_completions(self, habit_ids: list[int]) -> dict[int, list[str]]:
         if not habit_ids:
@@ -61,7 +61,7 @@ class SQLiteHabitRepository:
         return habit_from_db(HabitInDB(**dict(row)), completions.get(habit_id, []), today)
 
     async def create(self, data: HabitCreate) -> HabitResponse:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         frequency_days_str = (
             ",".join(str(d) for d in data.frequency_days) if data.frequency_days else None
         )
@@ -81,10 +81,10 @@ class SQLiteHabitRepository:
                 now,
             ),
         )
-        habit_id = cursor.lastrowid
+        habit_id = require_row_id(cursor.lastrowid)
         await index_habit(self.db, habit_id, data.name, data.description)
         await self.db.commit()
-        return await self.find_by_id(habit_id)
+        return require_found(await self.find_by_id(habit_id), "Habit")
 
     async def update(self, habit_id: int, data: HabitUpdate) -> HabitResponse | None:
         existing = await self.find_by_id(habit_id)
@@ -111,9 +111,7 @@ class SQLiteHabitRepository:
         if "name" in update_data or "description" in update_data:
             refreshed = await self.find_by_id(habit_id)
             if refreshed is not None:
-                await index_habit(
-                    self.db, habit_id, refreshed.name, refreshed.description
-                )
+                await index_habit(self.db, habit_id, refreshed.name, refreshed.description)
                 await self.db.commit()
             return refreshed
         return await self.find_by_id(habit_id)
@@ -125,7 +123,7 @@ class SQLiteHabitRepository:
         return cursor.rowcount > 0
 
     async def get_completions_recent(self, days: int = 28) -> dict[int, list[str]]:
-        cutoff = (datetime.now(timezone.utc).date() - timedelta(days=days - 1)).isoformat()
+        cutoff = (datetime.now(UTC).date() - timedelta(days=days - 1)).isoformat()
         cursor = await self.db.execute(
             "SELECT habit_id, date FROM habit_completions WHERE date >= ? ORDER BY date ASC",
             (cutoff,),
@@ -144,7 +142,7 @@ class SQLiteHabitRepository:
         if existing is None:
             return None
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         check_cursor = await self.db.execute(
             "SELECT id FROM habit_completions WHERE habit_id = ? AND date = ?",
             (habit_id, date_str),

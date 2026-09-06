@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator
+
 import aiosqlite
 
 from src.config.settings import get_settings
@@ -6,7 +8,7 @@ settings = get_settings()
 DATABASE_PATH = settings.database_path
 
 
-async def get_db():
+async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         # Configure the connection (WAL mode, foreign keys, row factory)
         await db.execute("PRAGMA journal_mode = WAL")

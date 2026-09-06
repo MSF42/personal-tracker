@@ -6,6 +6,7 @@ import zipfile
 from datetime import date
 from pathlib import Path
 
+from aiosqlite import Connection
 from fastapi import APIRouter, Depends, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -19,14 +20,14 @@ from src.seeder import seed_sample_data
 router = APIRouter(prefix="/api/v1/settings", tags=["Settings"])
 
 
-async def get_settings_repository(db=Depends(get_db)):
+async def get_settings_repository(db: Connection = Depends(get_db)) -> SQLiteSettingsRepository:
     return SQLiteSettingsRepository(db)
 
 
 # Literal routes must be registered BEFORE /{key} — otherwise Starlette
 # matches the parameterized path first and returns 405 for POST requests.
 @router.post("/seed")
-async def seed_data(db=Depends(get_db)):
+async def seed_data(db: Connection = Depends(get_db)) -> dict[str, str]:
     await seed_sample_data(db)
     return {"message": "Sample data generated"}
 
@@ -35,7 +36,7 @@ async def seed_data(db=Depends(get_db)):
 async def get_setting(
     key: str,
     repo: SQLiteSettingsRepository = Depends(get_settings_repository),
-):
+) -> dict[str, str | None]:
     value = await repo.get(key)
     return {"key": key, "value": value}
 
@@ -45,7 +46,7 @@ async def update_setting(
     key: str,
     body: UpdateSettingRequest,
     repo: SQLiteSettingsRepository = Depends(get_settings_repository),
-):
+) -> dict[str, str | None]:
     await repo.set(key, body.value)
     return {"key": key, "value": body.value}
 
@@ -54,13 +55,13 @@ async def update_setting(
 async def delete_setting(
     key: str,
     repo: SQLiteSettingsRepository = Depends(get_settings_repository),
-):
+) -> dict[str, str | None]:
     await repo.delete(key)
     return {"key": key, "value": None}
 
 
 @router.post("/backup")
-async def backup_data():
+async def backup_data() -> StreamingResponse:
     settings = get_settings()
     db_path = Path(settings.database_path)
     uploads_path = Path(settings.uploads_path)
@@ -88,8 +89,8 @@ async def backup_data():
 MAX_RESTORE_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
-@router.post("/restore")
-async def restore_data(file: UploadFile):
+@router.post("/restore", response_model=None)
+async def restore_data(file: UploadFile) -> JSONResponse | dict[str, str]:
     settings = get_settings()
     db_path = Path(settings.database_path)
     uploads_path = Path(settings.uploads_path)
@@ -175,6 +176,6 @@ async def restore_data(file: UploadFile):
 @router.post("/reset")
 async def reset_all_data(
     repo: SQLiteSettingsRepository = Depends(get_settings_repository),
-):
+) -> dict[str, str]:
     await repo.delete_all_data()
     return {"message": "All data has been deleted"}

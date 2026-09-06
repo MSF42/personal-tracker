@@ -1,0 +1,3145 @@
+{
+  "source": "Google Sheet 'Steve2026' (1ncgUo2pyz4KW0-Op3Wm8WMQSq5lVKMKhEvcpS6grU0o), snapshot 2026-09-06",
+  "weight_unit": "lb",
+  "exercises": [
+    {
+      "name": "Barbell Back Squat",
+      "muscle_group": "legs",
+      "equipment": "Rack + barbell",
+      "instructions": "Plan: 4 × 5–6. Rest 2–3 min."
+    },
+    {
+      "name": "Barbell Bench Press",
+      "muscle_group": "chest",
+      "equipment": "Rack + bench + barbell",
+      "instructions": "Plan: 3 × 6–8. Rest 90 sec."
+    },
+    {
+      "name": "Seated Cable Row",
+      "muscle_group": "back",
+      "equipment": "Low pulley, straight bar or single-hand grip",
+      "instructions": "Plan: 3 × 8–10. Rest 90 sec."
+    },
+    {
+      "name": "Cable Pallof Press",
+      "muscle_group": "core",
+      "equipment": "Low/mid pulley, single-hand grip — anti-rotation core",
+      "instructions": "Plan: 2 × 10/side. Rest 60 sec."
+    },
+    {
+      "name": "Standing Calf Raise",
+      "muscle_group": "legs",
+      "equipment": "Barbell in rack, or dumbbells in hand",
+      "instructions": "Plan: 3 × 12–15. Rest 60 sec."
+    },
+    {
+      "name": "Eccentric Heel Drop",
+      "muscle_group": "legs",
+      "equipment": "Bodyweight off a step — 3 sec lower, single leg",
+      "instructions": "Plan: 3 × 12/side. Rest 60 sec."
+    },
+    {
+      "name": "Barbell Romanian Deadlift",
+      "muscle_group": "legs",
+      "equipment": "Rack + barbell",
+      "instructions": "Plan: 4 × 5–6. Rest 2–3 min."
+    },
+    {
+      "name": "Standing Overhead Press",
+      "muscle_group": "shoulders",
+      "equipment": "Barbell or dumbbells",
+      "instructions": "Plan: 3 × 6–8. Rest 90 sec."
+    },
+    {
+      "name": "Lat Pulldown",
+      "muscle_group": "back",
+      "equipment": "High pulley, wide bar",
+      "instructions": "Plan: 3 × 8–10. Rest 90 sec."
+    },
+    {
+      "name": "EZ Bar Curl",
+      "muscle_group": "biceps",
+      "equipment": "EZ bar — superset with Rope Triceps Pushdown",
+      "instructions": "Plan: 2 × 10–12. Rest 60 sec."
+    },
+    {
+      "name": "Rope Triceps Pushdown",
+      "muscle_group": "triceps",
+      "equipment": "High pulley + rope — superset with EZ Bar Curl",
+      "instructions": "Plan: 2 × 10–12. Rest 60 sec."
+    },
+    {
+      "name": "Dumbbell Single-Leg RDL",
+      "muscle_group": "legs",
+      "equipment": "Light–moderate load, balance focus",
+      "instructions": "Plan: 2–3 × 8/side. Rest 60 sec."
+    },
+    {
+      "name": "Bulgarian Split Squat",
+      "muscle_group": "legs",
+      "equipment": "Bodyweight or light dumbbells, rear foot on bench",
+      "instructions": "Plan: 2 × 8/side. Rest 60 sec."
+    },
+    {
+      "name": "Dumbbell Bench Press",
+      "muscle_group": "chest",
+      "equipment": "Bench + dumbbells",
+      "instructions": "Plan: 2–3 × 10–12. Rest 60 sec."
+    },
+    {
+      "name": "Single-Arm Dumbbell Row",
+      "muscle_group": "back",
+      "equipment": "Bench-supported",
+      "instructions": "Plan: 2–3 × 10–12/side. Rest 60 sec."
+    },
+    {
+      "name": "Cable Face Pull",
+      "muscle_group": "shoulders",
+      "equipment": "High pulley, rope — shoulder health/posture",
+      "instructions": "Plan: 2 × 12–15. Rest 45 sec."
+    },
+    {
+      "name": "Standing Calf Raise + Heel Drop",
+      "muscle_group": "legs",
+      "equipment": "Lighter than Mon/Wed — legs stay fresh for tomorrow",
+      "instructions": "Plan: 2 × 15 each. Rest 45 sec."
+    },
+    {
+      "name": "Plank / Dead Bug",
+      "muscle_group": "core",
+      "equipment": "Bodyweight core",
+      "instructions": "Plan: 2–3 × 30–45 sec. Rest 30 sec."
+    }
+  ],
+  "routines": {
+    "A": {
+      "name": "Workout A — Squat focus (Mon)",
+      "description": "Monday. Two clear days before your next running effort — the best day to lift heaviest. Achilles protocol: finish every session with standing calf raises and slow eccentric heel drops; control the lowering phase. Any morning Achilles stiffness or pain on a run is a stop sign for that exercise.",
+      "exercises": [
+        [
+          "Barbell Back Squat",
+          4,
+          6
+        ],
+        [
+          "Barbell Bench Press",
+          3,
+          8
+        ],
+        [
+          "Seated Cable Row",
+          3,
+          10
+        ],
+        [
+          "Cable Pallof Press",
+          2,
+          10
+        ],
+        [
+          "Standing Calf Raise",
+          3,
+          15
+        ],
+        [
+          "Eccentric Heel Drop",
+          3,
+          12
+        ]
+      ]
+    },
+    "B": {
+      "name": "Workout B — Hinge focus (Wed)",
+      "description": "Wednesday. Sits between two easy run days — moderate-heavy is fine here. Achilles protocol: finish every session with standing calf raises and slow eccentric heel drops; control the lowering phase. Any morning Achilles stiffness or pain on a run is a stop sign for that exercise.",
+      "exercises": [
+        [
+          "Barbell Romanian Deadlift",
+          4,
+          6
+        ],
+        [
+          "Standing Overhead Press",
+          3,
+          8
+        ],
+        [
+          "Lat Pulldown",
+          3,
+          10
+        ],
+        [
+          "EZ Bar Curl",
+          2,
+          12
+        ],
+        [
+          "Rope Triceps Pushdown",
+          2,
+          12
+        ],
+        [
+          "Standing Calf Raise",
+          3,
+          15
+        ],
+        [
+          "Eccentric Heel Drop",
+          3,
+          12
+        ]
+      ]
+    },
+    "C": {
+      "name": "Workout C — Light / stability (Sat)",
+      "description": "Saturday. Day before the long run — kept deliberately light; pairs naturally with a longer yoga session. Achilles protocol: finish every session with standing calf raises and slow eccentric heel drops; control the lowering phase. Any morning Achilles stiffness or pain on a run is a stop sign for that exercise.",
+      "exercises": [
+        [
+          "Dumbbell Single-Leg RDL",
+          3,
+          8
+        ],
+        [
+          "Bulgarian Split Squat",
+          2,
+          8
+        ],
+        [
+          "Dumbbell Bench Press",
+          3,
+          12
+        ],
+        [
+          "Single-Arm Dumbbell Row",
+          3,
+          12
+        ],
+        [
+          "Cable Face Pull",
+          2,
+          15
+        ],
+        [
+          "Standing Calf Raise + Heel Drop",
+          2,
+          15
+        ],
+        [
+          "Plank / Dead Bug",
+          3,
+          1
+        ]
+      ]
+    }
+  },
+  "strength_sessions": [
+    {
+      "date": "2026-08-24",
+      "routine": "A",
+      "exercises": [
+        {
+          "name": "Barbell Back Squat",
+          "sets": [
+            [
+              5.0,
+              8
+            ],
+            [
+              10.0,
+              8
+            ],
+            [
+              15.0,
+              8
+            ],
+            [
+              20.0,
+              8
+            ]
+          ]
+        },
+        {
+          "name": "Barbell Bench Press",
+          "sets": [
+            [
+              20.0,
+              8
+            ],
+            [
+              40.0,
+              8
+            ],
+            [
+              60.0,
+              8
+            ]
+          ]
+        },
+        {
+          "name": "Seated Cable Row",
+          "sets": [
+            [
+              17.5,
+              10
+            ],
+            [
+              22.5,
+              10
+            ],
+            [
+              30.0,
+              10
+            ]
+          ]
+        },
+        {
+          "name": "Cable Pallof Press",
+          "sets": [
+            [
+              20.0,
+              10
+            ],
+            [
+              20.0,
+              10
+            ]
+          ]
+        },
+        {
+          "name": "Standing Calf Raise",
+          "sets": [
+            [
+              1.0,
+              15
+            ],
+            [
+              10.0,
+              15
+            ],
+            [
+              15.0,
+              15
+            ]
+          ]
+        },
+        {
+          "name": "Eccentric Heel Drop",
+          "sets": [
+            [
+              1.0,
+              12
+            ],
+            [
+              1.0,
+              12
+            ],
+            [
+              1.0,
+              12
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-08-26",
+      "routine": "B",
+      "exercises": [
+        {
+          "name": "Barbell Romanian Deadlift",
+          "sets": [
+            [
+              20.0,
+              6
+            ],
+            [
+              20.0,
+              6
+            ],
+            [
+              20.0,
+              6
+            ],
+            [
+              20.0,
+              6
+            ]
+          ]
+        },
+        {
+          "name": "Standing Overhead Press",
+          "sets": [
+            [
+              31.0,
+              8
+            ],
+            [
+              31.0,
+              8
+            ],
+            [
+              31.0,
+              8
+            ]
+          ]
+        },
+        {
+          "name": "Lat Pulldown",
+          "sets": [
+            [
+              70.0,
+              10
+            ],
+            [
+              70.0,
+              10
+            ],
+            [
+              70.0,
+              10
+            ]
+          ]
+        },
+        {
+          "name": "EZ Bar Curl",
+          "sets": [
+            [
+              31.0,
+              12
+            ],
+            [
+              31.0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Rope Triceps Pushdown",
+          "sets": [
+            [
+              20.0,
+              12
+            ],
+            [
+              20.0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Standing Calf Raise",
+          "sets": [
+            [
+              20.0,
+              15
+            ],
+            [
+              20.0,
+              15
+            ],
+            [
+              20.0,
+              15
+            ]
+          ]
+        },
+        {
+          "name": "Eccentric Heel Drop",
+          "sets": [
+            [
+              1.0,
+              12
+            ],
+            [
+              1.0,
+              12
+            ],
+            [
+              1.0,
+              12
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-08-29",
+      "routine": "C",
+      "exercises": [
+        {
+          "name": "Dumbbell Single-Leg RDL",
+          "sets": [
+            [
+              10.0,
+              8
+            ],
+            [
+              10.0,
+              8
+            ],
+            [
+              10.0,
+              8
+            ]
+          ]
+        },
+        {
+          "name": "Bulgarian Split Squat",
+          "sets": [
+            [
+              1.0,
+              8
+            ],
+            [
+              1.0,
+              8
+            ]
+          ]
+        },
+        {
+          "name": "Dumbbell Bench Press",
+          "sets": [
+            [
+              40.0,
+              12
+            ],
+            [
+              50.0,
+              12
+            ],
+            [
+              60.0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Single-Arm Dumbbell Row",
+          "sets": [
+            [
+              30.0,
+              12
+            ],
+            [
+              40.0,
+              12
+            ],
+            [
+              50.0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Cable Face Pull",
+          "sets": [
+            [
+              20.0,
+              15
+            ],
+            [
+              20.0,
+              15
+            ]
+          ]
+        },
+        {
+          "name": "Standing Calf Raise + Heel Drop",
+          "sets": [
+            [
+              20.0,
+              15
+            ],
+            [
+              20.0,
+              15
+            ]
+          ]
+        },
+        {
+          "name": "Plank / Dead Bug",
+          "sets": [
+            [
+              1.0,
+              1
+            ],
+            [
+              1.0,
+              1
+            ],
+            [
+              1.0,
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-08-31",
+      "routine": "A",
+      "exercises": [
+        {
+          "name": "Barbell Back Squat",
+          "sets": [
+            [
+              20.0,
+              8
+            ],
+            [
+              30.0,
+              8
+            ],
+            [
+              30.0,
+              8
+            ],
+            [
+              30.0,
+              8
+            ]
+          ]
+        },
+        {
+          "name": "Barbell Bench Press",
+          "sets": [
+            [
+              70.0,
+              12
+            ],
+            [
+              70.0,
+              12
+            ],
+            [
+              70.0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Seated Cable Row",
+          "sets": [
+            [
+              35.0,
+              10
+            ],
+            [
+              40.0,
+              10
+            ],
+            [
+              40.0,
+              10
+            ]
+          ]
+        },
+        {
+          "name": "Cable Pallof Press",
+          "sets": [
+            [
+              30.0,
+              10
+            ],
+            [
+              30.0,
+              10
+            ]
+          ]
+        },
+        {
+          "name": "Standing Calf Raise",
+          "sets": [
+            [
+              30.0,
+              15
+            ],
+            [
+              30.0,
+              15
+            ],
+            [
+              30.0,
+              15
+            ]
+          ]
+        },
+        {
+          "name": "Eccentric Heel Drop",
+          "sets": [
+            [
+              1.0,
+              12
+            ],
+            [
+              1.0,
+              12
+            ],
+            [
+              1.0,
+              12
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-09-02",
+      "routine": "B",
+      "exercises": [
+        {
+          "name": "Barbell Romanian Deadlift",
+          "sets": [
+            [
+              20.0,
+              6
+            ],
+            [
+              30.0,
+              6
+            ],
+            [
+              30.0,
+              6
+            ],
+            [
+              35.0,
+              6
+            ]
+          ]
+        },
+        {
+          "name": "Standing Overhead Press",
+          "sets": [
+            [
+              36.0,
+              8
+            ],
+            [
+              36.0,
+              8
+            ],
+            [
+              38.5,
+              8
+            ]
+          ]
+        },
+        {
+          "name": "Lat Pulldown",
+          "sets": [
+            [
+              70.0,
+              10
+            ],
+            [
+              75.0,
+              10
+            ],
+            [
+              75.0,
+              10
+            ]
+          ]
+        },
+        {
+          "name": "EZ Bar Curl",
+          "sets": [
+            [
+              36.0,
+              12
+            ],
+            [
+              36.0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Rope Triceps Pushdown",
+          "sets": [
+            [
+              22.5,
+              12
+            ],
+            [
+              25.0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Standing Calf Raise",
+          "sets": [
+            [
+              35.0,
+              15
+            ],
+            [
+              35.0,
+              15
+            ],
+            [
+              35.0,
+              15
+            ]
+          ]
+        },
+        {
+          "name": "Eccentric Heel Drop",
+          "sets": [
+            [
+              1.0,
+              12
+            ],
+            [
+              1.0,
+              12
+            ],
+            [
+              1.0,
+              12
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-09-05",
+      "routine": "C",
+      "exercises": [
+        {
+          "name": "Dumbbell Single-Leg RDL",
+          "sets": [
+            [
+              24.0,
+              8
+            ],
+            [
+              24.0,
+              8
+            ],
+            [
+              24.0,
+              8
+            ]
+          ]
+        },
+        {
+          "name": "Bulgarian Split Squat",
+          "sets": [
+            [
+              10.0,
+              8
+            ],
+            [
+              10.0,
+              8
+            ]
+          ]
+        },
+        {
+          "name": "Dumbbell Bench Press",
+          "sets": [
+            [
+              60.0,
+              12
+            ],
+            [
+              62.5,
+              12
+            ],
+            [
+              65.0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Single-Arm Dumbbell Row",
+          "sets": [
+            [
+              50.0,
+              12
+            ],
+            [
+              55.0,
+              12
+            ],
+            [
+              57.5,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Cable Face Pull",
+          "sets": [
+            [
+              20.0,
+              15
+            ],
+            [
+              25.0,
+              15
+            ]
+          ]
+        },
+        {
+          "name": "Standing Calf Raise + Heel Drop",
+          "sets": [
+            [
+              35.0,
+              15
+            ],
+            [
+              35.0,
+              15
+            ]
+          ]
+        },
+        {
+          "name": "Plank / Dead Bug",
+          "sets": [
+            [
+              1.0,
+              1
+            ],
+            [
+              1.0,
+              1
+            ],
+            [
+              1.0,
+              1
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "strength_plan": {
+    "start": "2026-08-24",
+    "weeks": 58,
+    "days": {
+      "Mon": "A",
+      "Wed": "B",
+      "Sat": "C"
+    },
+    "race_weeks": [
+      9,
+      35,
+      50,
+      56
+    ],
+    "taper_weeks": [
+      54,
+      55
+    ]
+  },
+  "run_plan": [
+    {
+      "week": 0,
+      "phase": "1 · Return to Running / Wicked 10K",
+      "week_start": "2026-08-24",
+      "week_end": "2026-08-30",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-08-25",
+          "planned_km": 1.0,
+          "actual_km": 1.0,
+          "time_seconds": 365
+        },
+        {
+          "day": "Thu",
+          "date": "2026-08-27",
+          "planned_km": 1.0,
+          "actual_km": 1.01,
+          "time_seconds": 367
+        },
+        {
+          "day": "Fri",
+          "date": "2026-08-28",
+          "planned_km": 1.0,
+          "actual_km": 1.03,
+          "time_seconds": 368
+        },
+        {
+          "day": "Long run",
+          "date": "2026-08-30",
+          "planned_km": 1.0,
+          "actual_km": 1.0,
+          "time_seconds": 357
+        }
+      ]
+    },
+    {
+      "week": 1,
+      "phase": "1 · Return to Running / Wicked 10K",
+      "week_start": "2026-08-31",
+      "week_end": "2026-09-06",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-09-01",
+          "planned_km": 1.0,
+          "actual_km": 1.01,
+          "time_seconds": 366
+        },
+        {
+          "day": "Thu",
+          "date": "2026-09-03",
+          "planned_km": 1.0,
+          "actual_km": 1.01,
+          "time_seconds": 358
+        },
+        {
+          "day": "Fri",
+          "date": "2026-09-04",
+          "planned_km": 1.0,
+          "actual_km": 1.01,
+          "time_seconds": 353
+        },
+        {
+          "day": "Long run",
+          "date": "2026-09-06",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 2,
+      "phase": "1 · Return to Running / Wicked 10K",
+      "week_start": "2026-09-07",
+      "week_end": "2026-09-13",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-09-08",
+          "planned_km": 1.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-09-10",
+          "planned_km": 1.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-09-11",
+          "planned_km": 1.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-09-13",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 3,
+      "phase": "1 · Return to Running / Wicked 10K",
+      "week_start": "2026-09-14",
+      "week_end": "2026-09-20",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-09-15",
+          "planned_km": 1.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-09-17",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-09-18",
+          "planned_km": 1.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-09-20",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 4,
+      "phase": "1 · Return to Running / Wicked 10K",
+      "week_start": "2026-09-21",
+      "week_end": "2026-09-27",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-09-22",
+          "planned_km": 1.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-09-24",
+          "planned_km": 1.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-09-25",
+          "planned_km": 1.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-09-27",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 5,
+      "phase": "1 · Return to Running / Wicked 10K",
+      "week_start": "2026-09-28",
+      "week_end": "2026-10-04",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-09-29",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-10-01",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-10-02",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-10-04",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 6,
+      "phase": "1 · Return to Running / Wicked 10K",
+      "week_start": "2026-10-05",
+      "week_end": "2026-10-11",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-10-06",
+          "planned_km": 2.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-10-08",
+          "planned_km": 3.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-10-09",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-10-11",
+          "planned_km": 6.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "phase": "1 · Return to Running / Wicked 10K",
+      "week_start": "2026-10-12",
+      "week_end": "2026-10-18",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-10-13",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-10-15",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-10-16",
+          "planned_km": 2.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-10-18",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 8,
+      "phase": "1 · Return to Running / Wicked 10K",
+      "week_start": "2026-10-19",
+      "week_end": "2026-10-25",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-10-20",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-10-22",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-10-23",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-10-25",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 9,
+      "phase": "1 · Return to Running / Wicked 10K",
+      "week_start": "2026-10-26",
+      "week_end": "2026-11-01",
+      "status": "Race — Wicked 10K",
+      "note": "Race is Saturday this week — treat Sunday as an optional easy recovery jog, or a full rest day.",
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-10-27",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-10-29",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-10-30",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-10-31",
+          "planned_km": 10.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 10,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2026-11-02",
+      "week_end": "2026-11-08",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-11-03",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-11-05",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-11-06",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-11-08",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 11,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2026-11-09",
+      "week_end": "2026-11-15",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-11-10",
+          "planned_km": 2.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-11-12",
+          "planned_km": 3.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-11-13",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-11-15",
+          "planned_km": 6.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 12,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2026-11-16",
+      "week_end": "2026-11-22",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-11-17",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-11-19",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-11-20",
+          "planned_km": 2.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-11-22",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 13,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2026-11-23",
+      "week_end": "2026-11-29",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-11-24",
+          "planned_km": 2.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-11-26",
+          "planned_km": 3.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-11-27",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-11-29",
+          "planned_km": 6.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 14,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2026-11-30",
+      "week_end": "2026-12-06",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-12-01",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-12-03",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-12-04",
+          "planned_km": 2.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-12-06",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 15,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2026-12-07",
+      "week_end": "2026-12-13",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-12-08",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-12-10",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-12-11",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-12-13",
+          "planned_km": 8.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 16,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2026-12-14",
+      "week_end": "2026-12-20",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-12-15",
+          "planned_km": 3.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-12-17",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-12-18",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-12-20",
+          "planned_km": 9.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 17,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2026-12-21",
+      "week_end": "2026-12-27",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-12-22",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-12-24",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2026-12-25",
+          "planned_km": 2.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2026-12-27",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 18,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2026-12-28",
+      "week_end": "2027-01-03",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2026-12-29",
+          "planned_km": 3.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2026-12-31",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-01-01",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-01-03",
+          "planned_km": 9.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 19,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-01-04",
+      "week_end": "2027-01-10",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-01-05",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-01-07",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-01-08",
+          "planned_km": 3.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-01-10",
+          "planned_km": 10.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 20,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-01-11",
+      "week_end": "2027-01-17",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-01-12",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-01-14",
+          "planned_km": 6.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-01-15",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-01-17",
+          "planned_km": 11.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 21,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-01-18",
+      "week_end": "2027-01-24",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-01-19",
+          "planned_km": 3.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-01-21",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-01-22",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-01-24",
+          "planned_km": 9.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 22,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-01-25",
+      "week_end": "2027-01-31",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-01-26",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-01-28",
+          "planned_km": 6.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-01-29",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-01-31",
+          "planned_km": 11.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 23,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-02-01",
+      "week_end": "2027-02-07",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-02-02",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-02-04",
+          "planned_km": 6.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-02-05",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-02-07",
+          "planned_km": 12.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 24,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-02-08",
+      "week_end": "2027-02-14",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-02-09",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-02-11",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-02-12",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-02-14",
+          "planned_km": 13.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 25,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-02-15",
+      "week_end": "2027-02-21",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-02-16",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-02-18",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-02-19",
+          "planned_km": 3.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-02-21",
+          "planned_km": 10.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 26,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-02-22",
+      "week_end": "2027-02-28",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-02-23",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-02-25",
+          "planned_km": 6.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-02-26",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-02-28",
+          "planned_km": 12.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 27,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-03-01",
+      "week_end": "2027-03-07",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-03-02",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-03-04",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-03-05",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-03-07",
+          "planned_km": 13.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 28,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-03-08",
+      "week_end": "2027-03-14",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-03-09",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-03-11",
+          "planned_km": 7.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-03-12",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-03-14",
+          "planned_km": 14.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 29,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-03-15",
+      "week_end": "2027-03-21",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-03-16",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-03-18",
+          "planned_km": 6.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-03-19",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-03-21",
+          "planned_km": 11.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 30,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-03-22",
+      "week_end": "2027-03-28",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-03-23",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-03-25",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-03-26",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-03-28",
+          "planned_km": 13.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 31,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-03-29",
+      "week_end": "2027-04-04",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-03-30",
+          "planned_km": 6.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-04-01",
+          "planned_km": 9.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-04-02",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-04-04",
+          "planned_km": 16.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 32,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-04-05",
+      "week_end": "2027-04-11",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-04-06",
+          "planned_km": 7.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-04-08",
+          "planned_km": 10.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-04-09",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-04-11",
+          "planned_km": 19.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 33,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-04-12",
+      "week_end": "2027-04-18",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-04-13",
+          "planned_km": 6.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-04-15",
+          "planned_km": 8.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-04-16",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-04-18",
+          "planned_km": 15.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 34,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-04-19",
+      "week_end": "2027-04-25",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-04-20",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-04-22",
+          "planned_km": 6.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-04-23",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-04-25",
+          "planned_km": 11.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 35,
+      "phase": "2 · Half Marathon Build / Flying Pig",
+      "week_start": "2027-04-26",
+      "week_end": "2027-05-02",
+      "status": "Race — Flying Pig Half Marathon",
+      "note": "Flying Pig Half Marathon — your goal spring race. Run it for real; recovery the following week is built in.",
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-04-27",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-04-29",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-04-30",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-05-02",
+          "planned_km": 21.1,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 36,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-05-03",
+      "week_end": "2027-05-09",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-05-04",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-05-06",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-05-07",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-05-09",
+          "planned_km": 8.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 37,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-05-10",
+      "week_end": "2027-05-16",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-05-11",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-05-13",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-05-14",
+          "planned_km": 3.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-05-16",
+          "planned_km": 10.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 38,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-05-17",
+      "week_end": "2027-05-23",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-05-18",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-05-20",
+          "planned_km": 6.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-05-21",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-05-23",
+          "planned_km": 12.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 39,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-05-24",
+      "week_end": "2027-05-30",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-05-25",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-05-27",
+          "planned_km": 7.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-05-28",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-05-30",
+          "planned_km": 14.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 40,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-05-31",
+      "week_end": "2027-06-06",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-06-01",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-06-03",
+          "planned_km": 6.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-06-04",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-06-06",
+          "planned_km": 11.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 41,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-06-07",
+      "week_end": "2027-06-13",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-06-08",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-06-10",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-06-11",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-06-13",
+          "planned_km": 13.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 42,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-06-14",
+      "week_end": "2027-06-20",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-06-15",
+          "planned_km": 6.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-06-17",
+          "planned_km": 9.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-06-18",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-06-20",
+          "planned_km": 16.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 43,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-06-21",
+      "week_end": "2027-06-27",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-06-22",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-06-24",
+          "planned_km": 10.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-06-25",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-06-27",
+          "planned_km": 18.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 44,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-06-28",
+      "week_end": "2027-07-04",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-06-29",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-07-01",
+          "planned_km": 7.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-07-02",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-07-04",
+          "planned_km": 14.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 45,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-07-05",
+      "week_end": "2027-07-11",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-07-06",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-07-08",
+          "planned_km": 9.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-07-09",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-07-11",
+          "planned_km": 17.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 46,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-07-12",
+      "week_end": "2027-07-18",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-07-13",
+          "planned_km": 8.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-07-15",
+          "planned_km": 11.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-07-16",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-07-18",
+          "planned_km": 20.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 47,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-07-19",
+      "week_end": "2027-07-25",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-07-20",
+          "planned_km": 8.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-07-22",
+          "planned_km": 12.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-07-23",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-07-25",
+          "planned_km": 22.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 48,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-07-26",
+      "week_end": "2027-08-01",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-07-27",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-07-29",
+          "planned_km": 9.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-07-30",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-08-01",
+          "planned_km": 17.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 49,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-08-02",
+      "week_end": "2027-08-08",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-08-03",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-08-05",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-08-06",
+          "planned_km": 4.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-08-08",
+          "planned_km": 13.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 50,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-08-09",
+      "week_end": "2027-08-15",
+      "status": "Race — Fall Creek Falls Half Marathon",
+      "note": "Fall Creek Falls Half Marathon — a marathon-specific tune-up, about 5.9 weeks before race day. Race it hard, but the real goal is still six weeks away.",
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-08-10",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-08-12",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-08-13",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-08-15",
+          "planned_km": 21.1,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 51,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-08-16",
+      "week_end": "2027-08-22",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-08-17",
+          "planned_km": 7.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-08-19",
+          "planned_km": 10.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-08-20",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-08-22",
+          "planned_km": 18.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 52,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-08-23",
+      "week_end": "2027-08-29",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-08-24",
+          "planned_km": 8.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-08-26",
+          "planned_km": 12.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-08-27",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-08-29",
+          "planned_km": 23.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 53,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-08-30",
+      "week_end": "2027-09-05",
+      "status": null,
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-08-31",
+          "planned_km": 8.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-09-02",
+          "planned_km": 15.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-09-03",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-09-05",
+          "planned_km": 28.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 54,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-09-06",
+      "week_end": "2027-09-12",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-09-07",
+          "planned_km": 8.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-09-09",
+          "planned_km": 11.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-09-10",
+          "planned_km": 5.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-09-12",
+          "planned_km": 20.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 55,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-09-13",
+      "week_end": "2027-09-19",
+      "status": "Cutback",
+      "note": null,
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-09-14",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-09-16",
+          "planned_km": 6.5,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-09-17",
+          "planned_km": 4.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-09-19",
+          "planned_km": 12.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 56,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-09-20",
+      "week_end": "2027-09-26",
+      "status": "Race — Marathon",
+      "note": "Race is Saturday this week — treat Sunday as an optional easy recovery jog, or a full rest day.",
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-09-21",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-09-23",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-09-24",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-09-25",
+          "planned_km": 42.2,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    },
+    {
+      "week": 57,
+      "phase": "3 · Marathon Build / Fall Creek Falls / Marathon",
+      "week_start": "2027-09-27",
+      "week_end": "2027-10-03",
+      "status": "Recovery",
+      "note": "Bonus recovery week — very light jogs only (or rest) while the legs recover from the marathon.",
+      "sessions": [
+        {
+          "day": "Tue",
+          "date": "2027-09-28",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Thu",
+          "date": "2027-09-30",
+          "planned_km": 3.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Fri",
+          "date": "2027-10-01",
+          "planned_km": 2.0,
+          "actual_km": null,
+          "time_seconds": null
+        },
+        {
+          "day": "Long run",
+          "date": "2027-10-03",
+          "planned_km": 5.0,
+          "actual_km": null,
+          "time_seconds": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,15 +1,16 @@
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class MuscleGroup(str, Enum):
+class MuscleGroup(StrEnum):
     back = "back"
     chest = "chest"
     biceps = "biceps"
     triceps = "triceps"
     shoulders = "shoulders"
     legs = "legs"
+    core = "core"
 
 
 class ExerciseResponse(BaseModel):

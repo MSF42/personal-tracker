@@ -1,16 +1,16 @@
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
 
 
 # ENUMS
-class RepeatType(str, Enum):
+class RepeatType(StrEnum):
     daily = "daily"
     weekly = "weekly"
     monthly = "monthly"
 
 
-class Priority(str, Enum):
+class Priority(StrEnum):
     high = "high"
     medium = "medium"
     low = "low"

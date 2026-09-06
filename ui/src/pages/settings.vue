@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 
-import { useNoteApi } from '@/composables/api/useNoteApi';
+import { useImageApi } from '@/composables/api/useImageApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
@@ -10,7 +10,7 @@ import { resolveUploadsUrl } from '@/utils/uploads';
 
 const { getSetting, setSetting, deleteSetting, resetAllData, seedSampleData } =
     useSettingsApi();
-const { uploadNoteImage } = useNoteApi();
+const { uploadImage } = useImageApi();
 const toast = useToast();
 const { profilePicture, setProfilePicture, setUserName } = useUserProfile();
 
@@ -22,9 +22,20 @@ const showResetDialog = ref(false);
 const resetting = ref(false);
 const seeding = ref(false);
 
-const { weightUnit, distanceUnit, setWeightUnit, setDistanceUnit } = useUnits();
+const {
+    weightUnit,
+    distanceUnit,
+    temperatureUnit,
+    setWeightUnit,
+    setDistanceUnit,
+    setTemperatureUnit,
+} = useUnits();
 const weightOptions = ['kg', 'lbs'];
 const distanceOptions = ['km', 'mi'];
+const temperatureOptions = [
+    { label: '°C', value: 'c' },
+    { label: '°F', value: 'f' },
+];
 
 onMounted(async () => {
     const [profileRes, nameRes] = await Promise.all([
@@ -79,7 +90,7 @@ async function onFileSelected(event: Event) {
         return;
     }
 
-    const res = await uploadNoteImage(file);
+    const res = await uploadImage(file);
     if (!res.success || !res.data) return;
 
     const url = res.data.url;
@@ -227,6 +238,19 @@ async function confirmReset() {
                         @update:model-value="setDistanceUnit"
                     />
                 </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium"
+                        >Temperature</label
+                    >
+                    <AppSelectButton
+                        :allow-empty="false"
+                        :model-value="temperatureUnit"
+                        option-label="label"
+                        option-value="value"
+                        :options="temperatureOptions"
+                        @update:model-value="setTemperatureUnit"
+                    />
+                </div>
             </div>
         </section>
 
@@ -241,7 +265,8 @@ async function confirmReset() {
             </h2>
             <p class="text-surface-600 dark:text-surface-400 mb-4 text-sm">
                 Populate the app with realistic sample data across all areas —
-                tasks, habits, runs, workouts, notes, and measurements.
+                tasks, habits, running activities, exercises, routines, workout
+                logs, and measurements.
             </p>
             <AppButton
                 icon="pi pi-sparkles"
@@ -278,7 +303,8 @@ async function confirmReset() {
             </h2>
             <p class="text-surface-600 dark:text-surface-400 mb-4 text-sm">
                 Permanently delete all data including tasks, running activities,
-                exercises, routines, workout logs, and settings.
+                exercises, routines, workout logs, measurements, countdowns, and
+                settings. Habits are not affected.
             </p>
             <AppButton
                 icon="pi pi-trash"

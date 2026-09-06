@@ -54,18 +54,18 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/notes': RouteRecordInfo<
-      '/notes',
-      '/notes',
+    '/running/': RouteRecordInfo<
+      '/running/',
+      '/running',
       Record<never, never>,
       Record<never, never>,
       | never
     >,
-    '/running': RouteRecordInfo<
-      '/running',
-      '/running',
-      Record<never, never>,
-      Record<never, never>,
+    '/running/[id]': RouteRecordInfo<
+      '/running/[id]',
+      '/running/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
       | never
     >,
     '/settings': RouteRecordInfo<
@@ -89,25 +89,32 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/timeline': RouteRecordInfo<
-      '/timeline',
-      '/timeline',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/workout-logs': RouteRecordInfo<
-      '/workout-logs',
+    '/workout-logs/': RouteRecordInfo<
+      '/workout-logs/',
       '/workout-logs',
       Record<never, never>,
       Record<never, never>,
       | never
     >,
-    '/workout-routines': RouteRecordInfo<
-      '/workout-routines',
+    '/workout-logs/[id]': RouteRecordInfo<
+      '/workout-logs/[id]',
+      '/workout-logs/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/workout-routines/': RouteRecordInfo<
+      '/workout-routines/',
       '/workout-routines',
       Record<never, never>,
       Record<never, never>,
+      | never
+    >,
+    '/workout-routines/[id]': RouteRecordInfo<
+      '/workout-routines/[id]',
+      '/workout-routines/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
       | never
     >,
   }
@@ -147,15 +154,15 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/notes.vue': {
+    'src/pages/running/index.vue': {
       routes:
-        | '/notes'
+        | '/running/'
       views:
         | never
     }
-    'src/pages/running.vue': {
+    'src/pages/running/[id].vue': {
       routes:
-        | '/running'
+        | '/running/[id]'
       views:
         | never
     }
@@ -177,21 +184,27 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/timeline.vue': {
+    'src/pages/workout-logs/index.vue': {
       routes:
-        | '/timeline'
+        | '/workout-logs/'
       views:
         | never
     }
-    'src/pages/workout-logs.vue': {
+    'src/pages/workout-logs/[id].vue': {
       routes:
-        | '/workout-logs'
+        | '/workout-logs/[id]'
       views:
         | never
     }
-    'src/pages/workout-routines.vue': {
+    'src/pages/workout-routines/index.vue': {
       routes:
-        | '/workout-routines'
+        | '/workout-routines/'
+      views:
+        | never
+    }
+    'src/pages/workout-routines/[id].vue': {
+      routes:
+        | '/workout-routines/[id]'
       views:
         | never
     }

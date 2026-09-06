@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from aiosqlite import Connection
 
@@ -9,7 +9,7 @@ from src.models.exercise import (
     UpdateExerciseRequest,
 )
 from src.repositories.search_sync import index_exercise, remove_from_index
-from src.repositories.utils import execute_update
+from src.repositories.utils import execute_update, require_found, require_row_id
 
 
 class SQLiteExerciseRepository:
@@ -18,7 +18,7 @@ class SQLiteExerciseRepository:
 
     # create
     async def create(self, exercise: CreateExerciseRequest) -> ExerciseResponse:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         try:
             cursor = await self.db.execute(
                 """
@@ -35,12 +35,10 @@ class SQLiteExerciseRepository:
                     now,
                 ),
             )
-            exercise_id = cursor.lastrowid
-            await index_exercise(
-                self.db, exercise_id, exercise.name, exercise.description
-            )
+            exercise_id = require_row_id(cursor.lastrowid)
+            await index_exercise(self.db, exercise_id, exercise.name, exercise.description)
             await self.db.commit()
-            return await self.find_by_id(exercise_id)
+            return require_found(await self.find_by_id(exercise_id), "Exercise")
         except sqlite3.IntegrityError as e:
             raise ValueError(f"Exercise with name {exercise.name} already exists") from e
 
@@ -78,9 +76,7 @@ class SQLiteExerciseRepository:
         if "name" in update_data or "description" in update_data:
             refreshed = await self.find_by_id(exercise_id)
             if refreshed is not None:
-                await index_exercise(
-                    self.db, exercise_id, refreshed.name, refreshed.description
-                )
+                await index_exercise(self.db, exercise_id, refreshed.name, refreshed.description)
                 await self.db.commit()
             return refreshed
         return await self.find_by_id(exercise_id)

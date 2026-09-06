@@ -1,3 +1,6 @@
+from typing import Any
+
+from aiosqlite import Connection
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
@@ -8,19 +11,19 @@ router = APIRouter(tags=["Health"])
 
 
 @router.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Basic health check - is the server running?"""
     return {"status": "ok"}
 
 
 @router.get("/health/live")
-async def liveness():
+async def liveness() -> dict[str, str]:
     """Kubernetes liveness probe - is the process alive?"""
     return {"status": "alive"}
 
 
-@router.get("/health/ready")
-async def readiness(db=Depends(get_db)):
+@router.get("/health/ready", response_model=None)
+async def readiness(db: Connection = Depends(get_db)) -> dict[str, Any] | JSONResponse:
     """Kubernetes readiness probe - can we serve traffic?"""
     try:
         await db.execute("SELECT 1")
@@ -43,7 +46,7 @@ async def readiness(db=Depends(get_db)):
 
 
 @router.get("/health/info")
-async def info():
+async def info() -> dict[str, str]:
     """Application info endpoint."""
     settings = get_settings()
     return {

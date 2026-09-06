@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 
+import LoadingState from '@/components/LoadingState.vue';
 import { useHabitApi } from '@/composables/api/useHabitApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type { Habit, HabitCreate, HabitUpdate } from '@/types/Habit';
+import { toIsoDate, weekDays } from '@/utils/week';
 
 const {
     getHabits,
@@ -19,15 +21,14 @@ const toast = useToast();
 
 const habits = ref<Habit[]>([]);
 const completionHistory = ref<Record<number, string[]>>({});
-const todayStr = new Date().toISOString().split('T')[0] as string;
+const todayStr = toIsoDate(new Date());
 const showArchived = ref(false);
 
 // --- View mode ---
-const viewMode = ref<'cards' | 'chain' | 'streaks'>('cards');
+const viewMode = ref<'cards' | 'chain'>('cards');
 const viewOptions = [
     { label: 'Cards', value: 'cards' },
     { label: 'Chain', value: 'chain' },
-    { label: 'Streaks', value: 'streaks' },
 ];
 
 // --- Chain / history helpers ---
@@ -37,23 +38,20 @@ const last28Days = computed<string[]>(() => {
     for (let i = 27; i >= 0; i--) {
         const d = new Date(today);
         d.setDate(today.getDate() - i);
-        days.push(d.toISOString().split('T')[0]!);
+        days.push(toIsoDate(d));
     }
     return days;
 });
 
 const last7Days = computed(() => last28Days.value.slice(-7));
 
-// Group into 4 weeks of 7 days for the dot-chain view
+// Four calendar weeks (Mon..Sun) ending with the current week, for the
+// dot-chain view. Days after today are shown as placeholders.
 const weeksOf7 = computed(() => {
-    const all = last28Days.value;
-    return [
-        all.slice(0, 7),
-        all.slice(7, 14),
-        all.slice(14, 21),
-        all.slice(21, 28),
-    ];
+    const now = new Date();
+    return [-3, -2, -1, 0].map((offset) => weekDays(now, offset));
 });
+const WEEK_LABELS = ['3 wks ago', '2 wks ago', 'Last week', 'This week'];
 
 function isDayCompleted(habitId: number, dateStr: string): boolean {
     return completionHistory.value[habitId]?.includes(dateStr) ?? false;
@@ -298,13 +296,9 @@ const dialogHeader = computed(() =>
         </div>
 
         <!-- Loading -->
-        <div v-if="loading" class="text-surface-400 py-12 text-center">
-            <i class="pi pi-spin pi-spinner mr-2"></i>Loading habits...
-        </div>
+        <LoadingState v-if="loading" label="Loading habits…" />
 
-        <!-- ═══════════════════════════════════════ -->
-        <!-- OPTION A: Chain view (dot grid)         -->
-        <!-- ═══════════════════════════════════════ -->
+        <!-- Chain view: 4-week completion history as a dot grid -->
         <div
             v-else-if="viewMode === 'chain' && activeHabits.length > 0"
             class="border-surface-200 dark:border-surface-700 overflow-hidden rounded-xl border bg-white dark:bg-slate-800"
@@ -321,13 +315,7 @@ const dialogHeader = computed(() =>
                         :key="wi"
                         class="text-surface-400 flex-1 text-center text-xs"
                     >
-                        {{
-                            wi === 3
-                                ? 'This week'
-                                : wi === 2
-                                  ? 'Last week'
-                                  : `${(3 - wi) * 7}d ago`
-                        }}
+                        {{ WEEK_LABELS[wi] }}
                     </span>
                 </div>
                 <span class="text-surface-400 w-16 text-center text-xs"
@@ -353,7 +341,7 @@ const dialogHeader = computed(() =>
                         :style="{ backgroundColor: habit.color }"
                     ></div>
                     <span
-                        class="min-w-0 flex-1 cursor-pointer truncate text-sm font-medium hover:underline"
+                        class="text-primary min-w-0 flex-1 cursor-pointer truncate text-sm font-medium hover:underline"
                         @click="openEditDialog(habit)"
                     >
                         {{ habit.name }}
@@ -393,6 +381,7 @@ const dialogHeader = computed(() =>
                                 isDayCompleted(habit.id, day)
                                     ? ''
                                     : 'bg-surface-100 dark:bg-surface-700',
+                                day > todayStr ? 'opacity-30' : '',
                             ]"
                             :style="[
                                 isDayCompleted(habit.id, day)
@@ -428,11 +417,9 @@ const dialogHeader = computed(() =>
             </div>
         </div>
 
-        <!-- ═══════════════════════════════════════ -->
-        <!-- OPTION B: Streaks view (bold cards)     -->
-        <!-- ═══════════════════════════════════════ -->
+        <!-- Cards view: one card per habit, with streak stats and full actions -->
         <div
-            v-else-if="viewMode === 'streaks' && activeHabits.length > 0"
+            v-else-if="viewMode === 'cards' && activeHabits.length > 0"
             class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
         >
             <div
@@ -440,35 +427,23 @@ const dialogHeader = computed(() =>
                 :key="habit.id"
                 class="border-surface-200 dark:border-surface-700 flex overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-slate-800"
             >
-                <!-- Thick left accent -->
+                <!-- Left accent -->
                 <div
                     class="w-2 shrink-0"
                     :style="{ backgroundColor: habit.color }"
                 ></div>
 
                 <div class="flex flex-1 flex-col gap-3 p-4">
-                    <!-- Name + actions -->
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <div class="truncate font-semibold">
-                                {{ habit.name }}
-                            </div>
-                            <div
-                                v-if="habit.description"
-                                class="text-surface-500 mt-0.5 truncate text-xs"
-                            >
-                                {{ habit.description }}
-                            </div>
+                    <!-- Name + description -->
+                    <div class="min-w-0">
+                        <div class="truncate font-semibold">
+                            {{ habit.name }}
                         </div>
-                        <div class="flex shrink-0 gap-1">
-                            <AppButton
-                                icon="pi pi-pencil"
-                                rounded
-                                severity="secondary"
-                                size="small"
-                                text
-                                @click="openEditDialog(habit)"
-                            />
+                        <div
+                            v-if="habit.description"
+                            class="text-surface-500 mt-0.5 truncate text-xs"
+                        >
+                            {{ habit.description }}
                         </div>
                     </div>
 
@@ -488,15 +463,20 @@ const dialogHeader = computed(() =>
                                 best: {{ habit.longest_streak }}d
                             </div>
                         </div>
-                        <div
+                        <span
                             v-if="
                                 habit.current_streak > 0 &&
                                 habit.current_streak === habit.longest_streak
                             "
-                            class="mb-1 ml-auto rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                            class="mb-1 ml-auto inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold"
+                            :style="{
+                                backgroundColor: habit.color + '22',
+                                color: habit.color,
+                            }"
                         >
-                            🏆 Best!
-                        </div>
+                            <i class="pi pi-bolt text-[10px]"></i>
+                            Personal best
+                        </span>
                     </div>
 
                     <!-- Last 7 days mini-dots -->
@@ -550,89 +530,8 @@ const dialogHeader = computed(() =>
                         </div>
                     </div>
 
-                    <!-- Check button -->
-                    <div class="flex items-center justify-between">
-                        <div class="flex gap-1">
-                            <AppButton
-                                icon="pi pi-inbox"
-                                rounded
-                                severity="secondary"
-                                size="small"
-                                text
-                                title="Archive"
-                                @click="archiveHabit(habit)"
-                            />
-                            <AppButton
-                                icon="pi pi-trash"
-                                rounded
-                                severity="danger"
-                                size="small"
-                                text
-                                @click="confirmDelete(habit.id)"
-                            />
-                        </div>
-                        <AppButton
-                            :icon="
-                                habit.completed_today
-                                    ? 'pi pi-check-circle'
-                                    : 'pi pi-circle'
-                            "
-                            :label="
-                                habit.completed_today ? 'Done!' : 'Mark done'
-                            "
-                            rounded
-                            :severity="
-                                habit.completed_today ? 'success' : 'secondary'
-                            "
-                            size="small"
-                            @click="toggle(habit)"
-                        />
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════════════════════════════════ -->
-        <!-- ORIGINAL: Cards view                    -->
-        <!-- ═══════════════════════════════════════ -->
-        <div
-            v-else-if="viewMode === 'cards' && activeHabits.length > 0"
-            class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
-        >
-            <div
-                v-for="habit in activeHabits"
-                :key="habit.id"
-                class="border-surface-200 dark:border-surface-700 flex overflow-hidden rounded-lg border bg-white shadow-sm dark:bg-slate-800"
-            >
-                <div
-                    class="w-1.5 shrink-0"
-                    :style="{ backgroundColor: habit.color }"
-                ></div>
-                <div class="flex-1 p-4">
-                    <div class="mb-3 flex items-start justify-between gap-2">
-                        <div class="min-w-0 flex-1">
-                            <div class="truncate font-semibold">
-                                {{ habit.name }}
-                            </div>
-                            <div
-                                v-if="habit.description"
-                                class="text-surface-500 mt-0.5 truncate text-xs"
-                            >
-                                {{ habit.description }}
-                            </div>
-                        </div>
-                        <div
-                            v-if="habit.current_streak > 0"
-                            class="shrink-0 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
-                        >
-                            <i class="pi pi-bolt mr-0.5"></i
-                            >{{ habit.current_streak }}
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <div class="text-surface-400 text-xs">
-                            Best: {{ habit.longest_streak }} days
-                        </div>
+                    <!-- Actions -->
+                    <div class="mt-auto flex items-center justify-between">
                         <div class="flex items-center gap-1">
                             <AppButton
                                 icon="pi pi-pencil"
@@ -659,22 +558,25 @@ const dialogHeader = computed(() =>
                                 text
                                 @click="confirmDelete(habit.id)"
                             />
-                            <AppButton
-                                :icon="
-                                    habit.completed_today
-                                        ? 'pi pi-check-circle'
-                                        : 'pi pi-circle'
-                                "
-                                rounded
-                                :severity="
-                                    habit.completed_today
-                                        ? 'success'
-                                        : 'secondary'
-                                "
-                                size="small"
-                                @click="toggle(habit)"
-                            />
                         </div>
+                        <AppButton
+                            :icon="
+                                habit.completed_today
+                                    ? 'pi pi-check-circle'
+                                    : 'pi pi-circle'
+                            "
+                            rounded
+                            :severity="
+                                habit.completed_today ? 'success' : 'secondary'
+                            "
+                            size="small"
+                            :title="
+                                habit.completed_today
+                                    ? 'Mark incomplete'
+                                    : 'Mark complete'
+                            "
+                            @click="toggle(habit)"
+                        />
                     </div>
                 </div>
             </div>

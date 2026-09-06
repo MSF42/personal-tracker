@@ -1,16 +1,18 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 from aiosqlite import Connection
 
 from src.models.workout_log import UpdateSetRequest
+from src.repositories.utils import require_row_id
 
 
 class SQLiteWorkoutLogRepository:
     def __init__(self, db: Connection):
         self.db = db
 
-    async def create(self, routine_id: int, date: str, notes: str | None = None) -> dict:
-        now = datetime.now(timezone.utc).isoformat()
+    async def create(self, routine_id: int, date: str, notes: str | None = None) -> dict[str, Any]:
+        now = datetime.now(UTC).isoformat()
         cursor = await self.db.execute(
             "INSERT INTO workout_logs (routine_id, date, notes, created_at) VALUES (?, ?, ?, ?)",
             (routine_id, date, notes, now),
@@ -25,23 +27,34 @@ class SQLiteWorkoutLogRepository:
         set_number: int,
         reps: int,
         weight: float | None = None,
-    ) -> dict:
-        await self.db.execute(
+    ) -> dict[str, Any]:
+        cursor = await self.db.execute(
             "INSERT INTO set_logs (workout_log_id, exercise_id, set_number, reps, weight) VALUES (?, ?, ?, ?, ?)",
             (workout_log_id, exercise_id, set_number, reps, weight),
         )
         await self.db.commit()
-        return {
-            "workout_log_id": workout_log_id,
-            "exercise_id": exercise_id,
-            "set_number": set_number,
-            "reps": reps,
-            "weight": weight,
-        }
+        saved = await self._find_set_with_exercise_name(require_row_id(cursor.lastrowid))
+        return (
+            saved
+            if saved is not None
+            else {
+                "workout_log_id": workout_log_id,
+                "exercise_id": exercise_id,
+                "set_number": set_number,
+                "reps": reps,
+                "weight": weight,
+            }
+        )
 
-    async def get_workout_with_sets(self, workout_log_id: int) -> dict | None:
-        # Get workout log
-        cursor = await self.db.execute("SELECT * FROM workout_logs WHERE id = ?", (workout_log_id,))
+    async def get_workout_with_sets(self, workout_log_id: int) -> dict[str, Any] | None:
+        # Get workout log (joined with routine name, same as find_all/update)
+        cursor = await self.db.execute(
+            """SELECT wl.*, wr.name as routine_name
+               FROM workout_logs wl
+               JOIN workout_routines wr ON wl.routine_id = wr.id
+               WHERE wl.id = ?""",
+            (workout_log_id,),
+        )
         workout = await cursor.fetchone()
         if not workout:
             return None
@@ -59,7 +72,7 @@ class SQLiteWorkoutLogRepository:
 
         return {**dict(workout), "sets": sets}
 
-    async def find_all(self) -> list[dict]:
+    async def find_all(self) -> list[dict[str, Any]]:
         """Get all workout logs."""
         cursor = await self.db.execute(
             """SELECT wl.*, wr.name as routine_name
@@ -69,7 +82,7 @@ class SQLiteWorkoutLogRepository:
         )
         return [dict(row) for row in await cursor.fetchall()]
 
-    async def get_exercise_history(self, exercise_id: int) -> list[dict]:
+    async def get_exercise_history(self, exercise_id: int) -> list[dict[str, Any]]:
         """Get history of a specific exercise across all workout logs."""
         cursor = await self.db.execute(
             """SELECT sl.set_number, sl.reps, sl.weight,
@@ -102,17 +115,35 @@ class SQLiteWorkoutLogRepository:
         )
         return {row["exercise_id"]: row["last_date"] for row in await cursor.fetchall()}
 
-    async def find_by_routine(self, routine_id: int) -> list[dict]:
-        """Get all workout logs for a routine."""
+    async def find_by_routine(self, routine_id: int) -> list[dict[str, Any]]:
+        """Get all workout logs for a routine, with per-session set/volume totals."""
         cursor = await self.db.execute(
-            "SELECT * FROM workout_logs WHERE routine_id = ? ORDER BY date DESC",
+            """SELECT wl.id, wl.date, wl.notes, wl.created_at,
+                      COUNT(sl.id) AS total_sets,
+                      COALESCE(SUM(sl.reps * COALESCE(sl.weight, 0)), 0) AS total_volume
+               FROM workout_logs wl
+               LEFT JOIN set_logs sl ON sl.workout_log_id = wl.id
+               WHERE wl.routine_id = ?
+               GROUP BY wl.id
+               ORDER BY wl.date DESC""",
             (routine_id,),
         )
         return [dict(row) for row in await cursor.fetchall()]
 
+    async def _find_set_with_exercise_name(self, set_id: int) -> dict[str, Any] | None:
+        cursor = await self.db.execute(
+            """SELECT sl.*, e.name as exercise_name
+               FROM set_logs sl
+               JOIN exercises e ON sl.exercise_id = e.id
+               WHERE sl.id = ?""",
+            (set_id,),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
     async def update_set(
         self, workout_log_id: int, set_id: int, data: UpdateSetRequest
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         # Verify set exists and belongs to workout_log
         cursor = await self.db.execute(
             "SELECT * FROM set_logs WHERE id = ? AND workout_log_id = ?",
@@ -124,7 +155,7 @@ class SQLiteWorkoutLogRepository:
         # Update only provided fields
         update_data = data.model_dump(exclude_none=True)
         if not update_data:
-            return dict(row)
+            return await self._find_set_with_exercise_name(set_id)
         # Build UPDATE query — only "reps" and "weight" are updatable, explicit safe columns
         allowed = {"reps", "weight"}
         filtered = {k: v for k, v in update_data.items() if k in allowed}
@@ -136,11 +167,7 @@ class SQLiteWorkoutLogRepository:
                 values,
             )
             await self.db.commit()
-        cursor = await self.db.execute(
-            "SELECT * FROM set_logs WHERE id = ?", (set_id,)
-        )
-        updated = await cursor.fetchone()
-        return dict(updated) if updated else None
+        return await self._find_set_with_exercise_name(set_id)
 
     async def delete(self, workout_log_id: int) -> bool:
         cursor = await self.db.execute("DELETE FROM workout_logs WHERE id = ?", (workout_log_id,))
@@ -149,7 +176,7 @@ class SQLiteWorkoutLogRepository:
 
     async def update(
         self, workout_log_id: int, date: str | None = None, notes: str | None = None
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         existing = await self.db.execute(
             "SELECT * FROM workout_logs WHERE id = ?", (workout_log_id,)
         )

@@ -31,6 +31,9 @@ export function useWorkoutRoutineApi() {
     const deleteWorkoutRoutine = async (id: number) =>
         api.remove(`workout-routines/${id}`);
 
+    const getWorkoutRoutine = async (id: number) =>
+        api.getData<WorkoutRoutine>(`workout-routines/${id}`);
+
     const getRoutineExercises = async (routineId: number) =>
         api.getData<RoutineExercise[]>(
             `workout-routines/${routineId}/exercises`,
@@ -54,6 +57,7 @@ export function useWorkoutRoutineApi() {
 
     return {
         getWorkoutRoutines,
+        getWorkoutRoutine,
         createWorkoutRoutine,
         updateWorkoutRoutine,
         deleteWorkoutRoutine,

@@ -3,7 +3,6 @@ import { onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import CommandPalette from '@/components/CommandPalette.vue';
-import { useNoteApi } from '@/composables/api/useNoteApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useBackup } from '@/composables/useBackup';
 import { useUiState } from '@/composables/useUiState';
@@ -13,10 +12,7 @@ import { useUserProfile } from '@/composables/useUserProfile';
 const route = useRoute();
 const router = useRouter();
 const { getSetting, setSetting } = useSettingsApi();
-const { createNote } = useNoteApi();
 const ui = useUiState();
-
-const captureText = ref('');
 
 const restoreFileInput = ref<HTMLInputElement | null>(null);
 
@@ -35,7 +31,21 @@ function triggerRestoreUpload() {
 }
 
 const { profilePicture, userName, loadProfile } = useUserProfile();
-const { loadUnits } = useUnits();
+const {
+    weightUnit,
+    distanceUnit,
+    temperatureUnit,
+    setWeightUnit,
+    setDistanceUnit,
+    setTemperatureUnit,
+    loadUnits,
+} = useUnits();
+const weightOptions = ['kg', 'lbs'];
+const distanceOptions = ['km', 'mi'];
+const temperatureOptions = [
+    { label: '°C', value: 'c' },
+    { label: '°F', value: 'f' },
+];
 
 const theme = ref('dark');
 const themeOptions = ['light', 'dark'];
@@ -47,8 +57,6 @@ const navItems = [
     { label: 'Habits', to: '/habits', icon: 'pi pi-check-circle' },
     { label: 'Running', to: '/running', icon: 'pi pi-bolt' },
     { label: 'Strength', to: '/strength', icon: 'pi pi-heart' },
-    { label: 'Notes', to: '/notes', icon: 'pi pi-file-edit' },
-    { label: 'Timeline', to: '/timeline', icon: 'pi pi-clock' },
     { label: 'Measurements', to: '/measurements', icon: 'pi pi-chart-line' },
 ];
 
@@ -61,11 +69,6 @@ onMounted(async () => {
         document.documentElement.classList.remove('dark');
     } else {
         document.documentElement.classList.add('dark');
-    }
-    const inboxRes = await getSetting('inbox_note_id');
-    if (inboxRes.success && inboxRes.data?.value) {
-        const parsed = Number(inboxRes.data.value);
-        if (!Number.isNaN(parsed)) ui.setInboxNoteId(parsed);
     }
     await Promise.all([loadProfile(), loadUnits()]);
     window.addEventListener('keydown', onGlobalKeydown);
@@ -100,23 +103,6 @@ function onGlobalKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape' && ui.focusMode.value && !inField) {
         ui.exitFocusMode();
     }
-}
-
-async function submitCapture() {
-    const text = captureText.value.trim();
-    if (!text) return;
-    const inboxId = ui.inboxNoteId.value;
-    if (inboxId == null) return;
-    await createNote({
-        parent_id: inboxId,
-        content: text,
-        sort_order: 0,
-    });
-    captureText.value = '';
-    // If the notes page is already open on Inbox, notify it to reload so the
-    // newly-captured child shows up immediately. Uses a window event since
-    // App.vue doesn't otherwise communicate with child route components.
-    window.dispatchEvent(new CustomEvent('outboard:inbox-captured'));
 }
 
 function toggleMenu(event: Event) {
@@ -156,7 +142,9 @@ function goToSettings() {
                     :key="item.to"
                     class="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium transition-colors sm:px-3"
                     :class="
-                        route.path === item.to
+                        route.path === item.to ||
+                        (item.to !== '/' &&
+                            route.path.startsWith(item.to + '/'))
                             ? 'bg-primary-50 text-primary-600 dark:bg-primary-950 dark:text-primary-400'
                             : 'text-surface-600 hover:bg-surface-100 dark:text-surface-400 dark:hover:bg-surface-800'
                     "
@@ -167,22 +155,6 @@ function goToSettings() {
                     <span class="hidden sm:inline">{{ item.label }}</span>
                 </RouterLink>
             </div>
-            <!-- Quick-capture input: always rendered so it doesn't cause a
-                 layout shift when the inbox ID loads asynchronously. The
-                 submit handler is a no-op until the ID is available. -->
-            <form class="mx-2 hidden md:block" @submit.prevent="submitCapture">
-                <div class="relative">
-                    <i
-                        class="pi pi-bolt text-primary-500 pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs"
-                    ></i>
-                    <input
-                        v-model="captureText"
-                        class="border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900 placeholder:text-surface-400 focus:border-primary-500 w-56 rounded-md border py-1 pr-2 pl-7 text-xs outline-none"
-                        placeholder="quick capture → inbox"
-                        type="text"
-                    />
-                </div>
-            </form>
             <button
                 class="text-surface-400 hover:text-primary-500 mx-1 hidden cursor-pointer text-[10px] tracking-widest uppercase md:inline"
                 title="Command palette (⌘K)"
@@ -214,7 +186,7 @@ function goToSettings() {
                 <i v-else class="pi pi-cog text-lg"></i>
             </button>
             <AppPopover ref="popover">
-                <div class="flex w-64 flex-col gap-4 p-2">
+                <div class="flex w-[22rem] max-w-[92vw] flex-col gap-4 p-2">
                     <!-- Appearance -->
                     <div>
                         <h3
@@ -227,6 +199,43 @@ function goToSettings() {
                             :options="themeOptions"
                             @update:model-value="onThemeChange"
                         />
+                    </div>
+
+                    <!-- Units -->
+                    <div>
+                        <h3
+                            class="text-surface-500 dark:text-surface-400 mb-2 text-xs font-semibold tracking-wide uppercase"
+                        >
+                            Units
+                        </h3>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <AppSelectButton
+                                :allow-empty="false"
+                                aria-label="Weight unit"
+                                :model-value="weightUnit"
+                                :options="weightOptions"
+                                size="small"
+                                @update:model-value="setWeightUnit"
+                            />
+                            <AppSelectButton
+                                :allow-empty="false"
+                                aria-label="Distance unit"
+                                :model-value="distanceUnit"
+                                :options="distanceOptions"
+                                size="small"
+                                @update:model-value="setDistanceUnit"
+                            />
+                            <AppSelectButton
+                                :allow-empty="false"
+                                aria-label="Temperature unit"
+                                :model-value="temperatureUnit"
+                                option-label="label"
+                                option-value="value"
+                                :options="temperatureOptions"
+                                size="small"
+                                @update:model-value="setTemperatureUnit"
+                            />
+                        </div>
                     </div>
 
                     <!-- Data Management -->

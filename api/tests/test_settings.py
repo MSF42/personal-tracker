@@ -2,9 +2,10 @@ import io
 import zipfile
 
 import pytest
+from httpx import AsyncClient
 
 
-def make_zip(entries: dict) -> bytes:
+def make_zip(entries: dict[str, bytes]) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         for name, data in entries.items():
@@ -13,7 +14,7 @@ def make_zip(entries: dict) -> bytes:
 
 
 @pytest.mark.asyncio
-async def test_reset_clears_measurements(client):
+async def test_reset_clears_measurements(client: AsyncClient) -> None:
     """Data reset should delete measurement data."""
     # Create a measurement via the API
     create_resp = await client.post(
@@ -32,12 +33,14 @@ async def test_reset_clears_measurements(client):
 
 
 @pytest.mark.asyncio
-async def test_restore_rejects_path_traversal_in_uploads(client):
+async def test_restore_rejects_path_traversal_in_uploads(client: AsyncClient) -> None:
     """A zip entry with path traversal in an uploads path must be rejected."""
-    bad_zip = make_zip({
-        "tracker.db": b"x" * 100,
-        "uploads/../evil.txt": b"pwned",
-    })
+    bad_zip = make_zip(
+        {
+            "tracker.db": b"x" * 100,
+            "uploads/../evil.txt": b"pwned",
+        }
+    )
     response = await client.post(
         "/api/v1/settings/restore",
         files={"file": ("backup.zip", bad_zip, "application/zip")},
@@ -46,11 +49,13 @@ async def test_restore_rejects_path_traversal_in_uploads(client):
 
 
 @pytest.mark.asyncio
-async def test_restore_rejects_tracker_db_path_traversal(client):
+async def test_restore_rejects_tracker_db_path_traversal(client: AsyncClient) -> None:
     """A zip with a tracker.db entry containing path components must be rejected."""
-    bad_zip = make_zip({
-        "../tracker.db": b"x" * 100,
-    })
+    bad_zip = make_zip(
+        {
+            "../tracker.db": b"x" * 100,
+        }
+    )
     response = await client.post(
         "/api/v1/settings/restore",
         files={"file": ("backup.zip", bad_zip, "application/zip")},

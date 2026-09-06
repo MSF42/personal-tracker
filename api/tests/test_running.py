@@ -1,8 +1,9 @@
 import pytest
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_import_gpx_rejects_malformed_xml(client):
+async def test_import_gpx_rejects_malformed_xml(client: AsyncClient) -> None:
     """Malformed XML uploaded as GPX must return 422, not 500."""
     response = await client.post(
         "/api/v1/runs/import-gpx",
@@ -12,7 +13,7 @@ async def test_import_gpx_rejects_malformed_xml(client):
 
 
 @pytest.mark.asyncio
-async def test_import_gpx_rejects_too_few_trackpoints(client):
+async def test_import_gpx_rejects_too_few_trackpoints(client: AsyncClient) -> None:
     """A GPX with fewer than 2 trackpoints must return 422, not 500."""
     gpx = b"""<?xml version="1.0"?>
 <gpx xmlns="http://www.topografix.com/GPX/1/1">
@@ -28,7 +29,7 @@ async def test_import_gpx_rejects_too_few_trackpoints(client):
 
 
 @pytest.mark.asyncio
-async def test_create_run(client):
+async def test_create_run(client: AsyncClient) -> None:
     response = await client.post(
         "/api/v1/runs",
         json={

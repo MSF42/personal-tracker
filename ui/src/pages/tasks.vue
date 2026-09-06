@@ -5,6 +5,7 @@ import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type { Task, TaskCreate, TaskUpdate } from '@/types/Task';
+import { formatDate } from '@/utils/format';
 
 const { getTasks, createTask, updateTask, deleteTask } = useTaskApi();
 const { loading, withLoading } = useLoading();
@@ -411,7 +412,7 @@ const dialogHeader = computed(() =>
                             ),
                         }"
                     >
-                        {{ (data as Task).due_date }}
+                        {{ formatDate((data as Task).due_date!) }}
                     </span>
                     <span v-else class="text-surface-400">&mdash;</span>
                 </template>

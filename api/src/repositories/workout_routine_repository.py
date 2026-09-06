@@ -1,5 +1,6 @@
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 from aiosqlite import Connection
 
@@ -9,7 +10,7 @@ from src.models.workout_routine import (
     WorkoutRoutineResponse,
 )
 from src.repositories.search_sync import index_routine, remove_from_index
-from src.repositories.utils import execute_update
+from src.repositories.utils import execute_update, require_found, require_row_id
 
 
 class SQLiteWorkoutRoutineRepository:
@@ -18,7 +19,7 @@ class SQLiteWorkoutRoutineRepository:
 
     # create
     async def create(self, routine: CreateWorkoutRoutineRequest) -> WorkoutRoutineResponse:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         try:
             cursor = await self.db.execute(
                 """
@@ -27,12 +28,10 @@ class SQLiteWorkoutRoutineRepository:
                 """,
                 (routine.name, routine.description, now, now),
             )
-            workout_routine_id = cursor.lastrowid
-            await index_routine(
-                self.db, workout_routine_id, routine.name, routine.description
-            )
+            workout_routine_id = require_row_id(cursor.lastrowid)
+            await index_routine(self.db, workout_routine_id, routine.name, routine.description)
             await self.db.commit()
-            return await self.find_by_id(workout_routine_id)
+            return require_found(await self.find_by_id(workout_routine_id), "Workout routine")
         except sqlite3.IntegrityError as e:
             raise ValueError(f"Workout routine with name {routine.name} already exists") from e
 
@@ -95,7 +94,7 @@ class SQLiteWorkoutRoutineRepository:
 
     async def add_exercise(
         self, routine_id: int, exercise_id: int, sets: int = 3, reps: int = 10
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Add an exercise to a routine."""
         # Get current max order_index
         cursor = await self.db.execute(
@@ -103,7 +102,8 @@ class SQLiteWorkoutRoutineRepository:
             (routine_id,),
         )
         row = await cursor.fetchone()
-        next_order = (row[0] or 0) + 1
+        # MAX() always yields exactly one row, even on an empty table.
+        next_order = ((row[0] if row else None) or 0) + 1
 
         await self.db.execute(
             """INSERT INTO routine_exercises (routine_id, exercise_id, sets, reps, order_index)
@@ -113,7 +113,7 @@ class SQLiteWorkoutRoutineRepository:
         await self.db.commit()
         return {"routine_id": routine_id, "exercise_id": exercise_id, "sets": sets, "reps": reps}
 
-    async def get_exercises(self, routine_id: int) -> list[dict]:
+    async def get_exercises(self, routine_id: int) -> list[dict[str, Any]]:
         """Get all exercises in a routine."""
         cursor = await self.db.execute(
             """SELECT e.*, re.sets, re.reps, re.order_index

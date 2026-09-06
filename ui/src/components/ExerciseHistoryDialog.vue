@@ -1,36 +1,16 @@
 <script setup lang="ts">
-import {
-    CategoryScale,
-    Chart,
-    Filler,
-    Legend,
-    LinearScale,
-    LineController,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip,
-} from 'chart.js';
 import { computed, ref } from 'vue';
 
+import { useUnits } from '@/composables/useUnits';
 import type { ExerciseHistoryEntry } from '@/types/WorkoutLog';
+import { registerCharts } from '@/utils/chart';
 
 const props = defineProps<{
     exerciseName: string;
     entries: ExerciseHistoryEntry[];
 }>();
 
-Chart.register(
-    CategoryScale,
-    Filler,
-    Legend,
-    LinearScale,
-    LineController,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip,
-);
+registerCharts();
 
 const visible = defineModel<boolean>('visible', { required: true });
 
@@ -63,6 +43,11 @@ const historyByDate = computed<HistoryDateGroup[]>(() => {
     return groups;
 });
 
+const { weightUnit, fromKg, fmtWeight } = useUnits();
+
+// Weights arrive in kg; everything shown here is in the user's unit.
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
 const hasWeightData = computed(() =>
     props.entries.some((e) => e.weight !== null && e.weight > 0),
 );
@@ -78,7 +63,7 @@ const summaryStats = computed(() => {
     for (const group of groups) {
         let sessionVolume = 0;
         for (const set of group.sets) {
-            const w = set.weight ?? 0;
+            const w = fromKg(set.weight ?? 0);
             if (w > prWeight) prWeight = w;
             sessionVolume += set.reps * w;
         }
@@ -88,7 +73,12 @@ const summaryStats = computed(() => {
 
     const avgVolume = sessions > 0 ? Math.round(totalVolume / sessions) : 0;
 
-    return { sessions, prWeight, bestVolume, avgVolume };
+    return {
+        sessions,
+        prWeight: round1(prWeight),
+        bestVolume: Math.round(bestVolume),
+        avgVolume,
+    };
 });
 
 const chartData = computed(() => {
@@ -115,17 +105,19 @@ const chartData = computed(() => {
     }
 
     const maxWeight = groups.map((g) =>
-        Math.max(...g.sets.map((s) => s.weight ?? 0)),
+        round1(Math.max(...g.sets.map((s) => fromKg(s.weight ?? 0)))),
     );
     const volume = groups.map((g) =>
-        g.sets.reduce((sum, s) => sum + s.reps * (s.weight ?? 0), 0),
+        Math.round(
+            g.sets.reduce((sum, s) => sum + s.reps * fromKg(s.weight ?? 0), 0),
+        ),
     );
 
     return {
         labels,
         datasets: [
             {
-                label: 'Max Weight (lbs)',
+                label: `Max Weight (${weightUnit.value})`,
                 data: maxWeight,
                 borderColor: '#6366f1',
                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
@@ -134,7 +126,7 @@ const chartData = computed(() => {
                 yAxisID: 'y',
             },
             {
-                label: 'Total Volume (lbs)',
+                label: `Total Volume (${weightUnit.value})`,
                 data: volume,
                 borderColor: '#22c55e',
                 backgroundColor: 'rgba(34, 197, 94, 0.1)',
@@ -170,13 +162,13 @@ const chartOptions = computed(() => {
                 type: 'linear' as const,
                 position: 'left' as const,
                 beginAtZero: true,
-                title: { display: true, text: 'Weight (lbs)' },
+                title: { display: true, text: `Weight (${weightUnit.value})` },
             },
             y1: {
                 type: 'linear' as const,
                 position: 'right' as const,
                 beginAtZero: true,
-                title: { display: true, text: 'Volume (lbs)' },
+                title: { display: true, text: `Volume (${weightUnit.value})` },
                 grid: { drawOnChartArea: false },
             },
         },
@@ -215,7 +207,7 @@ const chartOptions = computed(() => {
                         class="border-surface-200 dark:border-surface-700 rounded-lg border p-3 text-center"
                     >
                         <div class="text-xl font-bold">
-                            {{ summaryStats.prWeight }} lbs
+                            {{ summaryStats.prWeight }} {{ weightUnit }}
                         </div>
                         <div class="text-surface-500 text-xs">PR Weight</div>
                     </div>
@@ -227,7 +219,7 @@ const chartOptions = computed(() => {
                             {{ summaryStats.bestVolume.toLocaleString() }}
                         </div>
                         <div class="text-surface-500 text-xs">
-                            Best Volume (lbs)
+                            Best Volume ({{ weightUnit }})
                         </div>
                     </div>
                     <div
@@ -238,7 +230,7 @@ const chartOptions = computed(() => {
                             {{ summaryStats.avgVolume.toLocaleString() }}
                         </div>
                         <div class="text-surface-500 text-xs">
-                            Avg Volume (lbs)
+                            Avg Volume ({{ weightUnit }})
                         </div>
                     </div>
                 </div>
@@ -300,7 +292,7 @@ const chartOptions = computed(() => {
                                 <span>
                                     {{
                                         set.weight !== null
-                                            ? `${set.weight} lbs`
+                                            ? fmtWeight(set.weight)
                                             : '—'
                                     }}
                                 </span>

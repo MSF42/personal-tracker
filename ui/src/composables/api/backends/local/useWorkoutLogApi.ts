@@ -1,6 +1,7 @@
 import type { ApiResponse } from '@/types/ApiResponse';
 import type {
     ExerciseHistoryEntry,
+    RoutineLogSummary,
     SetLog,
     SetLogUpdate,
     WorkoutLog,
@@ -26,7 +27,10 @@ export function useWorkoutLogApi() {
         id: number,
     ): Promise<ApiResponse<WorkoutLogDetail>> => {
         const logResult = await queryOne<WorkoutLogDetail>(
-            'SELECT * FROM workout_logs WHERE id = ?',
+            `SELECT wl.*, wr.name as routine_name
+             FROM workout_logs wl
+             JOIN workout_routines wr ON wl.routine_id = wr.id
+             WHERE wl.id = ?`,
             [id],
         );
         if (!logResult.success || !logResult.data) return logResult;
@@ -204,6 +208,19 @@ export function useWorkoutLogApi() {
         return { data: record, error: null, success: true };
     };
 
+    const getLogsByRoutine = async (routineId: number) =>
+        query<RoutineLogSummary>(
+            `SELECT wl.id, wl.date, wl.notes, wl.created_at,
+                    COUNT(sl.id) as total_sets,
+                    COALESCE(SUM(sl.reps * COALESCE(sl.weight, 0)), 0) as total_volume
+             FROM workout_logs wl
+             LEFT JOIN set_logs sl ON sl.workout_log_id = wl.id
+             WHERE wl.routine_id = ?
+             GROUP BY wl.id
+             ORDER BY wl.date DESC`,
+            [routineId],
+        );
+
     return {
         getWorkoutLogs,
         getWorkoutLog,
@@ -214,5 +231,6 @@ export function useWorkoutLogApi() {
         logSet,
         getExerciseHistory,
         getExerciseLastPerformed,
+        getLogsByRoutine,
     };
 }

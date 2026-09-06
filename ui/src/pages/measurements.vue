@@ -1,34 +1,15 @@
 <script setup lang="ts">
-import {
-    CategoryScale,
-    Chart,
-    Filler,
-    Legend,
-    LinearScale,
-    LineController,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip,
-} from 'chart.js';
 import { computed, onMounted, reactive, ref } from 'vue';
 
+import LoadingState from '@/components/LoadingState.vue';
 import { useMeasurementApi } from '@/composables/api/useMeasurementApi';
+import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type { Measurement, MeasurementEntry } from '@/types/Measurement';
+import { registerCharts } from '@/utils/chart';
 import { formatDate } from '@/utils/format';
 
-Chart.register(
-    CategoryScale,
-    Filler,
-    Legend,
-    LinearScale,
-    LineController,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip,
-);
+registerCharts();
 
 const {
     getMeasurements,
@@ -41,6 +22,7 @@ const {
     deleteEntry,
 } = useMeasurementApi();
 const toast = useToast();
+const { loading, withLoading } = useLoading();
 
 const measurements = ref<Measurement[]>([]);
 const selectedId = ref<number | null>(null);
@@ -281,12 +263,14 @@ async function selectMeasurement(id: number) {
     await loadEntries();
 }
 
-onMounted(async () => {
-    await loadMeasurements();
-    if (measurements.value.length > 0) {
-        await selectMeasurement(measurements.value[0]!.id);
-    }
-});
+onMounted(() =>
+    withLoading(async () => {
+        await loadMeasurements();
+        if (measurements.value.length > 0) {
+            await selectMeasurement(measurements.value[0]!.id);
+        }
+    }),
+);
 
 const entryDialogHeader = computed(() =>
     editingEntryId.value ? 'Edit Entry' : 'Add Entry',
@@ -304,9 +288,11 @@ const entryDialogHeader = computed(() =>
             />
         </div>
 
+        <LoadingState v-if="loading" label="Loading measurements…" />
+
         <!-- Measurement Tabs -->
         <div
-            v-if="measurements.length"
+            v-else-if="measurements.length"
             class="mb-6 flex flex-wrap items-center gap-2"
         >
             <AppButton
@@ -337,10 +323,7 @@ const entryDialogHeader = computed(() =>
             />
         </div>
 
-        <div
-            v-if="!measurements.length"
-            class="text-surface-500 py-12 text-center"
-        >
+        <div v-else class="text-surface-500 py-12 text-center">
             No measurements yet. Add one to get started.
         </div>
 
@@ -449,6 +432,10 @@ const entryDialogHeader = computed(() =>
                         class="w-full"
                         placeholder="e.g. inches"
                     />
+                    <p class="text-surface-400 mt-1 text-xs">
+                        Free-form text, independent of the units set in
+                        Settings.
+                    </p>
                 </div>
                 <div class="flex justify-end gap-2">
                     <AppButton
@@ -496,6 +483,10 @@ const entryDialogHeader = computed(() =>
                         v-model="editMeasurementForm.unit"
                         class="w-full"
                     />
+                    <p class="text-surface-400 mt-1 text-xs">
+                        Free-form text, independent of the units set in
+                        Settings.
+                    </p>
                 </div>
                 <div class="flex justify-end gap-2">
                     <AppButton
@@ -574,7 +565,7 @@ const entryDialogHeader = computed(() =>
         <!-- Delete Measurement Confirmation -->
         <AppDialog
             v-model:visible="showDeleteMeasurement"
-            header="Delete Measurement"
+            header="Confirm Delete"
             modal
             :style="{ width: '24rem', maxWidth: '92vw' }"
         >
@@ -600,7 +591,7 @@ const entryDialogHeader = computed(() =>
         <!-- Delete Entry Confirmation -->
         <AppDialog
             v-model:visible="showDeleteEntry"
-            header="Delete Entry"
+            header="Confirm Delete"
             modal
             :style="{ width: '24rem', maxWidth: '92vw' }"
         >

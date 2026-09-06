@@ -1,5 +1,6 @@
 import type {
     ExerciseHistoryEntry,
+    RoutineLogSummary,
     SetLog,
     SetLogUpdate,
     WorkoutLog,
@@ -72,6 +73,9 @@ export function useWorkoutLogApi() {
     const getExercisePRs = async () =>
         api.getData<Record<number, number>>('workout-logs/exercise-prs');
 
+    const getLogsByRoutine = async (routineId: number) =>
+        api.getData<RoutineLogSummary[]>(`workout-logs/routine/${routineId}`);
+
     return {
         getWorkoutLogs,
         getWorkoutLog,
@@ -83,5 +87,6 @@ export function useWorkoutLogApi() {
         getExerciseHistory,
         getExerciseLastPerformed,
         getExercisePRs,
+        getLogsByRoutine,
     };
 }

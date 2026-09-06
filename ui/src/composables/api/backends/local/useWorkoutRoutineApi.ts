@@ -72,6 +72,12 @@ export function useWorkoutRoutineApi() {
     const deleteWorkoutRoutine = async (id: number) =>
         execute('DELETE FROM workout_routines WHERE id = ?', [id]);
 
+    const getWorkoutRoutine = async (id: number) =>
+        queryOne<WorkoutRoutine>(
+            'SELECT * FROM workout_routines WHERE id = ?',
+            [id],
+        );
+
     const getRoutineExercises = async (
         routineId: number,
     ): Promise<ApiResponse<RoutineExercise[]>> => {
@@ -129,6 +135,7 @@ export function useWorkoutRoutineApi() {
 
     return {
         getWorkoutRoutines,
+        getWorkoutRoutine,
         createWorkoutRoutine,
         updateWorkoutRoutine,
         deleteWorkoutRoutine,

@@ -28,6 +28,22 @@ CREATE TABLE IF NOT EXISTS running_activities (
     notes TEXT,
     has_gpx INTEGER NOT NULL DEFAULT 0,
     title TEXT,
+    source TEXT NOT NULL DEFAULT 'manual',
+    import_sha256 TEXT,
+    source_uuid TEXT,
+    start_time TEXT,
+    elapsed_seconds INTEGER,
+    is_indoor INTEGER NOT NULL DEFAULT 0,
+    avg_hr INTEGER,
+    max_hr INTEGER,
+    avg_cadence INTEGER,
+    max_cadence INTEGER,
+    calories INTEGER,
+    total_ascent_m REAL,
+    total_descent_m REAL,
+    avg_power INTEGER,
+    max_power INTEGER,
+    avg_temperature_c REAL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -103,19 +119,6 @@ CREATE TABLE IF NOT EXISTS user_settings (
     value TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS notes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    parent_id INTEGER,
-    content TEXT NOT NULL DEFAULT '',
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    collapsed INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (parent_id) REFERENCES notes(id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_notes_parent_id ON notes(parent_id);
-CREATE INDEX IF NOT EXISTS idx_notes_parent_sort ON notes(parent_id, sort_order);
-
 CREATE TABLE IF NOT EXISTS measurements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
@@ -136,6 +139,48 @@ CREATE TABLE IF NOT EXISTS measurement_entries (
 );
 CREATE INDEX IF NOT EXISTS idx_measurement_entries_lookup
     ON measurement_entries(measurement_id, date DESC);
+
+CREATE TABLE IF NOT EXISTS run_laps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    running_activity_id INTEGER NOT NULL REFERENCES running_activities(id) ON DELETE CASCADE,
+    lap_index INTEGER NOT NULL,
+    start_time TEXT,
+    timer_seconds INTEGER NOT NULL,
+    elapsed_seconds INTEGER,
+    distance_km REAL NOT NULL,
+    pace REAL,
+    avg_hr INTEGER,
+    max_hr INTEGER,
+    avg_cadence INTEGER,
+    avg_power INTEGER,
+    total_ascent_m REAL,
+    trigger TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_run_laps_activity ON run_laps(running_activity_id, lap_index);
+
+CREATE TABLE IF NOT EXISTS run_samples (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    running_activity_id INTEGER NOT NULL REFERENCES running_activities(id) ON DELETE CASCADE,
+    t_seconds REAL NOT NULL,
+    distance_km REAL,
+    heart_rate INTEGER,
+    cadence INTEGER,
+    speed_mps REAL,
+    altitude_m REAL,
+    power INTEGER,
+    lat REAL,
+    lon REAL
+);
+CREATE INDEX IF NOT EXISTS idx_run_samples_activity ON run_samples(running_activity_id, t_seconds);
+
+CREATE TABLE IF NOT EXISTS countdowns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_countdowns_date ON countdowns(date);
 `;
 
 export const SCHEMA_VERSION = 1;

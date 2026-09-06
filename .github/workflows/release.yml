@@ -15,13 +15,18 @@ jobs:
         with:
           python-version: '3.12'
 
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: api/uv.lock
+
       - name: Install Python deps
         working-directory: api
-        run: pip install -r requirements.txt pyinstaller
+        run: uv sync --locked --no-default-groups --group build
 
       - name: Build API binary
         working-directory: api
-        run: pyinstaller personal-tracker-api.spec
+        run: uv run pyinstaller personal-tracker-api.spec
 
       - name: Stage binary
         run: |
@@ -84,13 +89,18 @@ jobs:
         with:
           python-version: '3.12'
 
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: api/uv.lock
+
       - name: Install Python deps
         working-directory: api
-        run: pip install -r requirements.txt pyinstaller
+        run: uv sync --locked --no-default-groups --group build
 
       - name: Build API binary
         working-directory: api
-        run: pyinstaller personal-tracker-api.spec
+        run: uv run pyinstaller personal-tracker-api.spec
 
       - name: Stage binary
         shell: pwsh
@@ -134,13 +144,18 @@ jobs:
         with:
           python-version: '3.12'
 
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: api/uv.lock
+
       - name: Install Python deps
         working-directory: api
-        run: pip install -r requirements.txt pyinstaller
+        run: uv sync --locked --no-default-groups --group build
 
       - name: Build API binary
         working-directory: api
-        run: pyinstaller personal-tracker-api.spec
+        run: uv run pyinstaller personal-tracker-api.spec
 
       - name: Stage binary
         run: |

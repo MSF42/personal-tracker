@@ -1,4 +1,4 @@
-export type SearchKind = 'note' | 'task' | 'habit' | 'exercise' | 'routine';
+export type SearchKind = 'task' | 'habit' | 'exercise' | 'routine';
 
 export interface SearchHit {
     kind: SearchKind;
@@ -27,31 +27,4 @@ export interface TodayResponse {
         priority: string;
         repeat_type: string | null;
     }>;
-    notes_due: Array<{
-        id: number;
-        content: string;
-        due_date: string | null;
-        recurrence_type: string | null;
-    }>;
-}
-
-export interface TagCount {
-    name: string;
-    count: number;
-}
-
-export interface TagsResponse {
-    tags: TagCount[];
-    mentions: TagCount[];
-}
-
-export interface BacklinkRow {
-    id: number;
-    parent_id: number | null;
-    content: string;
-    updated_at: string;
-}
-
-export interface BacklinksResponse {
-    links: BacklinkRow[];
 }

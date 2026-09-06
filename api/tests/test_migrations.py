@@ -7,7 +7,7 @@ from src.db.migrations import run_migrations
 
 
 @pytest.mark.asyncio
-async def test_migrations_run_on_fresh_database():
+async def test_migrations_run_on_fresh_database() -> None:
     """Fresh DB should complete all migrations without error."""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name

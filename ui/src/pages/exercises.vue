@@ -6,6 +6,7 @@ import { useExerciseApi } from '@/composables/api/useExerciseApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
+import { useUnits } from '@/composables/useUnits';
 import type {
     Exercise,
     ExerciseCreate,
@@ -19,6 +20,7 @@ const { getExercises, createExercise, updateExercise, deleteExercise } =
 const { getExerciseHistory, getExerciseLastPerformed, getExercisePRs } =
     useWorkoutLogApi();
 const { loading, withLoading } = useLoading();
+const { fmtWeight } = useUnits();
 const toast = useToast();
 
 const exercises = ref<Exercise[]>([]);
@@ -33,6 +35,7 @@ const muscleGroupOptions = [
     { label: 'Triceps', value: 'triceps' },
     { label: 'Shoulders', value: 'shoulders' },
     { label: 'Legs', value: 'legs' },
+    { label: 'Core', value: 'core' },
 ];
 
 const muscleGroupFormOptions = muscleGroupOptions.filter((o) => o.value !== '');
@@ -67,27 +70,36 @@ function clearFilters() {
 }
 
 const filteredExercises = computed(() => {
-    return exercises.value.filter((e) => {
-        if (
-            filters.muscleGroup &&
-            e.muscle_group.toLowerCase() !== filters.muscleGroup.toLowerCase()
-        )
-            return false;
-        if (
-            filters.equipment &&
-            (!e.equipment ||
-                !e.equipment
-                    .toLowerCase()
-                    .includes(filters.equipment.toLowerCase()))
-        )
-            return false;
-        if (
-            filters.search &&
-            !e.name.toLowerCase().includes(filters.search.toLowerCase())
-        )
-            return false;
-        return true;
-    });
+    return exercises.value
+        .filter((e) => {
+            if (
+                filters.muscleGroup &&
+                e.muscle_group.toLowerCase() !==
+                    filters.muscleGroup.toLowerCase()
+            )
+                return false;
+            if (
+                filters.equipment &&
+                (!e.equipment ||
+                    !e.equipment
+                        .toLowerCase()
+                        .includes(filters.equipment.toLowerCase()))
+            )
+                return false;
+            if (
+                filters.search &&
+                !e.name.toLowerCase().includes(filters.search.toLowerCase())
+            )
+                return false;
+            return true;
+        })
+        .map((e) => ({
+            ...e,
+            // Bulk-fetched maps, joined in so the table can sort by them —
+            // they aren't columns on the exercise itself.
+            last_performed: exerciseLastPerformed.value[e.id] ?? null,
+            pr_weight: exercisePRs.value[e.id] ?? null,
+        }));
 });
 
 // --- Stats ---
@@ -415,22 +427,18 @@ const dialogHeader = computed(() =>
                     <span v-else class="text-surface-400">&mdash;</span>
                 </template>
             </AppColumn>
-            <AppColumn header="Last Performed" sort-field="id" sortable>
+            <AppColumn field="last_performed" header="Last Performed" sortable>
                 <template #body="{ data }">
-                    <span v-if="exerciseLastPerformed[(data as Exercise).id]">
-                        {{
-                            formatDate(
-                                exerciseLastPerformed[(data as Exercise).id]!,
-                            )
-                        }}
+                    <span v-if="data.last_performed">
+                        {{ formatDate(data.last_performed) }}
                     </span>
                     <span v-else class="text-surface-400">&mdash;</span>
                 </template>
             </AppColumn>
-            <AppColumn header="PR Weight">
+            <AppColumn field="pr_weight" header="PR Weight" sortable>
                 <template #body="{ data }">
-                    <span v-if="exercisePRs[(data as Exercise).id]">
-                        {{ exercisePRs[(data as Exercise).id] }} kg
+                    <span v-if="data.pr_weight">
+                        {{ fmtWeight(data.pr_weight) }}
                     </span>
                     <span v-else class="text-surface-400">&mdash;</span>
                 </template>

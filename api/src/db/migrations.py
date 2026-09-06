@@ -200,24 +200,11 @@ MIGRATIONS = [
                ALTER TABLE tasks ADD COLUMN repeat_days TEXT;
                """,
     },
-    {
-        "version": 18,
-        "name": "create_notes_table",
-        "sql": """
-               CREATE TABLE IF NOT EXISTS notes (
-                   id INTEGER PRIMARY KEY AUTOINCREMENT,
-                   parent_id INTEGER,
-                   content TEXT NOT NULL DEFAULT '',
-                   sort_order INTEGER NOT NULL DEFAULT 0,
-                   collapsed INTEGER NOT NULL DEFAULT 0,
-                   created_at TEXT NOT NULL,
-                   updated_at TEXT NOT NULL,
-                   FOREIGN KEY (parent_id) REFERENCES notes (id) ON DELETE CASCADE
-               );
-               CREATE INDEX IF NOT EXISTS idx_notes_parent_id ON notes (parent_id);
-               CREATE INDEX IF NOT EXISTS idx_notes_parent_sort ON notes (parent_id, sort_order);
-               """,
-    },
+    # Versions 18, 23 and 25 built the notes outliner (notes table, its due-date
+    # columns and the node_links backlink index). The feature was removed in
+    # favour of the companion Outboard2 app; the numbers stay retired so an
+    # existing database's schema_migrations rows keep their meaning. Databases
+    # created before the removal still carry those tables and their data.
     {
         "version": 19,
         "name": "create_measurements_tables",
@@ -289,19 +276,6 @@ MIGRATIONS = [
                """,
     },
     {
-        "version": 23,
-        "name": "extend_notes_schema",
-        "sql": """
-               ALTER TABLE notes ADD COLUMN due_date TEXT;
-               ALTER TABLE notes ADD COLUMN recurrence_type TEXT;
-               ALTER TABLE notes ADD COLUMN recurrence_interval INTEGER;
-               ALTER TABLE notes ADD COLUMN repeat_days TEXT;
-               ALTER TABLE notes ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
-               CREATE INDEX IF NOT EXISTS idx_notes_due_date ON notes (due_date);
-               CREATE INDEX IF NOT EXISTS idx_notes_archived ON notes (archived);
-               """,
-    },
-    {
         "version": 24,
         "name": "create_search_index_fts5",
         "sql": """
@@ -316,21 +290,100 @@ MIGRATIONS = [
                """,
     },
     {
-        "version": 25,
-        "name": "create_node_links",
+        "version": 26,
+        "name": "create_countdowns",
         "sql": """
-               CREATE TABLE IF NOT EXISTS node_links (
-                   node_id INTEGER NOT NULL,
-                   target_name TEXT NOT NULL,
-                   PRIMARY KEY (node_id, target_name)
+               CREATE TABLE IF NOT EXISTS countdowns (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   title TEXT NOT NULL,
+                   date TEXT NOT NULL,
+                   created_at TEXT NOT NULL,
+                   updated_at TEXT NOT NULL
                );
-               CREATE INDEX IF NOT EXISTS idx_node_links_target ON node_links (target_name);
+               CREATE INDEX IF NOT EXISTS idx_countdowns_date ON countdowns (date);
+               """,
+    },
+    {
+        "version": 27,
+        "name": "add_gpx_sha256_to_running_activities",
+        "sql": """
+               ALTER TABLE running_activities ADD COLUMN gpx_sha256 TEXT;
+               CREATE UNIQUE INDEX IF NOT EXISTS idx_running_activities_gpx_sha256
+                   ON running_activities (gpx_sha256) WHERE gpx_sha256 IS NOT NULL;
+               """,
+    },
+    {
+        "version": 28,
+        "name": "fit_import_metrics_laps_samples",
+        "sql": """
+               ALTER TABLE running_activities RENAME COLUMN gpx_sha256 TO import_sha256;
+               ALTER TABLE running_activities ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';
+               UPDATE running_activities SET source = 'gpx' WHERE has_gpx = 1;
+               ALTER TABLE running_activities ADD COLUMN source_uuid TEXT;
+               ALTER TABLE running_activities ADD COLUMN start_time TEXT;
+               ALTER TABLE running_activities ADD COLUMN elapsed_seconds INTEGER;
+               ALTER TABLE running_activities ADD COLUMN is_indoor INTEGER NOT NULL DEFAULT 0;
+               ALTER TABLE running_activities ADD COLUMN avg_hr INTEGER;
+               ALTER TABLE running_activities ADD COLUMN max_hr INTEGER;
+               ALTER TABLE running_activities ADD COLUMN avg_cadence INTEGER;
+               ALTER TABLE running_activities ADD COLUMN max_cadence INTEGER;
+               ALTER TABLE running_activities ADD COLUMN calories INTEGER;
+               ALTER TABLE running_activities ADD COLUMN total_ascent_m REAL;
+               ALTER TABLE running_activities ADD COLUMN total_descent_m REAL;
+               ALTER TABLE running_activities ADD COLUMN avg_power INTEGER;
+               ALTER TABLE running_activities ADD COLUMN max_power INTEGER;
+               ALTER TABLE running_activities ADD COLUMN avg_temperature_c REAL;
+               CREATE UNIQUE INDEX IF NOT EXISTS idx_running_activities_source_uuid
+                   ON running_activities (source_uuid) WHERE source_uuid IS NOT NULL;
+
+               CREATE TABLE IF NOT EXISTS run_laps (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   running_activity_id INTEGER NOT NULL,
+                   lap_index INTEGER NOT NULL,
+                   start_time TEXT,
+                   timer_seconds INTEGER NOT NULL,
+                   elapsed_seconds INTEGER,
+                   distance_km REAL NOT NULL,
+                   pace REAL,
+                   avg_hr INTEGER,
+                   max_hr INTEGER,
+                   avg_cadence INTEGER,
+                   avg_power INTEGER,
+                   total_ascent_m REAL,
+                   trigger TEXT,
+                   FOREIGN KEY (running_activity_id) REFERENCES running_activities (id) ON DELETE CASCADE
+               );
+               CREATE INDEX IF NOT EXISTS idx_run_laps_activity ON run_laps (running_activity_id, lap_index);
+
+               CREATE TABLE IF NOT EXISTS run_samples (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   running_activity_id INTEGER NOT NULL,
+                   t_seconds REAL NOT NULL,
+                   distance_km REAL,
+                   heart_rate INTEGER,
+                   cadence INTEGER,
+                   speed_mps REAL,
+                   altitude_m REAL,
+                   power INTEGER,
+                   lat REAL,
+                   lon REAL,
+                   FOREIGN KEY (running_activity_id) REFERENCES running_activities (id) ON DELETE CASCADE
+               );
+               CREATE INDEX IF NOT EXISTS idx_run_samples_activity ON run_samples (running_activity_id, t_seconds);
+               """,
+    },
+    {
+        "version": 29,
+        "name": "gpx_segments_start_end_offsets",
+        "sql": """
+               ALTER TABLE gpx_segments ADD COLUMN start_seconds REAL;
+               ALTER TABLE gpx_segments ADD COLUMN end_seconds REAL;
                """,
     },
 ]
 
 
-async def run_migrations(db_path: str):
+async def run_migrations(db_path: str) -> None:
     async with aiosqlite.connect(db_path) as db:
         db.row_factory = aiosqlite.Row
 
@@ -362,7 +415,7 @@ async def run_migrations(db_path: str):
 
         # Post-migration: idempotent seed steps that need Python logic
         await _backfill_search_index(db)
-        await _ensure_inbox_note(db)
+        await backfill_segment_bounds(db)
 
         print("Migrations complete")
 
@@ -378,23 +431,6 @@ async def _backfill_search_index(db: aiosqlite.Connection) -> None:
     row = await cursor.fetchone()
     if row and row["c"] > 0:
         return
-
-    # Import here to avoid circular imports during module load
-    from src.utils.wiki import parse_wiki_targets
-
-    # Notes
-    cursor = await db.execute("SELECT id, content FROM notes")
-    for n in await cursor.fetchall():
-        await db.execute(
-            "INSERT INTO search_index (kind, entity_id, parent_id, title, body) "
-            "VALUES ('note', ?, NULL, '', ?)",
-            (n["id"], n["content"] or ""),
-        )
-        for target in parse_wiki_targets(n["content"] or ""):
-            await db.execute(
-                "INSERT OR IGNORE INTO node_links (node_id, target_name) VALUES (?, ?)",
-                (n["id"], target),
-            )
 
     # Tasks
     cursor = await db.execute("SELECT id, title, description FROM tasks")
@@ -439,49 +475,65 @@ async def _backfill_search_index(db: aiosqlite.Connection) -> None:
     await db.commit()
 
 
-async def _ensure_inbox_note(db: aiosqlite.Connection) -> None:
-    """Guarantee an 'Inbox' root note exists and its id is tracked in user_settings.
+async def backfill_segment_bounds(db: aiosqlite.Connection) -> int:
+    """Recompute best-effort segments (now with start/end offsets) for runs that
+    have per-second samples but segments recorded before offsets existed.
 
-    If the stored inbox id points to a missing note, re-create and update the
-    setting.
+    Returns the number of runs updated. Runs without samples are left alone.
     """
-    cursor = await db.execute(
-        "SELECT value FROM user_settings WHERE key = 'inbox_note_id'"
-    )
-    row = await cursor.fetchone()
-    existing_id: int | None = None
-    if row:
-        try:
-            existing_id = int(row["value"])
-        except (TypeError, ValueError):
-            existing_id = None
+    from src.services.track_segments import compute_best_segments
 
-    if existing_id is not None:
+    cursor = await db.execute(
+        """
+        SELECT DISTINCT g.running_activity_id AS id
+        FROM gpx_segments g
+        JOIN run_samples s ON s.running_activity_id = g.running_activity_id
+        WHERE g.start_seconds IS NULL
+        """
+    )
+    activity_ids = [row["id"] for row in await cursor.fetchall()]
+    for activity_id in activity_ids:
         cursor = await db.execute(
-            "SELECT id FROM notes WHERE id = ?", (existing_id,)
+            """
+            SELECT t_seconds, distance_km FROM run_samples
+            WHERE running_activity_id = ? AND distance_km IS NOT NULL
+            ORDER BY t_seconds ASC
+            """,
+            (activity_id,),
         )
-        found = await cursor.fetchone()
-        if found:
-            return
-
-    from datetime import datetime, timezone
-
-    now = datetime.now(timezone.utc).isoformat()
-    cursor = await db.execute(
-        "INSERT INTO notes (parent_id, content, sort_order, collapsed, created_at, updated_at) "
-        "VALUES (NULL, 'Inbox', -1, 0, ?, ?)",
-        (now, now),
-    )
-    new_id = cursor.lastrowid
-    await db.execute(
-        "INSERT INTO user_settings (key, value) VALUES ('inbox_note_id', ?) "
-        "ON CONFLICT(key) DO UPDATE SET value = ?",
-        (str(new_id), str(new_id)),
-    )
-    # Seed the new inbox row into the search index too
-    await db.execute(
-        "INSERT INTO search_index (kind, entity_id, parent_id, title, body) "
-        "VALUES ('note', ?, NULL, '', 'Inbox')",
-        (new_id,),
-    )
-    await db.commit()
+        cum_dist: list[float] = []
+        cum_time: list[float] = []
+        for row in await cursor.fetchall():
+            d = float(row["distance_km"])
+            if cum_dist and d < cum_dist[-1]:
+                continue
+            cum_dist.append(d)
+            cum_time.append(float(row["t_seconds"]))
+        if len(cum_dist) < 2:
+            continue
+        segments = compute_best_segments(cum_dist, cum_time, cum_dist[-1])
+        await db.execute("DELETE FROM gpx_segments WHERE running_activity_id = ?", (activity_id,))
+        await db.executemany(
+            """
+            INSERT INTO gpx_segments (running_activity_id, segment_name, distance_km,
+                                      duration_seconds, pace, pace_formatted,
+                                      start_seconds, end_seconds)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    activity_id,
+                    seg.name,
+                    seg.distance_km,
+                    seg.duration_seconds,
+                    seg.pace,
+                    seg.pace_formatted,
+                    seg.start_seconds,
+                    seg.end_seconds,
+                )
+                for seg in segments
+            ],
+        )
+    if activity_ids:
+        await db.commit()
+    return len(activity_ids)

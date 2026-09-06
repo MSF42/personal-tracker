@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from aiosqlite import Connection
 
@@ -10,7 +10,7 @@ from src.models.measurement import (
     UpdateMeasurementEntryRequest,
     UpdateMeasurementRequest,
 )
-from src.repositories.utils import execute_update
+from src.repositories.utils import execute_update, require_found, require_row_id
 
 
 class SQLiteMeasurementRepository:
@@ -18,7 +18,7 @@ class SQLiteMeasurementRepository:
         self.db = db
 
     async def create_measurement(self, data: CreateMeasurementRequest) -> MeasurementResponse:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         # Get next sort_order
         cursor = await self.db.execute("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM measurements")
@@ -34,7 +34,10 @@ class SQLiteMeasurementRepository:
         )
         await self.db.commit()
 
-        return await self.find_measurement_by_id(cursor.lastrowid)
+        return require_found(
+            await self.find_measurement_by_id(require_row_id(cursor.lastrowid)),
+            "Measurement",
+        )
 
     async def find_measurement_by_id(self, measurement_id: int) -> MeasurementResponse | None:
         cursor = await self.db.execute(
@@ -76,7 +79,7 @@ class SQLiteMeasurementRepository:
     async def create_entry(
         self, measurement_id: int, data: CreateMeasurementEntryRequest
     ) -> MeasurementEntryResponse:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         cursor = await self.db.execute(
             """
@@ -87,7 +90,10 @@ class SQLiteMeasurementRepository:
         )
         await self.db.commit()
 
-        return await self.find_entry_by_id(cursor.lastrowid)
+        return require_found(
+            await self.find_entry_by_id(require_row_id(cursor.lastrowid)),
+            "Measurement entry",
+        )
 
     async def find_entry_by_id(self, entry_id: int) -> MeasurementEntryResponse | None:
         cursor = await self.db.execute(
