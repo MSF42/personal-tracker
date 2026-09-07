@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
 
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
+import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
+import WorkoutLogDetailDialog from '@/components/WorkoutLogDetailDialog.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
+import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type { WorkoutLog } from '@/types/WorkoutLog';
+import type { WorkoutRoutine } from '@/types/WorkoutRoutine';
 import { formatDate } from '@/utils/format';
 
-const { getWorkoutLogs, updateWorkoutLog, deleteWorkoutLog } =
-    useWorkoutLogApi();
+const { getWorkoutLogs, deleteWorkoutLog } = useWorkoutLogApi();
+const { getWorkoutRoutines } = useWorkoutRoutineApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
-const router = useRouter();
 
 const logs = ref<WorkoutLog[]>([]);
 
@@ -76,32 +78,49 @@ const filteredLogs = computed(() => {
     });
 });
 
-// --- Edit Dialog ---
-const showEdit = ref(false);
-const editingLog = ref<WorkoutLog | null>(null);
-const editForm = reactive({
-    date: '',
-    notes: '',
-});
+// --- View/Edit Dialog ---
+const showViewDialog = ref(false);
+const viewingLogId = ref<number | null>(null);
 
-function openEditDialog(log: WorkoutLog) {
-    editingLog.value = log;
-    editForm.date = log.date;
-    editForm.notes = log.notes ?? '';
-    showEdit.value = true;
+function openView(log: WorkoutLog) {
+    viewingLogId.value = log.id;
+    showViewDialog.value = true;
 }
 
-async function saveEdit() {
-    if (!editingLog.value) return;
-    const res = await updateWorkoutLog(editingLog.value.id, {
-        date: editForm.date,
-        notes: editForm.notes || null,
-    });
-    if (res.success) {
-        toast.showSuccess('Workout log updated');
-        showEdit.value = false;
-        await loadData();
-    }
+// --- Log Workout dialog (resume an in-progress log, or perform a routine
+// fresh) — one shared dialog instance driven by whichever action opened it.
+const showLogWorkoutDialog = ref(false);
+const activeRoutineId = ref<number | null>(null);
+const activeRoutineName = ref('');
+const activeResumeLogId = ref<number | null>(null);
+
+function openResume(log: WorkoutLog) {
+    activeRoutineId.value = log.routine_id;
+    activeRoutineName.value = log.routine_name;
+    activeResumeLogId.value = log.id;
+    showLogWorkoutDialog.value = true;
+}
+
+// --- Perform Routine ---
+const showChooseRoutine = ref(false);
+const routines = ref<WorkoutRoutine[]>([]);
+const loadingRoutines = ref(false);
+
+async function openChooseRoutine() {
+    showChooseRoutine.value = true;
+    if (routines.value.length > 0) return;
+    loadingRoutines.value = true;
+    const res = await getWorkoutRoutines();
+    if (res.success && res.data) routines.value = res.data;
+    loadingRoutines.value = false;
+}
+
+function performRoutine(routine: WorkoutRoutine) {
+    activeRoutineId.value = routine.id;
+    activeRoutineName.value = routine.name;
+    activeResumeLogId.value = null;
+    showChooseRoutine.value = false;
+    showLogWorkoutDialog.value = true;
 }
 
 // --- Delete Confirmation ---
@@ -179,13 +198,20 @@ onMounted(() => withLoading(loadData));
         <!-- Table Header -->
         <div class="mb-4 flex items-center justify-between">
             <h2 class="text-xl font-semibold">Logs</h2>
-            <AppButton
-                :icon="showFilters ? 'pi pi-filter-slash' : 'pi pi-filter'"
-                :label="showFilters ? 'Hide Filters' : 'Filters'"
-                outlined
-                :severity="hasActiveFilters ? 'warn' : 'secondary'"
-                @click="showFilters = !showFilters"
-            />
+            <div class="flex items-center gap-2">
+                <AppButton
+                    :icon="showFilters ? 'pi pi-filter-slash' : 'pi pi-filter'"
+                    :label="showFilters ? 'Hide Filters' : 'Filters'"
+                    outlined
+                    :severity="hasActiveFilters ? 'warn' : 'secondary'"
+                    @click="showFilters = !showFilters"
+                />
+                <AppButton
+                    icon="pi pi-play"
+                    label="Perform Routine"
+                    @click="openChooseRoutine"
+                />
+            </div>
         </div>
 
         <!-- Filters Panel -->
@@ -286,30 +312,38 @@ onMounted(() => withLoading(loadData));
                     <span v-else class="text-surface-400">&mdash;</span>
                 </template>
             </AppColumn>
-            <AppColumn header="Actions" style="width: 10rem">
+            <AppColumn header="Status" style="width: 8rem">
+                <template #body="{ data }">
+                    <AppTag
+                        v-if="!(data as WorkoutLog).completed"
+                        severity="warn"
+                        value="In Progress"
+                    />
+                    <AppTag v-else severity="success" value="Complete" />
+                </template>
+            </AppColumn>
+            <AppColumn header="Actions" style="width: 11rem">
                 <template #body="{ data }">
                     <div
                         class="flex gap-2 opacity-20 transition-opacity group-hover:opacity-100"
                     >
+                        <AppButton
+                            v-if="!(data as WorkoutLog).completed"
+                            aria-label="Resume workout"
+                            icon="pi pi-play"
+                            rounded
+                            severity="success"
+                            text
+                            title="Resume workout"
+                            @click="openResume(data as WorkoutLog)"
+                        />
                         <AppButton
                             aria-label="View workout log"
                             icon="pi pi-eye"
                             rounded
                             severity="secondary"
                             text
-                            @click="
-                                router.push(
-                                    `/workout-logs/${(data as WorkoutLog).id}`,
-                                )
-                            "
-                        />
-                        <AppButton
-                            aria-label="Edit workout log"
-                            icon="pi pi-pencil"
-                            rounded
-                            severity="info"
-                            text
-                            @click="openEditDialog(data as WorkoutLog)"
+                            @click="openView(data as WorkoutLog)"
                         />
                         <AppButton
                             aria-label="Delete workout log"
@@ -324,41 +358,6 @@ onMounted(() => withLoading(loadData));
             </AppColumn>
         </AppDataTable>
 
-        <!-- Edit Workout Log Dialog -->
-        <AppDialog
-            v-model:visible="showEdit"
-            header="Edit Workout Log"
-            modal
-            :style="{ width: '28rem', maxWidth: '92vw' }"
-        >
-            <div class="flex flex-col gap-4">
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Date <span class="text-red-500">*</span>
-                    </label>
-                    <AppInputText
-                        v-model="editForm.date"
-                        class="w-full"
-                        type="date"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Notes
-                    </label>
-                    <AppTextarea
-                        v-model="editForm.notes"
-                        class="w-full"
-                        rows="2"
-                    />
-                </div>
-                <div class="flex justify-end gap-2">
-                    <AppButton label="Cancel" text @click="showEdit = false" />
-                    <AppButton label="Save" @click="saveEdit" />
-                </div>
-            </div>
-        </AppDialog>
-
         <!-- Delete Confirmation Dialog -->
         <ConfirmDeleteDialog
             v-model:visible="showDeleteConfirm"
@@ -366,5 +365,63 @@ onMounted(() => withLoading(loadData));
         >
             Are you sure you want to delete this workout log?
         </ConfirmDeleteDialog>
+
+        <!-- Choose Routine Dialog (Perform Routine) -->
+        <AppDialog
+            v-model:visible="showChooseRoutine"
+            header="Perform Routine"
+            modal
+            :style="{ width: '28rem', maxWidth: '92vw' }"
+        >
+            <div v-if="loadingRoutines" class="py-6 text-center">
+                <i class="pi pi-spin pi-spinner text-surface-400 text-2xl"></i>
+            </div>
+            <div
+                v-else-if="routines.length === 0"
+                class="text-surface-500 text-sm"
+            >
+                No routines yet.
+                <RouterLink
+                    class="text-primary underline"
+                    to="/strength?tab=routines"
+                >
+                    Create one
+                </RouterLink>
+                first.
+            </div>
+            <div v-else class="flex max-h-96 flex-col gap-2 overflow-y-auto">
+                <button
+                    v-for="routine in routines"
+                    :key="routine.id"
+                    class="border-surface-200 dark:border-surface-700 hover:border-primary-400 dark:hover:border-primary-500 cursor-pointer rounded-lg border p-3 text-left transition-colors"
+                    type="button"
+                    @click="performRoutine(routine)"
+                >
+                    <div class="font-medium">{{ routine.name }}</div>
+                    <div
+                        v-if="routine.description"
+                        class="text-surface-500 mt-0.5 truncate text-xs"
+                    >
+                        {{ routine.description }}
+                    </div>
+                </button>
+            </div>
+        </AppDialog>
+
+        <!-- Log Workout Dialog (resume or perform-routine, shared) -->
+        <LogWorkoutDialog
+            v-model:visible="showLogWorkoutDialog"
+            :resume-log-id="activeResumeLogId"
+            :routine-id="activeRoutineId"
+            :routine-name="activeRoutineName"
+            @logged="loadData"
+        />
+
+        <!-- View/Edit Workout Log Dialog -->
+        <WorkoutLogDetailDialog
+            v-model:visible="showViewDialog"
+            :log-id="viewingLogId"
+            @updated="loadData"
+        />
     </div>
 </template>

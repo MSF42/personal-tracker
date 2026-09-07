@@ -14,11 +14,18 @@ class SQLiteWorkoutLogRepository:
     async def create(self, routine_id: int, date: str, notes: str | None = None) -> dict[str, Any]:
         now = datetime.now(UTC).isoformat()
         cursor = await self.db.execute(
-            "INSERT INTO workout_logs (routine_id, date, notes, created_at) VALUES (?, ?, ?, ?)",
+            "INSERT INTO workout_logs (routine_id, date, notes, created_at, completed) "
+            "VALUES (?, ?, ?, ?, 0)",
             (routine_id, date, notes, now),
         )
         await self.db.commit()
-        return {"id": cursor.lastrowid, "routine_id": routine_id, "date": date, "notes": notes}
+        return {
+            "id": cursor.lastrowid,
+            "routine_id": routine_id,
+            "date": date,
+            "notes": notes,
+            "completed": False,
+        }
 
     async def log_set(
         self,
@@ -118,7 +125,7 @@ class SQLiteWorkoutLogRepository:
     async def find_by_routine(self, routine_id: int) -> list[dict[str, Any]]:
         """Get all workout logs for a routine, with per-session set/volume totals."""
         cursor = await self.db.execute(
-            """SELECT wl.id, wl.date, wl.notes, wl.created_at,
+            """SELECT wl.id, wl.date, wl.notes, wl.created_at, wl.completed,
                       COUNT(sl.id) AS total_sets,
                       COALESCE(SUM(sl.reps * COALESCE(sl.weight, 0)), 0) AS total_volume
                FROM workout_logs wl
@@ -175,7 +182,11 @@ class SQLiteWorkoutLogRepository:
         return cursor.rowcount > 0
 
     async def update(
-        self, workout_log_id: int, date: str | None = None, notes: str | None = None
+        self,
+        workout_log_id: int,
+        date: str | None = None,
+        notes: str | None = None,
+        completed: bool | None = None,
     ) -> dict[str, Any] | None:
         existing = await self.db.execute(
             "SELECT * FROM workout_logs WHERE id = ?", (workout_log_id,)
@@ -184,15 +195,18 @@ class SQLiteWorkoutLogRepository:
         if not row:
             return None
 
-        updates = {}
+        updates: dict[str, Any] = {}
         if date is not None:
             updates["date"] = date
         if notes is not None:
             updates["notes"] = notes
+        if completed is not None:
+            updates["completed"] = completed
 
         if updates:
-            # Only "date" and "notes" are updatable — explicit safe columns, no dynamic column names
-            allowed = {"date", "notes"}
+            # Only "date", "notes", and "completed" are updatable — explicit
+            # safe columns, no dynamic column names
+            allowed = {"date", "notes", "completed"}
             filtered = {k: v for k, v in updates.items() if k in allowed}
             if filtered:
                 set_clause = ", ".join(f"{key} = ?" for key in filtered)

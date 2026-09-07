@@ -380,6 +380,17 @@ MIGRATIONS = [
                ALTER TABLE gpx_segments ADD COLUMN end_seconds REAL;
                """,
     },
+    {
+        "version": 30,
+        "name": "add_completed_to_workout_logs",
+        # Default 1: every existing row predates this feature and represents
+        # an already-finished workout. New rows explicitly insert 0 instead
+        # (see SQLiteWorkoutLogRepository.create) since a freshly-started log
+        # is in progress until the user says otherwise.
+        "sql": """
+               ALTER TABLE workout_logs ADD COLUMN completed INTEGER NOT NULL DEFAULT 1;
+               """,
+    },
 ]
 
 

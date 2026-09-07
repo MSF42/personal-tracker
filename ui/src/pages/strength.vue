@@ -9,18 +9,18 @@ import WorkoutRoutinesPage from './workout-routines/index.vue';
 const route = useRoute();
 const router = useRouter();
 
-const validTabs = ['exercises', 'routines', 'logs'];
+const validTabs = ['logs', 'exercises', 'routines'];
 const initialTab = validTabs.includes(route.query.tab as string)
     ? (route.query.tab as string)
-    : 'exercises';
+    : 'logs';
 
 const activeTab = ref(initialTab);
 
 // Lazy-mount: only render a tab's content after it's been first activated
 const mounted = reactive({
+    logs: initialTab === 'logs',
     exercises: initialTab === 'exercises',
     routines: initialTab === 'routines',
-    logs: initialTab === 'logs',
 });
 
 onMounted(() => {
@@ -37,19 +37,19 @@ function onTabChange(val: string | number) {
 <template>
     <AppTabs v-model:value="activeTab" @update:value="onTabChange">
         <AppTabList>
+            <AppTab value="logs">Logs</AppTab>
             <AppTab value="exercises">Exercises</AppTab>
             <AppTab value="routines">Routines</AppTab>
-            <AppTab value="logs">Logs</AppTab>
         </AppTabList>
         <AppTabPanels class="!p-0">
+            <AppTabPanel class="!p-0" value="logs">
+                <WorkoutLogsPage v-if="mounted.logs" />
+            </AppTabPanel>
             <AppTabPanel class="!p-0" value="exercises">
                 <ExercisesPage v-if="mounted.exercises" />
             </AppTabPanel>
             <AppTabPanel class="!p-0" value="routines">
                 <WorkoutRoutinesPage v-if="mounted.routines" />
-            </AppTabPanel>
-            <AppTabPanel class="!p-0" value="logs">
-                <WorkoutLogsPage v-if="mounted.logs" />
             </AppTabPanel>
         </AppTabPanels>
     </AppTabs>

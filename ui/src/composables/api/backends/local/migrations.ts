@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS workout_logs (
     date TEXT NOT NULL,
     notes TEXT,
     created_at TEXT NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (routine_id) REFERENCES workout_routines(id) ON DELETE CASCADE
 );
 

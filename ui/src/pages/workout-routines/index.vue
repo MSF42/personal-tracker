@@ -573,7 +573,8 @@ const dialogHeader = computed(() =>
         <!-- Log Workout Dialog -->
         <LogWorkoutDialog
             v-model:visible="showLogDialog"
-            :routine="loggingRoutine"
+            :routine-id="loggingRoutine?.id ?? null"
+            :routine-name="loggingRoutine?.name ?? ''"
             @logged="loadLogs"
         />
 

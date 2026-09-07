@@ -1,18 +1,34 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
-import type { RoutineExercise, WorkoutRoutine } from '@/types/WorkoutRoutine';
+import type { RoutineExercise } from '@/types/WorkoutRoutine';
 import { formatDate } from '@/utils/format';
 
-const props = defineProps<{ routine: WorkoutRoutine | null }>();
+const props = withDefaults(
+    defineProps<{
+        routineId: number | null;
+        routineName: string;
+        /** Set to reopen this dialog against an existing in-progress log
+         *  instead of starting a new one. */
+        resumeLogId?: number | null;
+    }>(),
+    { resumeLogId: null },
+);
 const emit = defineEmits<{ logged: [] }>();
 const visible = defineModel<boolean>('visible', { required: true });
 const { getRoutineExercises } = useWorkoutRoutineApi();
-const { createWorkoutLog, logSet, getExerciseHistory } = useWorkoutLogApi();
+const {
+    createWorkoutLog,
+    logSet,
+    updateSet,
+    getExerciseHistory,
+    getWorkoutLog,
+    updateWorkoutLog,
+} = useWorkoutLogApi();
 const toast = useToast();
 const { weightUnit, toKg, fromKg } = useUnits();
 
@@ -27,87 +43,153 @@ const logForm = reactive({
 });
 
 interface SetEntry {
+    /** The set_logs row id, once this entry has been persisted at least
+     *  once — null for a set that's never been saved. Determines whether
+     *  persisting it again is an update or a first-time create. */
+    setId: number | null;
     exerciseId: number;
     exerciseName: string;
     setNumber: number;
     reps: number;
     weight: null | number;
-    saved: boolean;
 }
 
 const setEntries = ref<SetEntry[]>([]);
-// exerciseId -> "Last (31 Aug 2026): 30 × 8, 30 × 8 lbs", shown while logging
-const lastSets = ref<Record<number, string>>({});
+// exerciseId -> setNumber -> "135 × 8" / "BW × 8", the value logged for that
+// set the last time this exercise was performed — shown next to each row.
+const lastSets = ref<Record<number, Record<number, string>>>({});
+// exerciseId -> the date those values came from, shown once per exercise.
+const lastSetsDate = ref<Record<number, string>>({});
+
+const dialogHeader = computed(() =>
+    props.resumeLogId
+        ? `Resume Workout: ${props.routineName}`
+        : `Log Workout: ${props.routineName}`,
+);
 
 async function loadLastSets(exerciseIds: number[]) {
     lastSets.value = {};
+    lastSetsDate.value = {};
     await Promise.all(
         exerciseIds.map(async (exerciseId) => {
             const res = await getExerciseHistory(exerciseId);
-            if (!res.success || !res.data || res.data.length === 0) return;
+            if (!res.success || !res.data) return;
+            // Exclude this session's own sets — when resuming, a set saved
+            // earlier this same visit would otherwise show up as "last
+            // time," which is both circular (it's already visible in the
+            // row itself) and hides the actually-prior session.
+            const priorHistory = res.data.filter(
+                (e) => e.workout_log_id !== workoutLogId.value,
+            );
+            if (priorHistory.length === 0) return;
             // History is ordered by date desc, then set number; take the
-            // most recent session only.
-            const lastDate = res.data[0]!.date;
-            const lastSession = res.data.filter((e) => e.date === lastDate);
-            const weighted = lastSession.some(
-                (e) => e.weight != null && e.weight > 0,
-            );
-            const sets = lastSession.map((e) =>
-                e.weight != null && e.weight > 0
-                    ? `${Math.round(fromKg(e.weight) * 10) / 10} × ${e.reps}`
-                    : `BW × ${e.reps}`,
-            );
-            const unit = weighted ? ` ${weightUnit.value}` : '';
-            lastSets.value[exerciseId] =
-                `Last (${formatDate(lastDate)}): ${sets.join(', ')}${unit}`;
+            // most recent prior session only.
+            const lastDate = priorHistory[0]!.date;
+            const lastSession = priorHistory.filter((e) => e.date === lastDate);
+            lastSetsDate.value[exerciseId] = lastDate;
+            const bySetNumber: Record<number, string> = {};
+            for (const e of lastSession) {
+                bySetNumber[e.set_number] =
+                    e.weight != null && e.weight > 0
+                        ? `${Math.round(fromKg(e.weight) * 10) / 10} × ${e.reps}`
+                        : `BW × ${e.reps}`;
+            }
+            lastSets.value[exerciseId] = bySetNumber;
         }),
     );
 }
 
-async function open(routine: WorkoutRoutine) {
+/** One entry per set the routine prescribes, defaulted from the prescription
+ *  and unsaved — the starting point for both a fresh log and a resumed one. */
+function buildEntriesFromPrescription(): SetEntry[] {
+    const entries: SetEntry[] = [];
+    for (const ex of logExercises.value) {
+        for (let s = 1; s <= ex.sets; s++) {
+            entries.push({
+                setId: null,
+                exerciseId: ex.id,
+                exerciseName: ex.name,
+                setNumber: s,
+                reps: ex.reps,
+                weight: null,
+            });
+        }
+    }
+    return entries;
+}
+
+async function openFresh(routineId: number) {
     logStep.value = 1;
     workoutLogId.value = null;
     logForm.date = todayStr;
     logForm.notes = '';
     setEntries.value = [];
 
-    const res = await getRoutineExercises(routine.id);
+    const res = await getRoutineExercises(routineId);
     if (res.success && res.data) {
         logExercises.value = res.data;
     }
 }
 
+async function openResume(routineId: number, logId: number) {
+    workoutLogId.value = logId;
+    setEntries.value = [];
+
+    const [exercisesRes, logRes] = await Promise.all([
+        getRoutineExercises(routineId),
+        getWorkoutLog(logId),
+    ]);
+    if (exercisesRes.success && exercisesRes.data) {
+        logExercises.value = exercisesRes.data;
+    }
+
+    // Reconcile the prescription against what's already been logged: a slot
+    // with a matching saved set shows its real value and remembers its row
+    // id (so persisting again updates it instead of creating a duplicate);
+    // everything else starts blank exactly like a fresh log.
+    const entries = buildEntriesFromPrescription();
+    if (logRes.success && logRes.data) {
+        for (const entry of entries) {
+            const saved = logRes.data.sets.find(
+                (s) =>
+                    s.exercise_id === entry.exerciseId &&
+                    s.set_number === entry.setNumber,
+            );
+            if (saved) {
+                entry.setId = saved.id;
+                entry.reps = saved.reps;
+                entry.weight =
+                    saved.weight != null ? fromKg(saved.weight) : null;
+            }
+        }
+    }
+    setEntries.value = entries;
+    await loadLastSets(logExercises.value.map((ex) => ex.id));
+    logStep.value = 2;
+}
+
 watch(
-    () => [visible.value, props.routine?.id] as const,
-    ([open_, id]) => {
-        if (open_ && props.routine && id) void open(props.routine);
+    () => [visible.value, props.routineId, props.resumeLogId] as const,
+    ([isVisible, routineId, resumeLogId]) => {
+        if (!isVisible || !routineId) return;
+        if (resumeLogId) {
+            void openResume(routineId, resumeLogId);
+        } else {
+            void openFresh(routineId);
+        }
     },
 );
 
 async function createLog() {
-    if (!props.routine) return;
+    if (!props.routineId) return;
     const res = await createWorkoutLog(
-        props.routine.id,
+        props.routineId,
         logForm.date,
         logForm.notes || null,
     );
     if (res.success && res.data) {
         workoutLogId.value = res.data.id;
-        // Build set entries from routine exercises
-        const entries: SetEntry[] = [];
-        for (const ex of logExercises.value) {
-            for (let s = 1; s <= ex.sets; s++) {
-                entries.push({
-                    exerciseId: ex.id,
-                    exerciseName: ex.name,
-                    setNumber: s,
-                    reps: ex.reps,
-                    weight: null,
-                    saved: false,
-                });
-            }
-        }
-        setEntries.value = entries;
+        setEntries.value = buildEntriesFromPrescription();
         logStep.value = 2;
         toast.showSuccess('Workout log created');
         emit('logged');
@@ -115,23 +197,49 @@ async function createLog() {
     }
 }
 
-async function saveSet(entry: SetEntry) {
+/** Create or update this entry's row, whichever it needs — there's no
+ *  per-set "save" step anymore, so every entry gets persisted (or
+ *  re-persisted, if it was already saved and edited since) when the
+ *  workout is saved or completed. */
+async function persistEntry(entry: SetEntry) {
     if (!workoutLogId.value) return;
+    const weightKg = entry.weight != null ? toKg(entry.weight) : null;
+    if (entry.setId != null) {
+        await updateSet(workoutLogId.value, entry.setId, {
+            reps: entry.reps,
+            weight: weightKg,
+        });
+        return;
+    }
     const res = await logSet(
         workoutLogId.value,
         entry.exerciseId,
         entry.setNumber,
         entry.reps,
-        entry.weight != null ? toKg(entry.weight) : null,
+        weightKg,
     );
-    if (res.success) {
-        entry.saved = true;
+    if (res.success && res.data) {
+        entry.setId = res.data.id;
     }
 }
 
-async function saveAllAndClose() {
-    const unsaved = setEntries.value.filter((e) => !e.saved);
-    await Promise.all(unsaved.map((e) => saveSet(e)));
+async function persistAllSets() {
+    await Promise.all(setEntries.value.map((e) => persistEntry(e)));
+}
+
+async function saveAndClose() {
+    await persistAllSets();
+    emit('logged');
+    visible.value = false;
+}
+
+async function completeAndClose() {
+    await persistAllSets();
+    if (workoutLogId.value) {
+        await updateWorkoutLog(workoutLogId.value, { completed: true });
+    }
+    toast.showSuccess('Workout completed');
+    emit('logged');
     visible.value = false;
 }
 
@@ -156,11 +264,12 @@ function getExerciseGroups() {
 <template>
     <AppDialog
         v-model:visible="visible"
-        :header="`Log Workout: ${routine?.name ?? ''}`"
+        :header="dialogHeader"
         modal
         :style="{ width: '40rem', maxWidth: '92vw' }"
     >
-        <!-- Step 1: Date + Notes -->
+        <!-- Step 1: Date + Notes (fresh logs only — resuming skips straight
+             to step 2, since the date/notes were already set at creation) -->
         <div v-if="logStep === 1" class="flex flex-col gap-4">
             <div>
                 <label class="mb-1 block text-sm font-medium">Date</label>
@@ -202,11 +311,17 @@ function getExerciseGroups() {
                 :key="group.exerciseId"
                 class="border-surface-200 dark:border-surface-700 rounded-lg border p-3"
             >
-                <div class="font-medium">{{ group.name }}</div>
-                <div
-                    class="text-surface-500 dark:text-surface-400 mb-2 text-xs"
-                >
-                    {{ lastSets[group.exerciseId] ?? 'No previous sets' }}
+                <div class="mb-2 flex items-baseline justify-between">
+                    <div class="font-medium">{{ group.name }}</div>
+                    <div
+                        v-if="lastSetsDate[group.exerciseId]"
+                        class="text-surface-400 text-xs"
+                    >
+                        Last: {{ formatDate(lastSetsDate[group.exerciseId]!) }}
+                    </div>
+                    <div v-else class="text-surface-400 text-xs">
+                        No previous sets
+                    </div>
                 </div>
                 <div class="flex flex-col gap-2">
                     <div
@@ -217,40 +332,48 @@ function getExerciseGroups() {
                         <span class="text-surface-500 w-16 text-sm">
                             Set {{ entry.setNumber }}
                         </span>
-                        <AppInputNumber
-                            v-model="entry.reps"
-                            class="w-24"
-                            :disabled="entry.saved"
-                            :min="0"
-                            placeholder="Reps"
-                        />
+                        <div class="w-14 shrink-0">
+                            <AppInputNumber
+                                v-model="entry.reps"
+                                fluid
+                                :min="0"
+                                placeholder="Reps"
+                            />
+                        </div>
                         <span class="text-surface-500 text-xs">reps</span>
-                        <AppInputNumber
-                            v-model="entry.weight"
-                            class="w-24"
-                            :disabled="entry.saved"
-                            :max-fraction-digits="1"
-                            :min="0"
-                            placeholder="Weight"
-                        />
-                        <span class="text-surface-500 text-xs">{{
+                        <div class="w-16 shrink-0">
+                            <AppInputNumber
+                                v-model="entry.weight"
+                                fluid
+                                :max-fraction-digits="1"
+                                :min="0"
+                                placeholder="Wt"
+                            />
+                        </div>
+                        <span class="text-surface-500 w-8 text-xs">{{
                             weightUnit
                         }}</span>
-                        <AppButton
-                            v-if="!entry.saved"
-                            aria-label="Save set"
-                            icon="pi pi-check"
-                            severity="success"
-                            size="small"
-                            text
-                            @click="saveSet(entry)"
-                        />
-                        <i v-else class="pi pi-check-circle text-green-500" />
+                        <span class="text-surface-400 flex-1 text-xs">
+                            {{
+                                lastSets[group.exerciseId]?.[entry.setNumber] ??
+                                '—'
+                            }}
+                        </span>
                     </div>
                 </div>
             </div>
-            <div class="flex justify-end">
-                <AppButton label="Done" @click="saveAllAndClose" />
+            <div class="flex justify-end gap-2">
+                <AppButton
+                    label="Save"
+                    outlined
+                    title="Save your progress — you can resume this workout later from the Logs tab"
+                    @click="saveAndClose"
+                />
+                <AppButton
+                    icon="pi pi-check"
+                    label="Complete Workout"
+                    @click="completeAndClose"
+                />
             </div>
         </div>
     </AppDialog>

@@ -181,3 +181,50 @@ async def test_get_logs_by_routine_with_no_sets_has_zero_totals(client: AsyncCli
     assert len(entries) == 1
     assert entries[0]["total_sets"] == 0
     assert entries[0]["total_volume"] == 0
+
+
+async def test_new_workout_log_starts_incomplete(client: AsyncClient) -> None:
+    """A freshly-created log is in progress until explicitly completed."""
+    routine_resp = await client.post(
+        "/api/v1/workout-routines",
+        json={"name": f"Arm Day {uuid.uuid4().hex[:8]}"},
+    )
+    routine_id = routine_resp.json()["id"]
+
+    log_resp = await client.post(
+        "/api/v1/workout-logs",
+        json={"routine_id": routine_id, "date": "2026-02-22"},
+    )
+    assert log_resp.status_code == 201
+    assert log_resp.json()["completed"] is False
+
+    detail = await client.get(f"/api/v1/workout-logs/{log_resp.json()['id']}")
+    assert detail.json()["completed"] is False
+
+
+async def test_completing_a_workout_log(client: AsyncClient) -> None:
+    """PUT with completed=true marks a log done, reflected in detail and routine history."""
+    routine_resp = await client.post(
+        "/api/v1/workout-routines",
+        json={"name": f"Back Day {uuid.uuid4().hex[:8]}"},
+    )
+    routine_id = routine_resp.json()["id"]
+
+    log_resp = await client.post(
+        "/api/v1/workout-logs",
+        json={"routine_id": routine_id, "date": "2026-02-22"},
+    )
+    log_id = log_resp.json()["id"]
+
+    updated = await client.put(
+        f"/api/v1/workout-logs/{log_id}",
+        json={"completed": True},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["completed"] is True
+
+    detail = await client.get(f"/api/v1/workout-logs/{log_id}")
+    assert detail.json()["completed"] is True
+
+    history = await client.get(f"/api/v1/workout-logs/routine/{routine_id}")
+    assert history.json()[0]["completed"] is True

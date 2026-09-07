@@ -5,6 +5,7 @@ export interface WorkoutLog {
     date: string;
     notes: string | null;
     created_at: string;
+    completed: boolean;
 }
 
 export interface SetLog {
@@ -34,6 +35,7 @@ export interface SetLogUpdate {
 export interface WorkoutLogUpdate {
     date?: string | null;
     notes?: string | null;
+    completed?: boolean | null;
 }
 
 export interface WorkoutLogDetail {
@@ -43,6 +45,7 @@ export interface WorkoutLogDetail {
     date: string;
     notes: string | null;
     created_at: string;
+    completed: boolean;
     sets: SetLog[];
 }
 
@@ -51,6 +54,7 @@ export interface RoutineLogSummary {
     date: string;
     notes: string | null;
     created_at: string | null;
+    completed: boolean;
     total_sets: number;
     total_volume: number;
 }

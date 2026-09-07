@@ -25,6 +25,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     StatTileGrid: typeof import('./src/components/StatTileGrid.vue')['default']
+    WorkoutLogDetailDialog: typeof import('./src/components/WorkoutLogDetailDialog.vue')['default']
   }
   export interface GlobalDirectives {
     Tooltip: typeof import('primevue/tooltip')['default']

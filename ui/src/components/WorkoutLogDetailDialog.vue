@@ -1,13 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, reactive, ref, watch } from 'vue';
 
-import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
-import LoadingState from '@/components/LoadingState.vue';
-import NotFoundState from '@/components/NotFoundState.vue';
-import StatTileGrid from '@/components/StatTileGrid.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
-import { useSmartBack } from '@/composables/useSmartBack';
+import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
 import type {
     ExerciseHistoryEntry,
@@ -16,48 +11,38 @@ import type {
 } from '@/types/WorkoutLog';
 import { formatDate } from '@/utils/format';
 
-const route = useRoute<'/workout-logs/[id]'>();
-const { back } = useSmartBack('/workout-logs');
-const { getWorkoutLog, updateSet, getExerciseHistory } = useWorkoutLogApi();
+import ExerciseHistoryDialog from './ExerciseHistoryDialog.vue';
+import StatTileGrid from './StatTileGrid.vue';
+
+const props = defineProps<{ logId: number | null }>();
+const emit = defineEmits<{ updated: [] }>();
+const visible = defineModel<boolean>('visible', { required: true });
+
+const { getWorkoutLog, updateSet, updateWorkoutLog, getExerciseHistory } =
+    useWorkoutLogApi();
 const { fmtWeight, weightUnit, toKg, fromKg } = useUnits();
+const toast = useToast();
 
 const detail = ref<WorkoutLogDetail | null>(null);
-const loading = ref(true);
-const notFound = ref(false);
+const loading = ref(false);
 
 async function load(id: number) {
     loading.value = true;
-    notFound.value = false;
     detail.value = null;
-
     const res = await getWorkoutLog(id);
-    if (!res.success || !res.data) {
-        notFound.value = true;
-        loading.value = false;
-        return;
-    }
-    detail.value = res.data;
+    if (res.success && res.data) detail.value = res.data;
     loading.value = false;
 }
 
-// Vue Router reuses this component instance across param changes, so the
-// fetch must react to the param, not only mount.
 watch(
-    () => route.params.id,
-    (value) => {
-        const id = Number(value);
-        if (Number.isNaN(id)) {
-            notFound.value = true;
-            loading.value = false;
-            return;
-        }
-        void load(id);
+    () => [visible.value, props.logId] as const,
+    ([isVisible, logId]) => {
+        if (isVisible && logId) void load(logId);
     },
-    { immediate: true },
 );
 
 const header = computed(() => {
-    if (!detail.value) return '';
+    if (!detail.value) return 'Workout Log';
     const routine = detail.value.routine_name ?? 'Workout';
     return `${routine} — ${formatDate(detail.value.date)}`;
 });
@@ -107,6 +92,30 @@ const heroTiles = computed(() => {
     ];
 });
 
+// --- Date / Notes editing ----------------------------------------------------
+const editForm = reactive({ date: '', notes: '' });
+
+watch(detail, (d) => {
+    if (d) {
+        editForm.date = d.date;
+        editForm.notes = d.notes ?? '';
+    }
+});
+
+async function saveDetails() {
+    if (!detail.value) return;
+    const res = await updateWorkoutLog(detail.value.id, {
+        date: editForm.date,
+        notes: editForm.notes || null,
+    });
+    if (res.success && res.data) {
+        detail.value.date = res.data.date;
+        detail.value.notes = res.data.notes;
+        toast.showSuccess('Workout log updated');
+        emit('updated');
+    }
+}
+
 // --- Inline set editing --------------------------------------------------------
 const editingSetId = ref<number | null>(null);
 const editSetReps = ref(0);
@@ -129,8 +138,20 @@ async function saveSet(set: SetLog) {
     if (res.success && res.data) {
         const idx = detail.value.sets.findIndex((s) => s.id === set.id);
         if (idx !== -1) detail.value.sets[idx] = res.data;
+        emit('updated');
     }
     editingSetId.value = null;
+}
+
+// --- Complete workout ------------------------------------------------------
+async function completeWorkout() {
+    if (!detail.value) return;
+    const res = await updateWorkoutLog(detail.value.id, { completed: true });
+    if (res.success && res.data) {
+        detail.value.completed = true;
+        toast.showSuccess('Workout completed');
+        emit('updated');
+    }
 }
 
 // --- Exercise history dialog ---------------------------------------------------
@@ -149,36 +170,62 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
 </script>
 
 <template>
-    <div class="mx-auto max-w-3xl p-6">
-        <button
-            class="text-surface-500 hover:text-surface-900 dark:hover:text-surface-100 mb-4 inline-flex cursor-pointer items-center gap-1.5 text-sm"
-            type="button"
-            @click="back"
-        >
-            <i class="pi pi-arrow-left text-xs"></i>
-            Back
-        </button>
-
-        <LoadingState v-if="loading" />
-
-        <NotFoundState
-            v-else-if="notFound"
-            back-label="Back to Workout Logs"
-            back-to="/workout-logs"
-            entity="workout log"
-        />
+    <AppDialog
+        v-model:visible="visible"
+        :header="header"
+        modal
+        :style="{ width: '44rem', maxWidth: '92vw' }"
+    >
+        <div v-if="loading" class="py-10 text-center">
+            <i class="pi pi-spin pi-spinner text-surface-400 text-2xl"></i>
+        </div>
 
         <div v-else-if="detail" class="flex flex-col gap-6">
-            <h1 class="text-2xl font-bold">{{ header }}</h1>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <AppTag
+                    v-if="!detail.completed"
+                    severity="warn"
+                    value="In Progress"
+                />
+                <AppTag v-else severity="success" value="Complete" />
+                <AppButton
+                    v-if="!detail.completed"
+                    icon="pi pi-check"
+                    label="Complete Workout"
+                    size="small"
+                    @click="completeWorkout"
+                />
+            </div>
 
             <StatTileGrid :tiles="heroTiles" />
 
-            <p
-                v-if="detail.notes"
-                class="text-surface-600 dark:text-surface-400 text-sm"
-            >
-                <span class="font-medium">Notes:</span> {{ detail.notes }}
-            </p>
+            <div class="flex flex-col gap-4">
+                <div>
+                    <label class="mb-1 block text-sm font-medium">Date</label>
+                    <AppInputText
+                        v-model="editForm.date"
+                        class="w-full"
+                        type="date"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Notes
+                    </label>
+                    <AppTextarea
+                        v-model="editForm.notes"
+                        class="w-full"
+                        rows="2"
+                    />
+                </div>
+                <div class="flex justify-end">
+                    <AppButton
+                        label="Save Changes"
+                        size="small"
+                        @click="saveDetails"
+                    />
+                </div>
+            </div>
 
             <div
                 v-if="setGroups.length === 0"
@@ -274,5 +321,5 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
             :entries="historyEntries"
             :exercise-name="historyExerciseName"
         />
-    </div>
+    </AppDialog>
 </template>

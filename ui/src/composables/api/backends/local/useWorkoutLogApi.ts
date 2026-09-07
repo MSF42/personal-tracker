@@ -10,18 +10,32 @@ import type {
 } from '@/types/WorkoutLog';
 
 import { useDb } from './useDb';
-import { nowIso } from './utils';
+import { intToBool, nowIso } from './utils';
+
+// sql.js returns `completed` as a raw 0/1 integer (SQLite has no boolean
+// type); the response types declare it as `boolean`, so every row carrying
+// it needs converting, same as tasks.completed/habits.archived elsewhere in
+// this backend.
+function withCompletedBool<T extends { completed: unknown }>(row: T): T {
+    return { ...row, completed: intToBool(row.completed as number) };
+}
 
 export function useWorkoutLogApi() {
     const { query, queryOne, run, execute } = useDb();
 
-    const getWorkoutLogs = async () =>
-        query<WorkoutLog>(
+    const getWorkoutLogs = async (): Promise<ApiResponse<WorkoutLog[]>> => {
+        const result = await query<WorkoutLog>(
             `SELECT wl.*, wr.name as routine_name
              FROM workout_logs wl
              JOIN workout_routines wr ON wl.routine_id = wr.id
              ORDER BY wl.date DESC`,
         );
+        if (!result.success || !result.data) return result;
+        return {
+            ...result,
+            data: result.data.map(withCompletedBool),
+        };
+    };
 
     const getWorkoutLog = async (
         id: number,
@@ -46,7 +60,7 @@ export function useWorkoutLogApi() {
 
         return {
             data: {
-                ...logResult.data,
+                ...withCompletedBool(logResult.data),
                 sets: setsResult.data ?? [],
             },
             error: null,
@@ -61,19 +75,21 @@ export function useWorkoutLogApi() {
     ): Promise<ApiResponse<WorkoutLog>> => {
         const now = nowIso();
         const result = await run(
-            'INSERT INTO workout_logs (routine_id, date, notes, created_at) VALUES (?, ?, ?, ?)',
+            'INSERT INTO workout_logs (routine_id, date, notes, created_at, completed) VALUES (?, ?, ?, ?, 0)',
             [routineId, date, notes ?? null, now],
         );
         if (!result.success)
             return { data: null, error: result.error, success: false };
 
-        return queryOne<WorkoutLog>(
+        const created = await queryOne<WorkoutLog>(
             `SELECT wl.*, wr.name as routine_name
              FROM workout_logs wl
              JOIN workout_routines wr ON wl.routine_id = wr.id
              WHERE wl.id = ?`,
             [result.data!.id],
         );
+        if (!created.success || !created.data) return created;
+        return { ...created, data: withCompletedBool(created.data) };
     };
 
     const logSet = async (
@@ -148,7 +164,10 @@ export function useWorkoutLogApi() {
         );
     };
 
-    const updateWorkoutLog = async (id: number, data: WorkoutLogUpdate) => {
+    const updateWorkoutLog = async (
+        id: number,
+        data: WorkoutLogUpdate,
+    ): Promise<ApiResponse<WorkoutLog>> => {
         const fields: string[] = [];
         const values: unknown[] = [];
 
@@ -160,6 +179,10 @@ export function useWorkoutLogApi() {
             fields.push('notes = ?');
             values.push(data.notes);
         }
+        if (data.completed !== undefined && data.completed !== null) {
+            fields.push('completed = ?');
+            values.push(data.completed ? 1 : 0);
+        }
 
         if (fields.length > 0) {
             values.push(id);
@@ -170,13 +193,15 @@ export function useWorkoutLogApi() {
             if (!result.success) return { ...result, data: null };
         }
 
-        return queryOne<WorkoutLog>(
+        const updated = await queryOne<WorkoutLog>(
             `SELECT wl.*, wr.name as routine_name
              FROM workout_logs wl
              JOIN workout_routines wr ON wl.routine_id = wr.id
              WHERE wl.id = ?`,
             [id],
         );
+        if (!updated.success || !updated.data) return updated;
+        return { ...updated, data: withCompletedBool(updated.data) };
     };
 
     const deleteWorkoutLog = async (id: number) =>
@@ -208,9 +233,11 @@ export function useWorkoutLogApi() {
         return { data: record, error: null, success: true };
     };
 
-    const getLogsByRoutine = async (routineId: number) =>
-        query<RoutineLogSummary>(
-            `SELECT wl.id, wl.date, wl.notes, wl.created_at,
+    const getLogsByRoutine = async (
+        routineId: number,
+    ): Promise<ApiResponse<RoutineLogSummary[]>> => {
+        const result = await query<RoutineLogSummary>(
+            `SELECT wl.id, wl.date, wl.notes, wl.created_at, wl.completed,
                     COUNT(sl.id) as total_sets,
                     COALESCE(SUM(sl.reps * COALESCE(sl.weight, 0)), 0) as total_volume
              FROM workout_logs wl
@@ -220,6 +247,9 @@ export function useWorkoutLogApi() {
              ORDER BY wl.date DESC`,
             [routineId],
         );
+        if (!result.success || !result.data) return result;
+        return { ...result, data: result.data.map(withCompletedBool) };
+    };
 
     return {
         getWorkoutLogs,

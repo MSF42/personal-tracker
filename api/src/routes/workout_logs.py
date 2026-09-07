@@ -112,7 +112,9 @@ async def update_workout_log(
     data: UpdateWorkoutLogRequest,
     repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
 ) -> dict[str, Any]:
-    log = await repo.update(workout_log_id, date=data.date, notes=data.notes)
+    log = await repo.update(
+        workout_log_id, date=data.date, notes=data.notes, completed=data.completed
+    )
     if log is None:
         raise NotFoundError("Workout log not found")
     return log

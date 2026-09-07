@@ -96,13 +96,6 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/workout-logs/[id]': RouteRecordInfo<
-      '/workout-logs/[id]',
-      '/workout-logs/:id',
-      { id: ParamValue<true> },
-      { id: ParamValue<false> },
-      | never
-    >,
     '/workout-routines/': RouteRecordInfo<
       '/workout-routines/',
       '/workout-routines',
@@ -187,12 +180,6 @@ declare module 'vue-router/auto-routes' {
     'src/pages/workout-logs/index.vue': {
       routes:
         | '/workout-logs/'
-      views:
-        | never
-    }
-    'src/pages/workout-logs/[id].vue': {
-      routes:
-        | '/workout-logs/[id]'
       views:
         | never
     }

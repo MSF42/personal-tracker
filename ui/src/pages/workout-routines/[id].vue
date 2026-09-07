@@ -7,6 +7,7 @@ import LoadingState from '@/components/LoadingState.vue';
 import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
 import NotFoundState from '@/components/NotFoundState.vue';
 import StatTileGrid from '@/components/StatTileGrid.vue';
+import WorkoutLogDetailDialog from '@/components/WorkoutLogDetailDialog.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
 import { useSmartBack } from '@/composables/useSmartBack';
@@ -127,6 +128,15 @@ async function refreshHistory() {
     const res = await getLogsByRoutine(routine.value.id);
     if (res.success && res.data) logs.value = res.data;
 }
+
+// --- View/Edit workout log dialog -----------------------------------------------
+const showLogDetail = ref(false);
+const viewingLogId = ref<number | null>(null);
+
+function openLogDetail(logId: number) {
+    viewingLogId.value = logId;
+    showLogDetail.value = true;
+}
 </script>
 
 <template>
@@ -237,6 +247,7 @@ async function refreshHistory() {
                                 <th>Notes</th>
                                 <th>Sets</th>
                                 <th>Volume</th>
+                                <th>Status</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -255,12 +266,20 @@ async function refreshHistory() {
                                     }}
                                 </td>
                                 <td>
-                                    <RouterLink
-                                        class="text-primary hover:underline"
-                                        :to="`/workout-logs/${log.id}`"
+                                    <AppTag
+                                        v-if="!log.completed"
+                                        severity="warn"
+                                        value="In Progress"
+                                    />
+                                </td>
+                                <td>
+                                    <button
+                                        class="text-primary cursor-pointer hover:underline"
+                                        type="button"
+                                        @click="openLogDetail(log.id)"
                                     >
                                         View
-                                    </RouterLink>
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
@@ -271,13 +290,19 @@ async function refreshHistory() {
 
         <LogWorkoutDialog
             v-model:visible="showLogDialog"
-            :routine="routine"
+            :routine-id="routine?.id ?? null"
+            :routine-name="routine?.name ?? ''"
             @logged="refreshHistory"
         />
         <ExerciseHistoryDialog
             v-model:visible="showHistory"
             :entries="historyEntries"
             :exercise-name="historyExerciseName"
+        />
+        <WorkoutLogDetailDialog
+            v-model:visible="showLogDetail"
+            :log-id="viewingLogId"
+            @updated="refreshHistory"
         />
     </div>
 </template>

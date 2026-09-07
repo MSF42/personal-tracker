@@ -17,6 +17,7 @@ class LogSetRequest(BaseModel):
 class UpdateWorkoutLogRequest(BaseModel):
     date: str | None = None
     notes: str | None = None
+    completed: bool | None = None
 
 
 class UpdateSetRequest(BaseModel):
@@ -51,6 +52,7 @@ class WorkoutLogResponse(BaseModel):
     date: str
     notes: str | None = None
     created_at: str | None = None
+    completed: bool
     sets: list[SetLogResponse] = []
 
 
@@ -61,5 +63,6 @@ class RoutineLogSummaryResponse(BaseModel):
     date: str
     notes: str | None = None
     created_at: str | None = None
+    completed: bool
     total_sets: int = 0
     total_volume: float = 0
