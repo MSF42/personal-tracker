@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
@@ -245,6 +246,7 @@ onMounted(() => withLoading(loadData));
         <!-- Data Table -->
         <AppDataTable
             :loading="loading"
+            :row-class="() => 'group'"
             sort-field="date"
             :sort-order="-1"
             striped-rows
@@ -286,8 +288,11 @@ onMounted(() => withLoading(loadData));
             </AppColumn>
             <AppColumn header="Actions" style="width: 10rem">
                 <template #body="{ data }">
-                    <div class="row-actions flex gap-2">
+                    <div
+                        class="flex gap-2 opacity-20 transition-opacity group-hover:opacity-100"
+                    >
                         <AppButton
+                            aria-label="View workout log"
                             icon="pi pi-eye"
                             rounded
                             severity="secondary"
@@ -299,6 +304,7 @@ onMounted(() => withLoading(loadData));
                             "
                         />
                         <AppButton
+                            aria-label="Edit workout log"
                             icon="pi pi-pencil"
                             rounded
                             severity="info"
@@ -306,6 +312,7 @@ onMounted(() => withLoading(loadData));
                             @click="openEditDialog(data as WorkoutLog)"
                         />
                         <AppButton
+                            aria-label="Delete workout log"
                             icon="pi pi-trash"
                             rounded
                             severity="danger"
@@ -353,25 +360,11 @@ onMounted(() => withLoading(loadData));
         </AppDialog>
 
         <!-- Delete Confirmation Dialog -->
-        <AppDialog
+        <ConfirmDeleteDialog
             v-model:visible="showDeleteConfirm"
-            header="Confirm Delete"
-            modal
-            :style="{ width: '24rem', maxWidth: '92vw' }"
+            @confirm="executeDelete"
         >
-            <p>Are you sure you want to delete this workout log?</p>
-            <div class="mt-4 flex justify-end gap-2">
-                <AppButton
-                    label="Cancel"
-                    text
-                    @click="showDeleteConfirm = false"
-                />
-                <AppButton
-                    label="Delete"
-                    severity="danger"
-                    @click="executeDelete"
-                />
-            </div>
-        </AppDialog>
+            Are you sure you want to delete this workout log?
+        </ConfirmDeleteDialog>
     </div>
 </template>

@@ -2,6 +2,8 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import AddEditTaskDialog from '@/components/AddEditTaskDialog.vue';
+import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import { useCountdownApi } from '@/composables/api/useCountdownApi';
 import { useRunningApi } from '@/composables/api/useRunningApi';
@@ -11,7 +13,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type { Countdown } from '@/types/Countdown';
 import type { RunningActivity } from '@/types/Running';
-import type { Task, TaskCreate } from '@/types/Task';
+import type { Task } from '@/types/Task';
 import type { WorkoutLog } from '@/types/WorkoutLog';
 import { formatDate as formatIsoDate } from '@/utils/format';
 import {
@@ -22,7 +24,7 @@ import {
 } from '@/utils/week';
 
 const { getActivities, createActivity } = useRunningApi();
-const { getTasks, createTask } = useTaskApi();
+const { getTasks } = useTaskApi();
 const { getWorkoutLogs } = useWorkoutLogApi();
 const { getCountdowns, createCountdown, deleteCountdown } = useCountdownApi();
 const toast = useToast();
@@ -131,39 +133,19 @@ async function saveRun() {
 
 // --- Add Task dialog ---
 const showAddTask = ref(false);
-const taskForm = reactive({
-    title: '',
-    description: '',
-    category: '',
-    due_date: '',
+
+// Same category autocomplete source as the full Tasks page, so a task added
+// from the dashboard gets the same suggestions.
+const categoryOptions = computed(() => {
+    const cats = new Set(
+        tasks.value.map((t) => t.category).filter(Boolean) as string[],
+    );
+    return [...cats].sort();
 });
-const isTaskFormValid = computed(() => taskForm.title.trim() !== '');
-const taskSaveTooltip = computed(() =>
-    isTaskFormValid.value ? undefined : 'Title is required',
-);
 
-function openAddTask() {
-    taskForm.title = '';
-    taskForm.description = '';
-    taskForm.category = '';
-    taskForm.due_date = '';
-    showAddTask.value = true;
-}
-
-async function saveTask() {
-    const payload: TaskCreate = {
-        title: taskForm.title,
-        description: taskForm.description || null,
-        category: taskForm.category || null,
-        due_date: taskForm.due_date || null,
-    };
-    const res = await createTask(payload);
-    if (res.success) {
-        toast.showSuccess('Task added');
-        showAddTask.value = false;
-        const tasksRes = await getTasks();
-        if (tasksRes.success && tasksRes.data) tasks.value = tasksRes.data;
-    }
+async function refreshTasks() {
+    const tasksRes = await getTasks();
+    if (tasksRes.success && tasksRes.data) tasks.value = tasksRes.data;
 }
 
 // --- Countdowns ---
@@ -441,7 +423,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                                 label="Add Task"
                                 outlined
                                 size="small"
-                                @click="openAddTask"
+                                @click="showAddTask = true"
                             />
                             <AppButton
                                 class="w-full"
@@ -543,6 +525,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                             {{ formatIsoDate(c.date) }}
                         </div>
                         <button
+                            aria-label="Delete countdown"
                             class="text-surface-400 absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
                             title="Delete countdown"
                             @click="confirmDeleteCountdown(c)"
@@ -571,7 +554,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                 <!-- 5-Day View -->
                 <div
                     v-if="calendarView === '5-day'"
-                    class="grid grid-cols-5 gap-3"
+                    class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
                 >
                     <div
                         v-for="day in next5Days"
@@ -697,61 +680,12 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
         </template>
 
         <!-- Add Task Dialog -->
-        <AppDialog
+        <AddEditTaskDialog
             v-model:visible="showAddTask"
-            header="Add Task"
-            modal
-            :style="{ width: '28rem', maxWidth: '92vw' }"
-        >
-            <div class="flex flex-col gap-4">
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Title <span class="text-red-500">*</span>
-                    </label>
-                    <AppInputText v-model="taskForm.title" class="w-full" />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Description
-                    </label>
-                    <AppTextarea
-                        v-model="taskForm.description"
-                        class="w-full"
-                        rows="2"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Category
-                    </label>
-                    <AppInputText v-model="taskForm.category" class="w-full" />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Due Date
-                    </label>
-                    <AppInputText
-                        v-model="taskForm.due_date"
-                        class="w-full"
-                        type="date"
-                    />
-                </div>
-                <div class="flex justify-end gap-2">
-                    <AppButton
-                        label="Cancel"
-                        text
-                        @click="showAddTask = false"
-                    />
-                    <span v-tooltip.top="taskSaveTooltip">
-                        <AppButton
-                            :disabled="!isTaskFormValid"
-                            label="Save"
-                            @click="saveTask"
-                        />
-                    </span>
-                </div>
-            </div>
-        </AppDialog>
+            :category-options="categoryOptions"
+            :task="null"
+            @saved="refreshTasks"
+        />
 
         <!-- Add Run Dialog -->
         <AppDialog
@@ -836,25 +770,11 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
         </AppDialog>
 
         <!-- Delete Countdown Confirmation -->
-        <AppDialog
+        <ConfirmDeleteDialog
             v-model:visible="showDeleteCountdown"
-            header="Confirm Delete"
-            modal
-            :style="{ width: '24rem', maxWidth: '92vw' }"
+            @confirm="executeDeleteCountdown"
         >
-            <p>Are you sure you want to delete this countdown?</p>
-            <div class="mt-4 flex justify-end gap-2">
-                <AppButton
-                    label="Cancel"
-                    text
-                    @click="showDeleteCountdown = false"
-                />
-                <AppButton
-                    label="Delete"
-                    severity="danger"
-                    @click="executeDeleteCountdown"
-                />
-            </div>
-        </AppDialog>
+            Are you sure you want to delete this countdown?
+        </ConfirmDeleteDialog>
     </div>
 </template>

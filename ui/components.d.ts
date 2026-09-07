@@ -11,14 +11,20 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AddEditRunDialog: typeof import('./src/components/AddEditRunDialog.vue')['default']
+    AddEditTaskDialog: typeof import('./src/components/AddEditTaskDialog.vue')['default']
     CommandPalette: typeof import('./src/components/CommandPalette.vue')['default']
+    ConfirmDeleteDialog: typeof import('./src/components/ConfirmDeleteDialog.vue')['default']
     ExerciseHistoryDialog: typeof import('./src/components/ExerciseHistoryDialog.vue')['default']
     LoadingState: typeof import('./src/components/LoadingState.vue')['default']
     LogWorkoutDialog: typeof import('./src/components/LogWorkoutDialog.vue')['default']
+    NotFoundState: typeof import('./src/components/NotFoundState.vue')['default']
+    NumberRangeFilter: typeof import('./src/components/NumberRangeFilter.vue')['default']
     RouteMap: typeof import('./src/components/RouteMap.vue')['default']
     RouteOutline: typeof import('./src/components/RouteOutline.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    StatTileGrid: typeof import('./src/components/StatTileGrid.vue')['default']
   }
   export interface GlobalDirectives {
     Tooltip: typeof import('primevue/tooltip')['default']

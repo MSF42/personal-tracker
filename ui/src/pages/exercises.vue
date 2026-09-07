@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 
+import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
 import { useExerciseApi } from '@/composables/api/useExerciseApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
@@ -369,6 +370,7 @@ const dialogHeader = computed(() =>
         <!-- Data Table -->
         <AppDataTable
             :loading="loading"
+            :row-class="() => 'group'"
             sort-field="name"
             :sort-order="1"
             striped-rows
@@ -445,8 +447,11 @@ const dialogHeader = computed(() =>
             </AppColumn>
             <AppColumn header="Actions" style="width: 8rem">
                 <template #body="{ data }">
-                    <div class="row-actions flex gap-2">
+                    <div
+                        class="flex gap-2 opacity-20 transition-opacity group-hover:opacity-100"
+                    >
                         <AppButton
+                            aria-label="Edit exercise"
                             icon="pi pi-pencil"
                             rounded
                             severity="info"
@@ -454,6 +459,7 @@ const dialogHeader = computed(() =>
                             @click="openEditDialog(data as Exercise)"
                         />
                         <AppButton
+                            aria-label="Delete exercise"
                             icon="pi pi-trash"
                             rounded
                             severity="danger"
@@ -550,25 +556,11 @@ const dialogHeader = computed(() =>
         />
 
         <!-- Delete Confirmation Dialog -->
-        <AppDialog
+        <ConfirmDeleteDialog
             v-model:visible="showDeleteConfirm"
-            header="Confirm Delete"
-            modal
-            :style="{ width: '24rem', maxWidth: '92vw' }"
+            @confirm="executeDelete"
         >
-            <p>Are you sure you want to delete this exercise?</p>
-            <div class="mt-4 flex justify-end gap-2">
-                <AppButton
-                    label="Cancel"
-                    text
-                    @click="showDeleteConfirm = false"
-                />
-                <AppButton
-                    label="Delete"
-                    severity="danger"
-                    @click="executeDelete"
-                />
-            </div>
-        </AppDialog>
+            Are you sure you want to delete this exercise?
+        </ConfirmDeleteDialog>
     </div>
 </template>

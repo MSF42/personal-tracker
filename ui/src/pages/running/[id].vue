@@ -3,7 +3,9 @@ import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import LoadingState from '@/components/LoadingState.vue';
+import NotFoundState from '@/components/NotFoundState.vue';
 import RouteMap from '@/components/RouteMap.vue';
+import StatTileGrid from '@/components/StatTileGrid.vue';
 import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useSmartBack } from '@/composables/useSmartBack';
 import { useUnits } from '@/composables/useUnits';
@@ -14,6 +16,10 @@ import type {
     RunSample,
 } from '@/types/Running';
 import { registerCharts } from '@/utils/chart';
+import {
+    detailTableClass,
+    detailTableHoverRowClass,
+} from '@/utils/detailTable';
 import { formatDate, formatDuration } from '@/utils/format';
 import { routePoints as toRoutePoints, type TimeRange } from '@/utils/route';
 
@@ -333,18 +339,12 @@ const elevationUnit = computed(() =>
 
         <LoadingState v-if="loading" />
 
-        <div v-else-if="notFound" class="flex flex-col gap-3">
-            <h1 class="text-2xl font-bold">Run not found</h1>
-            <p class="text-surface-500 text-sm">
-                This run may have been deleted.
-                <RouterLink
-                    class="text-primary-600 dark:text-primary-400"
-                    to="/running"
-                >
-                    Back to Running
-                </RouterLink>
-            </p>
-        </div>
+        <NotFoundState
+            v-else-if="notFound"
+            back-label="Back to Running"
+            back-to="/running"
+            entity="run"
+        />
 
         <div v-else-if="run" class="flex flex-col gap-6">
             <h1 class="text-2xl font-bold">{{ header }}</h1>
@@ -357,24 +357,7 @@ const elevationUnit = computed(() =>
                 <div
                     class="flex min-w-0 flex-col gap-6 lg:sticky lg:top-[4.5rem] lg:self-start"
                 >
-                    <div class="grid grid-cols-3 gap-3">
-                        <div
-                            v-for="tile in heroTiles"
-                            :key="tile.label"
-                            class="border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/60 rounded-lg border p-4"
-                        >
-                            <div
-                                class="text-surface-500 text-xs font-medium tracking-wide uppercase"
-                            >
-                                {{ tile.label }}
-                            </div>
-                            <div
-                                class="text-primary-600 dark:text-primary-400 mt-1 text-3xl font-bold tabular-nums"
-                            >
-                                {{ tile.value }}
-                            </div>
-                        </div>
-                    </div>
+                    <StatTileGrid :tiles="heroTiles" value-size="xl" />
                     <div
                         v-if="detailTiles.length > 0"
                         class="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3"
@@ -464,7 +447,12 @@ const elevationUnit = computed(() =>
                             Hover a row to see it on the map and charts.
                         </p>
                         <div class="overflow-x-auto">
-                            <table class="detail-table">
+                            <table
+                                :class="[
+                                    detailTableClass,
+                                    detailTableHoverRowClass,
+                                ]"
+                            >
                                 <thead>
                                     <tr>
                                         <th>#</th>
@@ -515,7 +503,12 @@ const elevationUnit = computed(() =>
                     <div v-if="segments.length > 0">
                         <h3 class="mb-2 text-sm font-medium">Best efforts</h3>
                         <div class="overflow-x-auto">
-                            <table class="detail-table">
+                            <table
+                                :class="[
+                                    detailTableClass,
+                                    detailTableHoverRowClass,
+                                ]"
+                            >
                                 <thead>
                                     <tr>
                                         <th>Segment</th>
@@ -575,35 +568,3 @@ const elevationUnit = computed(() =>
         </div>
     </div>
 </template>
-
-<style scoped>
-.detail-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-}
-.detail-table th {
-    text-align: left;
-    font-weight: 600;
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--p-surface-200);
-}
-.detail-table td {
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--p-surface-100);
-    white-space: nowrap;
-}
-.detail-table tbody tr {
-    cursor: default;
-    transition: background-color 0.1s ease;
-}
-.detail-table tbody tr:hover {
-    background-color: rgba(245, 158, 11, 0.12);
-}
-.dark .detail-table th {
-    border-bottom-color: var(--p-surface-700);
-}
-.dark .detail-table td {
-    border-bottom-color: var(--p-surface-800);
-}
-</style>

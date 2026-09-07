@@ -125,7 +125,20 @@ def _uuid(value: Any) -> str | None:
     return text
 
 
-def parse_fit(data: bytes) -> FitParseResult:
+def _collect_frames(
+    data: bytes,
+) -> tuple[
+    fitdecode.FitDataMessage,
+    fitdecode.FitDataMessage | None,
+    fitdecode.FitDataMessage | None,
+    list[fitdecode.FitDataMessage],
+    list[fitdecode.FitDataMessage],
+]:
+    """Walk the file once, bucketing frames by message type.
+
+    Returns (session, sport, activity, laps, records); raises ValueError for a
+    structurally invalid or too-short file.
+    """
     session: fitdecode.FitDataMessage | None = None
     sport_frame: fitdecode.FitDataMessage | None = None
     activity: fitdecode.FitDataMessage | None = None
@@ -155,6 +168,15 @@ def parse_fit(data: bytes) -> FitParseResult:
     if len(record_frames) < 2:
         raise ValueError("FIT file must contain at least 2 records")
 
+    return session, sport_frame, activity, lap_frames, record_frames
+
+
+def _resolve_start_and_date(
+    session: fitdecode.FitDataMessage,
+    activity: fitdecode.FitDataMessage | None,
+    record_frames: list[fitdecode.FitDataMessage],
+) -> tuple[datetime, str]:
+    """The UTC start instant, and the local (or UTC) calendar date of the activity."""
     start_dt = _value(session, "start_time")
     if not isinstance(start_dt, datetime):
         start_dt = _value(record_frames[0], "timestamp")
@@ -166,9 +188,12 @@ def parse_fit(data: bytes) -> FitParseResult:
     # Local date if the device recorded one, otherwise the UTC date of the start.
     local_dt = _value(activity, "local_timestamp") if activity is not None else None
     date_dt = local_dt if isinstance(local_dt, datetime) else start_dt
-    date = date_dt.strftime("%Y-%m-%d")
+    return start_dt, date_dt.strftime("%Y-%m-%d")
 
-    # --- samples ---------------------------------------------------------
+
+def _build_samples(
+    record_frames: list[fitdecode.FitDataMessage], start_dt: datetime
+) -> list[FitSample]:
     samples: list[FitSample] = []
     for rec in record_frames:
         ts = _value(rec, "timestamp")
@@ -194,8 +219,16 @@ def parse_fit(data: bytes) -> FitParseResult:
         )
     if len(samples) < 2:
         raise ValueError("FIT file must contain at least 2 timestamped records")
+    return samples
 
-    # --- totals ------------------------------------------------------------
+
+def _compute_totals(
+    session: fitdecode.FitDataMessage, samples: list[FitSample]
+) -> tuple[float, int, int]:
+    """(total_distance_m, duration_seconds, elapsed_seconds).
+
+    Falls back to the record stream when the session summary omits a field.
+    """
     total_distance_m = _as_float(_value(session, "total_distance"))
     if total_distance_m is None:
         last_with_distance = [s.distance_km for s in samples if s.distance_km is not None]
@@ -208,8 +241,11 @@ def parse_fit(data: bytes) -> FitParseResult:
     elapsed_seconds = int(round(elapsed if elapsed is not None else timer or 0))
     if duration_seconds <= 0 or total_distance_m <= 0:
         raise ValueError("FIT file has no distance or duration")
+    return total_distance_m, duration_seconds, elapsed_seconds
 
-    # --- best-effort segments from the record stream ---------------------
+
+def _compute_segments(samples: list[FitSample], total_distance_km: float) -> list[SegmentResult]:
+    """Best-effort segments from the record stream (same algorithm as GPX)."""
     cum_dist: list[float] = []
     cum_time: list[float] = []
     for s in samples:
@@ -219,13 +255,12 @@ def parse_fit(data: bytes) -> FitParseResult:
             continue  # keep the series monotonic
         cum_dist.append(s.distance_km)
         cum_time.append(s.t_seconds)
-    segments = (
-        compute_best_segments(cum_dist, cum_time, total_distance_m / 1000)
-        if len(cum_dist) >= 2
-        else []
-    )
+    if len(cum_dist) < 2:
+        return []
+    return compute_best_segments(cum_dist, cum_time, total_distance_km)
 
-    # --- laps -------------------------------------------------------------
+
+def _build_laps(lap_frames: list[fitdecode.FitDataMessage]) -> list[FitLap]:
     laps: list[FitLap] = []
     for i, lap in enumerate(lap_frames):
         lap_distance_m = _as_float(_value(lap, "total_distance")) or 0.0
@@ -257,8 +292,13 @@ def parse_fit(data: bytes) -> FitParseResult:
             )
         )
     laps.sort(key=lambda lap: lap.index)
+    return laps
 
-    # --- title / flags -------------------------------------------------------
+
+def _title_and_flags(
+    session: fitdecode.FitDataMessage, sport_frame: fitdecode.FitDataMessage | None
+) -> tuple[str, bool]:
+    """(title, is_indoor)."""
     indoor_flag = _value(session, "SESSION INDOOR")
     sub_sport = _value(session, "sub_sport") or (
         _value(sport_frame, "sub_sport") if sport_frame is not None else None
@@ -266,6 +306,17 @@ def parse_fit(data: bytes) -> FitParseResult:
     is_indoor = bool(indoor_flag) or str(sub_sport) in {"indoor_running", "treadmill"}
     sport_name = (_value(sport_frame, "name") if sport_frame is not None else None) or "Run"
     title = f"Indoor {sport_name}" if is_indoor else str(sport_name)
+    return title, is_indoor
+
+
+def parse_fit(data: bytes) -> FitParseResult:
+    session, sport_frame, activity, lap_frames, record_frames = _collect_frames(data)
+    start_dt, date = _resolve_start_and_date(session, activity, record_frames)
+    samples = _build_samples(record_frames, start_dt)
+    total_distance_m, duration_seconds, elapsed_seconds = _compute_totals(session, samples)
+    segments = _compute_segments(samples, total_distance_m / 1000)
+    laps = _build_laps(lap_frames)
+    title, is_indoor = _title_and_flags(session, sport_frame)
 
     return FitParseResult(
         date=date,

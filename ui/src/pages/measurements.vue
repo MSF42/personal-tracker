@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 
+import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import { useMeasurementApi } from '@/composables/api/useMeasurementApi';
 import { useLoading } from '@/composables/useLoading';
@@ -305,6 +306,7 @@ const entryDialogHeader = computed(() =>
             />
             <AppButton
                 v-if="selectedMeasurement"
+                aria-label="Edit measurement"
                 icon="pi pi-pencil"
                 rounded
                 severity="secondary"
@@ -314,6 +316,7 @@ const entryDialogHeader = computed(() =>
             />
             <AppButton
                 v-if="selectedMeasurement"
+                aria-label="Delete measurement"
                 icon="pi pi-trash"
                 rounded
                 severity="danger"
@@ -378,6 +381,7 @@ const entryDialogHeader = computed(() =>
                     <template #body="{ data }">
                         <div class="flex gap-2">
                             <AppButton
+                                aria-label="Edit entry"
                                 icon="pi pi-pencil"
                                 rounded
                                 severity="info"
@@ -385,6 +389,7 @@ const entryDialogHeader = computed(() =>
                                 @click="openEditEntry(data as MeasurementEntry)"
                             />
                             <AppButton
+                                aria-label="Delete entry"
                                 icon="pi pi-trash"
                                 rounded
                                 severity="danger"
@@ -563,51 +568,21 @@ const entryDialogHeader = computed(() =>
         </AppDialog>
 
         <!-- Delete Measurement Confirmation -->
-        <AppDialog
+        <ConfirmDeleteDialog
             v-model:visible="showDeleteMeasurement"
-            header="Confirm Delete"
-            modal
-            :style="{ width: '24rem', maxWidth: '92vw' }"
+            @confirm="confirmDeleteMeasurement"
         >
-            <p>
-                Delete
-                <strong>{{ selectedMeasurement?.name }}</strong>
-                and all its entries?
-            </p>
-            <div class="mt-4 flex justify-end gap-2">
-                <AppButton
-                    label="Cancel"
-                    text
-                    @click="showDeleteMeasurement = false"
-                />
-                <AppButton
-                    label="Delete"
-                    severity="danger"
-                    @click="confirmDeleteMeasurement"
-                />
-            </div>
-        </AppDialog>
+            Delete
+            <strong>{{ selectedMeasurement?.name }}</strong>
+            and all its entries?
+        </ConfirmDeleteDialog>
 
         <!-- Delete Entry Confirmation -->
-        <AppDialog
+        <ConfirmDeleteDialog
             v-model:visible="showDeleteEntry"
-            header="Confirm Delete"
-            modal
-            :style="{ width: '24rem', maxWidth: '92vw' }"
+            @confirm="executeDeleteEntry"
         >
-            <p>Are you sure you want to delete this entry?</p>
-            <div class="mt-4 flex justify-end gap-2">
-                <AppButton
-                    label="Cancel"
-                    text
-                    @click="showDeleteEntry = false"
-                />
-                <AppButton
-                    label="Delete"
-                    severity="danger"
-                    @click="executeDeleteEntry"
-                />
-            </div>
-        </AppDialog>
+            Are you sure you want to delete this entry?
+        </ConfirmDeleteDialog>
     </div>
 </template>

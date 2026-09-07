@@ -144,7 +144,3 @@ class RunImportResponse(BaseModel):
     activity: RunningActivityResponse
     segments: list[GpxSegmentResponse]
     laps: list[RunLapResponse] = []
-
-
-# Historical name; the GPX endpoint returns the same shape (with no laps).
-GpxImportResponse = RunImportResponse

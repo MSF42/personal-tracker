@@ -5,6 +5,8 @@ import { useRoute } from 'vue-router';
 import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
+import NotFoundState from '@/components/NotFoundState.vue';
+import StatTileGrid from '@/components/StatTileGrid.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
 import { useSmartBack } from '@/composables/useSmartBack';
@@ -14,6 +16,7 @@ import type {
     RoutineLogSummary,
 } from '@/types/WorkoutLog';
 import type { RoutineExercise, WorkoutRoutine } from '@/types/WorkoutRoutine';
+import { detailTableClass } from '@/utils/detailTable';
 import { formatDate } from '@/utils/format';
 
 const route = useRoute<'/workout-routines/[id]'>();
@@ -139,18 +142,12 @@ async function refreshHistory() {
 
         <LoadingState v-if="loading" />
 
-        <div v-else-if="notFound" class="flex flex-col gap-3">
-            <h1 class="text-2xl font-bold">Routine not found</h1>
-            <p class="text-surface-500 text-sm">
-                This routine may have been deleted.
-                <RouterLink
-                    class="text-primary-600 dark:text-primary-400"
-                    to="/workout-routines"
-                >
-                    Back to Workout Routines
-                </RouterLink>
-            </p>
-        </div>
+        <NotFoundState
+            v-else-if="notFound"
+            back-label="Back to Workout Routines"
+            back-to="/workout-routines"
+            entity="routine"
+        />
 
         <div v-else-if="routine" class="flex flex-col gap-6">
             <div class="flex items-start justify-between gap-4">
@@ -170,24 +167,7 @@ async function refreshHistory() {
                 />
             </div>
 
-            <div class="grid grid-cols-3 gap-3">
-                <div
-                    v-for="tile in heroTiles"
-                    :key="tile.label"
-                    class="border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/60 rounded-lg border p-4"
-                >
-                    <div
-                        class="text-surface-500 text-xs font-medium tracking-wide uppercase"
-                    >
-                        {{ tile.label }}
-                    </div>
-                    <div
-                        class="text-primary-600 dark:text-primary-400 mt-1 text-2xl font-bold tabular-nums"
-                    >
-                        {{ tile.value }}
-                    </div>
-                </div>
-            </div>
+            <StatTileGrid :tiles="heroTiles" />
 
             <div>
                 <h3 class="mb-2 text-sm font-medium">Exercises</h3>
@@ -198,7 +178,7 @@ async function refreshHistory() {
                     No exercises in this routine yet.
                 </div>
                 <div v-else class="overflow-x-auto">
-                    <table class="detail-table">
+                    <table :class="detailTableClass">
                         <thead>
                             <tr>
                                 <th>Exercise</th>
@@ -250,7 +230,7 @@ async function refreshHistory() {
                     No sessions logged for this routine yet.
                 </div>
                 <div v-else class="overflow-x-auto">
-                    <table class="detail-table">
+                    <table :class="detailTableClass">
                         <thead>
                             <tr>
                                 <th>Date</th>
@@ -301,28 +281,3 @@ async function refreshHistory() {
         />
     </div>
 </template>
-
-<style scoped>
-.detail-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-}
-.detail-table th {
-    text-align: left;
-    font-weight: 600;
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--p-surface-200);
-}
-.detail-table td {
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--p-surface-100);
-    white-space: nowrap;
-}
-.dark .detail-table th {
-    border-bottom-color: var(--p-surface-700);
-}
-.dark .detail-table td {
-    border-bottom-color: var(--p-surface-800);
-}
-</style>

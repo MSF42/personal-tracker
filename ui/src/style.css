@@ -34,16 +34,6 @@ body {
     flex-direction: column;
 }
 
-/* Row-action buttons: subdued until the table row is hovered */
-.row-actions {
-    opacity: 0.2;
-    transition: opacity 0.15s ease;
-}
-
-tr:hover .row-actions {
-    opacity: 1;
-}
-
 /* Darken light-mode surface text so labels/secondary text aren't washed out */
 html:not(.dark) {
     --p-surface-400: #6b6b74;

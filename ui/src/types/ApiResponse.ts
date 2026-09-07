@@ -37,7 +37,6 @@ export const HttpMethod = {
     DELETE: 'DELETE',
 } as const;
 
-export type HttpStatusCode = (typeof HttpStatus)[keyof typeof HttpStatus];
 export type HttpMethodType = (typeof HttpMethod)[keyof typeof HttpMethod];
 
 export function isSuccessStatus(status: number): boolean {

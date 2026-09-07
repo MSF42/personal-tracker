@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 
+import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import { useHabitApi } from '@/composables/api/useHabitApi';
 import { useLoading } from '@/composables/useLoading';
@@ -93,6 +94,20 @@ const frequencyOptions = [
     { label: 'Daily', value: 'daily' },
     { label: 'Weekdays', value: 'weekdays' },
     { label: 'Weekly', value: 'weekly' },
+];
+
+// Preset swatches instead of a raw native color input, to match the rest of
+// the app's themed controls.
+const PRESET_COLORS = [
+    { hex: '#ef4444', name: 'Red' },
+    { hex: '#f97316', name: 'Orange' },
+    { hex: '#f59e0b', name: 'Amber' },
+    { hex: '#22c55e', name: 'Green' },
+    { hex: '#06b6d4', name: 'Cyan' },
+    { hex: '#3b82f6', name: 'Blue' },
+    { hex: '#8b5cf6', name: 'Violet' },
+    { hex: '#ec4899', name: 'Pink' },
+    { hex: '#64748b', name: 'Slate' },
 ];
 
 const form = reactive({
@@ -303,10 +318,11 @@ const dialogHeader = computed(() =>
             v-else-if="viewMode === 'chain' && activeHabits.length > 0"
             class="border-surface-200 dark:border-surface-700 overflow-hidden rounded-xl border bg-white dark:bg-slate-800"
         >
-            <!-- Column headers: week labels -->
+            <!-- Column headers: week labels. Small screens show only "This
+                 week" (a shorter period) rather than scrolling horizontally
+                 to fit all 4. -->
             <div
-                class="border-surface-200 dark:border-surface-700 grid border-b px-4 py-2"
-                style="grid-template-columns: 14rem 1fr auto"
+                class="border-surface-200 dark:border-surface-700 grid grid-cols-[6rem_minmax(0,1fr)_auto] gap-2 border-b px-3 py-2 sm:grid-cols-[14rem_minmax(0,1fr)_auto] sm:gap-4 sm:px-4"
             >
                 <span class="text-surface-400 text-xs font-medium">Habit</span>
                 <div class="flex gap-6 pl-1">
@@ -314,11 +330,12 @@ const dialogHeader = computed(() =>
                         v-for="(_, wi) in weeksOf7"
                         :key="wi"
                         class="text-surface-400 flex-1 text-center text-xs"
+                        :class="wi < 3 ? 'hidden sm:block' : 'block'"
                     >
                         {{ WEEK_LABELS[wi] }}
                     </span>
                 </div>
-                <span class="text-surface-400 w-16 text-center text-xs"
+                <span class="text-surface-400 w-10 text-center text-xs sm:w-16"
                     >Streak</span
                 >
             </div>
@@ -327,12 +344,11 @@ const dialogHeader = computed(() =>
             <div
                 v-for="(habit, idx) in activeHabits"
                 :key="habit.id"
-                class="grid items-center gap-4 px-4 py-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/40"
+                class="grid grid-cols-[6rem_minmax(0,1fr)_auto] items-center gap-2 px-3 py-3 transition-colors hover:bg-slate-50 sm:grid-cols-[14rem_minmax(0,1fr)_auto] sm:gap-4 sm:px-4 dark:hover:bg-slate-700/40"
                 :class="{
                     'border-surface-100 dark:border-surface-700 border-t':
                         idx > 0,
                 }"
-                style="grid-template-columns: 14rem 1fr auto"
             >
                 <!-- Name + color + check button -->
                 <div class="flex min-w-0 items-center gap-2">
@@ -347,6 +363,11 @@ const dialogHeader = computed(() =>
                         {{ habit.name }}
                     </span>
                     <button
+                        :aria-label="
+                            habit.completed_today
+                                ? 'Mark incomplete'
+                                : 'Mark complete'
+                        "
                         class="shrink-0 rounded-full p-0.5 transition-opacity"
                         :title="
                             habit.completed_today
@@ -366,17 +387,20 @@ const dialogHeader = computed(() =>
                     </button>
                 </div>
 
-                <!-- 28 dot chain (4 weeks × 7 days) -->
-                <div class="flex gap-1.5">
+                <!-- 28 dot chain (4 weeks × 7 days). Small screens show only
+                     "This week" — a shorter period fits without needing to
+                     scroll the table horizontally. -->
+                <div class="flex gap-1 sm:gap-1.5">
                     <div
                         v-for="(week, wi) in weeksOf7"
                         :key="wi"
                         class="flex flex-1 justify-around"
+                        :class="wi < 3 ? 'hidden sm:flex' : 'flex'"
                     >
                         <div
                             v-for="day in week"
                             :key="day"
-                            class="h-5 w-5 rounded-full transition-all"
+                            class="h-4 w-4 rounded-full transition-all sm:h-5 sm:w-5"
                             :class="[
                                 isDayCompleted(habit.id, day)
                                     ? ''
@@ -400,7 +424,7 @@ const dialogHeader = computed(() =>
                 </div>
 
                 <!-- Streak badge -->
-                <div class="flex w-16 items-center justify-center">
+                <div class="flex w-10 items-center justify-center sm:w-16">
                     <span
                         v-if="habit.current_streak > 0"
                         class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold"
@@ -534,6 +558,7 @@ const dialogHeader = computed(() =>
                     <div class="mt-auto flex items-center justify-between">
                         <div class="flex items-center gap-1">
                             <AppButton
+                                aria-label="Edit habit"
                                 icon="pi pi-pencil"
                                 rounded
                                 severity="info"
@@ -542,6 +567,7 @@ const dialogHeader = computed(() =>
                                 @click="openEditDialog(habit)"
                             />
                             <AppButton
+                                aria-label="Archive habit"
                                 icon="pi pi-inbox"
                                 rounded
                                 severity="secondary"
@@ -551,6 +577,7 @@ const dialogHeader = computed(() =>
                                 @click="archiveHabit(habit)"
                             />
                             <AppButton
+                                aria-label="Delete habit"
                                 icon="pi pi-trash"
                                 rounded
                                 severity="danger"
@@ -560,6 +587,11 @@ const dialogHeader = computed(() =>
                             />
                         </div>
                         <AppButton
+                            :aria-label="
+                                habit.completed_today
+                                    ? 'Mark incomplete'
+                                    : 'Mark complete'
+                            "
                             :icon="
                                 habit.completed_today
                                     ? 'pi pi-check-circle'
@@ -631,6 +663,7 @@ const dialogHeader = computed(() =>
                             </div>
                             <div class="flex items-center gap-1">
                                 <AppButton
+                                    aria-label="Restore habit"
                                     icon="pi pi-replay"
                                     rounded
                                     severity="success"
@@ -640,6 +673,7 @@ const dialogHeader = computed(() =>
                                     @click="restoreHabit(habit)"
                                 />
                                 <AppButton
+                                    aria-label="Delete habit"
                                     icon="pi pi-trash"
                                     rounded
                                     severity="danger"
@@ -712,15 +746,28 @@ const dialogHeader = computed(() =>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">Color</label>
-                    <div class="flex items-center gap-3">
-                        <input
-                            v-model="form.color"
-                            class="h-9 w-14 cursor-pointer rounded border-0 p-0.5"
-                            type="color"
-                        />
-                        <span class="text-surface-500 text-sm">{{
-                            form.color
-                        }}</span>
+                    <div class="flex flex-wrap gap-2">
+                        <button
+                            v-for="preset in PRESET_COLORS"
+                            :key="preset.hex"
+                            :aria-label="preset.name"
+                            :aria-pressed="form.color === preset.hex"
+                            class="h-8 w-8 shrink-0 cursor-pointer rounded-full ring-offset-2 ring-offset-white transition-shadow outline-none dark:ring-offset-slate-800"
+                            :class="
+                                form.color === preset.hex
+                                    ? 'ring-surface-900 dark:ring-surface-100 ring-2'
+                                    : ''
+                            "
+                            :style="{ backgroundColor: preset.hex }"
+                            :title="preset.name"
+                            type="button"
+                            @click="form.color = preset.hex"
+                        >
+                            <i
+                                v-if="form.color === preset.hex"
+                                class="pi pi-check text-xs text-white mix-blend-difference"
+                            ></i>
+                        </button>
                     </div>
                 </div>
                 <div class="flex justify-end gap-2">
@@ -741,25 +788,11 @@ const dialogHeader = computed(() =>
         </AppDialog>
 
         <!-- Delete Confirmation -->
-        <AppDialog
+        <ConfirmDeleteDialog
             v-model:visible="showDeleteConfirm"
-            header="Confirm Delete"
-            modal
-            :style="{ width: '24rem', maxWidth: '92vw' }"
+            @confirm="executeDelete"
         >
-            <p>Are you sure you want to delete this habit?</p>
-            <div class="mt-4 flex justify-end gap-2">
-                <AppButton
-                    label="Cancel"
-                    text
-                    @click="showDeleteConfirm = false"
-                />
-                <AppButton
-                    label="Delete"
-                    severity="danger"
-                    @click="executeDelete"
-                />
-            </div>
-        </AppDialog>
+            Are you sure you want to delete this habit?
+        </ConfirmDeleteDialog>
     </div>
 </template>

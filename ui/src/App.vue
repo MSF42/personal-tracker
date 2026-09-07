@@ -156,6 +156,7 @@ function goToSettings() {
                 </RouterLink>
             </div>
             <button
+                aria-label="Open command palette"
                 class="text-surface-400 hover:text-primary-500 mx-1 hidden cursor-pointer text-[10px] tracking-widest uppercase md:inline"
                 title="Command palette (⌘K)"
                 @click="ui.openPalette()"
@@ -163,6 +164,7 @@ function goToSettings() {
                 ⌘K
             </button>
             <button
+                aria-label="Open settings menu"
                 class="text-surface-600 hover:text-surface-900 dark:text-surface-400 dark:hover:text-surface-100 ml-auto flex shrink-0 cursor-pointer items-center gap-2 transition-colors"
                 @click="toggleMenu"
             >

@@ -189,13 +189,3 @@ function onKeydown(e: KeyboardEvent) {
         </div>
     </Transition>
 </template>
-
-<style>
-/* Highlights the matched terms inside the FTS5 snippet returned by /search. */
-mark {
-    background: rgba(245, 165, 36, 0.25);
-    color: inherit;
-    padding: 0 2px;
-    border-radius: 2px;
-}
-</style>

@@ -21,17 +21,11 @@ today = date.today().isoformat()
 now_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 
-async def seed_sample_data(db: Connection) -> None:
-    # Disable FK checks for the duration of the seed — we insert in correct
-    # parent-before-child order, so there are no real violations.  The check
-    # must be disabled before any DML begins (it cannot be changed mid-tx).
-    await db.execute("PRAGMA foreign_keys = OFF")
-
+async def _seed_settings(db: Connection) -> None:
     settings = get_settings()
     uploads_path = Path(settings.uploads_path)
     uploads_path.mkdir(parents=True, exist_ok=True)
 
-    # ── Profile picture ───────────────────────────────────────────────────────
     steve_pic = Path.home() / "Pictures" / "steve.png"
     profile_pic_url = None
     if steve_pic.exists():
@@ -39,7 +33,6 @@ async def seed_sample_data(db: Connection) -> None:
         shutil.copy2(steve_pic, uploads_path / filename)
         profile_pic_url = f"/uploads/{filename}"
 
-    # ── Settings ──────────────────────────────────────────────────────────────
     await db.execute(
         "INSERT INTO user_settings (key, value) VALUES ('user_name', 'Steve') "
         "ON CONFLICT(key) DO UPDATE SET value = 'Steve'"
@@ -51,7 +44,8 @@ async def seed_sample_data(db: Connection) -> None:
             (profile_pic_url, profile_pic_url),
         )
 
-    # ── Tasks ─────────────────────────────────────────────────────────────────
+
+async def _seed_tasks(db: Connection) -> None:
     tasks = [
         ("Buy groceries", None, "Errands", _days_from_now(1), 0, None, None, None, "low"),
         (
@@ -113,7 +107,8 @@ async def seed_sample_data(db: Connection) -> None:
             (*t, now_iso, now_iso),
         )
 
-    # ── Habits ────────────────────────────────────────────────────────────────
+
+async def _seed_habits(db: Connection) -> None:
     habits_data = [
         ("Morning Run", "Start the day strong", "daily", None, "#ef4444"),
         ("Meditate", "10 minutes of mindfulness", "daily", None, "#8b5cf6"),
@@ -151,7 +146,9 @@ async def seed_sample_data(db: Connection) -> None:
                 (habit_id, d, now_iso),
             )
 
-    # ── Exercises ─────────────────────────────────────────────────────────────
+
+async def _seed_exercises(db: Connection) -> dict[str, int]:
+    """Insert the sample exercise library and return a name -> id map."""
     exercises_data = [
         ("Bench Press", "Horizontal push", "chest", "Barbell", None),
         ("Squat", "King of leg exercises", "legs", "Barbell", None),
@@ -180,10 +177,15 @@ async def seed_sample_data(db: Connection) -> None:
             if row:
                 exercise_ids.append(row[0])
 
-    # Map by name for easy reference
-    ex = {name: eid for name, eid in zip([e[0] for e in exercises_data], exercise_ids, strict=True)}
+    return dict(zip([e[0] for e in exercises_data], exercise_ids, strict=True))
 
-    # ── Workout Routines ──────────────────────────────────────────────────────
+
+async def _seed_workout_routines(db: Connection, ex: dict[str, int]) -> tuple[int, int, int]:
+    """Insert the sample routines + their prescribed exercises.
+
+    Returns the (push, pull, leg) routine ids so the caller can seed logs
+    against them.
+    """
     routines_data = [
         ("Push Day", "Chest, shoulders, triceps"),
         ("Pull Day", "Back and biceps"),
@@ -199,7 +201,6 @@ async def seed_sample_data(db: Connection) -> None:
 
     push_id, pull_id, leg_id = routine_ids
 
-    # Routine exercises
     routine_exercises = [
         (push_id, ex["Bench Press"], 4, 8, 0),
         (push_id, ex["Overhead Press"], 3, 10, 1),
@@ -218,7 +219,48 @@ async def seed_sample_data(db: Connection) -> None:
             re,
         )
 
-    # ── Workout Logs ──────────────────────────────────────────────────────────
+    return push_id, pull_id, leg_id
+
+
+def _sets_for_routine(
+    ex: dict[str, int], routine_id: int, push_id: int, pull_id: int
+) -> list[tuple[int, int, int, float | None]]:
+    """Per-exercise (exercise_id, set_number, reps, weight) tuples for one sample log."""
+    if routine_id == push_id:
+        return [
+            (ex["Bench Press"], 1, 8, 85.0),
+            (ex["Bench Press"], 2, 8, 87.5),
+            (ex["Bench Press"], 3, 6, 90.0),
+            (ex["Overhead Press"], 1, 10, 55.0),
+            (ex["Overhead Press"], 2, 10, 57.5),
+            (ex["Tricep Dip"], 1, 12, None),
+            (ex["Tricep Dip"], 2, 10, None),
+        ]
+    if routine_id == pull_id:
+        return [
+            (ex["Deadlift"], 1, 5, 120.0),
+            (ex["Deadlift"], 2, 5, 125.0),
+            (ex["Deadlift"], 3, 4, 130.0),
+            (ex["Pull-Up"], 1, 8, None),
+            (ex["Pull-Up"], 2, 7, None),
+            (ex["Row"], 1, 10, 70.0),
+            (ex["Row"], 2, 10, 72.5),
+            (ex["Bicep Curl"], 1, 12, 15.0),
+            (ex["Bicep Curl"], 2, 12, 15.0),
+        ]
+    return [  # leg day
+        (ex["Squat"], 1, 8, 100.0),
+        (ex["Squat"], 2, 8, 102.5),
+        (ex["Squat"], 3, 6, 105.0),
+        (ex["Romanian Deadlift"], 1, 10, 80.0),
+        (ex["Romanian Deadlift"], 2, 10, 82.5),
+        (ex["Lateral Raise"], 1, 15, 10.0),
+    ]
+
+
+async def _seed_workout_logs(
+    db: Connection, ex: dict[str, int], push_id: int, pull_id: int, leg_id: int
+) -> None:
     logs_data = [
         (push_id, _days_ago(14), "Felt strong today"),
         (pull_id, _days_ago(12), None),
@@ -236,46 +278,16 @@ async def seed_sample_data(db: Connection) -> None:
         log_id = cursor.lastrowid
         routine_id = log[0]
 
-        # Add sets for each log based on its routine
-        if routine_id == push_id:
-            sets = [
-                (ex["Bench Press"], 1, 8, 85.0),
-                (ex["Bench Press"], 2, 8, 87.5),
-                (ex["Bench Press"], 3, 6, 90.0),
-                (ex["Overhead Press"], 1, 10, 55.0),
-                (ex["Overhead Press"], 2, 10, 57.5),
-                (ex["Tricep Dip"], 1, 12, None),
-                (ex["Tricep Dip"], 2, 10, None),
-            ]
-        elif routine_id == pull_id:
-            sets = [
-                (ex["Deadlift"], 1, 5, 120.0),
-                (ex["Deadlift"], 2, 5, 125.0),
-                (ex["Deadlift"], 3, 4, 130.0),
-                (ex["Pull-Up"], 1, 8, None),
-                (ex["Pull-Up"], 2, 7, None),
-                (ex["Row"], 1, 10, 70.0),
-                (ex["Row"], 2, 10, 72.5),
-                (ex["Bicep Curl"], 1, 12, 15.0),
-                (ex["Bicep Curl"], 2, 12, 15.0),
-            ]
-        else:  # leg
-            sets = [
-                (ex["Squat"], 1, 8, 100.0),
-                (ex["Squat"], 2, 8, 102.5),
-                (ex["Squat"], 3, 6, 105.0),
-                (ex["Romanian Deadlift"], 1, 10, 80.0),
-                (ex["Romanian Deadlift"], 2, 10, 82.5),
-                (ex["Lateral Raise"], 1, 15, 10.0),
-            ]
-
-        for exercise_id, set_num, reps, weight in sets:
+        for exercise_id, set_num, reps, weight in _sets_for_routine(
+            ex, routine_id, push_id, pull_id
+        ):
             await db.execute(
                 "INSERT INTO set_logs (workout_log_id, exercise_id, set_number, reps, weight) VALUES (?, ?, ?, ?, ?)",
                 (log_id, exercise_id, set_num, reps, weight),
             )
 
-    # ── Running Activities ────────────────────────────────────────────────────
+
+async def _seed_running_activities(db: Connection) -> None:
     runs = [
         (_days_ago(25), 1980, 5.02, "Easy morning jog", "Easy 5k"),
         (_days_ago(22), 2340, 6.15, None, "Morning run"),
@@ -295,9 +307,15 @@ async def seed_sample_data(db: Connection) -> None:
             (*r, now_iso, now_iso),
         )
 
-    # ── Measurements ─────────────────────────────────────────────────────────
-    # Update the default Weight measurement (already inserted by migration 19, unit 'lbs')
-    # Add body fat and update weight unit to kg
+
+async def _seed_measurements(db: Connection) -> None:
+    # The default Weight measurement is normally inserted once by migration 19,
+    # but a reset deletes it and migrations never re-run — so recreate it here
+    # too (unit 'kg') if it's missing, rather than assuming it still exists.
+    await db.execute(
+        "INSERT OR IGNORE INTO measurements (name, unit, sort_order, created_at, updated_at) VALUES ('Weight', 'kg', 0, ?, ?)",
+        (now_iso, now_iso),
+    )
     await db.execute("UPDATE measurements SET unit = 'kg' WHERE name = 'Weight'")
     weight_cursor = await db.execute("SELECT id FROM measurements WHERE name = 'Weight'")
     weight_row = await weight_cursor.fetchone()
@@ -351,6 +369,22 @@ async def seed_sample_data(db: Connection) -> None:
                 "INSERT OR IGNORE INTO measurement_entries (measurement_id, date, value, notes, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, ?)",
                 (bf_id, d, v, now_iso, now_iso),
             )
+
+
+async def seed_sample_data(db: Connection) -> None:
+    # Disable FK checks for the duration of the seed — we insert in correct
+    # parent-before-child order, so there are no real violations.  The check
+    # must be disabled before any DML begins (it cannot be changed mid-tx).
+    await db.execute("PRAGMA foreign_keys = OFF")
+
+    await _seed_settings(db)
+    await _seed_tasks(db)
+    await _seed_habits(db)
+    ex = await _seed_exercises(db)
+    push_id, pull_id, leg_id = await _seed_workout_routines(db, ex)
+    await _seed_workout_logs(db, ex, push_id, pull_id, leg_id)
+    await _seed_running_activities(db)
+    await _seed_measurements(db)
 
     await db.commit()
     await db.execute("PRAGMA foreign_keys = ON")

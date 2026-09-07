@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router';
 
 import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
 import LoadingState from '@/components/LoadingState.vue';
+import NotFoundState from '@/components/NotFoundState.vue';
+import StatTileGrid from '@/components/StatTileGrid.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useSmartBack } from '@/composables/useSmartBack';
 import { useUnits } from '@/composables/useUnits';
@@ -159,40 +161,17 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
 
         <LoadingState v-if="loading" />
 
-        <div v-else-if="notFound" class="flex flex-col gap-3">
-            <h1 class="text-2xl font-bold">Workout log not found</h1>
-            <p class="text-surface-500 text-sm">
-                This log may have been deleted.
-                <RouterLink
-                    class="text-primary-600 dark:text-primary-400"
-                    to="/workout-logs"
-                >
-                    Back to Workout Logs
-                </RouterLink>
-            </p>
-        </div>
+        <NotFoundState
+            v-else-if="notFound"
+            back-label="Back to Workout Logs"
+            back-to="/workout-logs"
+            entity="workout log"
+        />
 
         <div v-else-if="detail" class="flex flex-col gap-6">
             <h1 class="text-2xl font-bold">{{ header }}</h1>
 
-            <div class="grid grid-cols-3 gap-3">
-                <div
-                    v-for="tile in heroTiles"
-                    :key="tile.label"
-                    class="border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/60 rounded-lg border p-4"
-                >
-                    <div
-                        class="text-surface-500 text-xs font-medium tracking-wide uppercase"
-                    >
-                        {{ tile.label }}
-                    </div>
-                    <div
-                        class="text-primary-600 dark:text-primary-400 mt-1 text-2xl font-bold tabular-nums"
-                    >
-                        {{ tile.value }}
-                    </div>
-                </div>
-            </div>
+            <StatTileGrid :tiles="heroTiles" />
 
             <p
                 v-if="detail.notes"

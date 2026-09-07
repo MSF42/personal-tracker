@@ -61,3 +61,26 @@ async def test_restore_rejects_tracker_db_path_traversal(client: AsyncClient) ->
         files={"file": ("backup.zip", bad_zip, "application/zip")},
     )
     assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_seed_populates_every_domain(client: AsyncClient) -> None:
+    """Seeding should leave data behind in every domain it touches."""
+    response = await client.post("/api/v1/settings/seed")
+    assert response.status_code == 200
+
+    for path, min_count in [
+        ("/api/v1/tasks", 5),
+        ("/api/v1/habits", 5),
+        ("/api/v1/exercises", 10),
+        ("/api/v1/workout-routines", 3),
+        ("/api/v1/runs", 5),
+        ("/api/v1/measurements", 2),
+    ]:
+        res = await client.get(path)
+        assert res.status_code == 200, path
+        assert len(res.json()) >= min_count, path
+
+    logs_res = await client.get("/api/v1/workout-logs")
+    assert logs_res.status_code == 200
+    assert len(logs_res.json()) >= 7

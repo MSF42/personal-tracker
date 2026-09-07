@@ -2,6 +2,9 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import AddEditRunDialog from '@/components/AddEditRunDialog.vue';
+import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
+import NumberRangeFilter from '@/components/NumberRangeFilter.vue';
 import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
 import { useLoading } from '@/composables/useLoading';
@@ -10,18 +13,11 @@ import { useUnits } from '@/composables/useUnits';
 import type { RunningActivity } from '@/types/Running';
 import { registerCharts } from '@/utils/chart';
 import { formatDate, formatDuration } from '@/utils/format';
-import { toIsoDate, weekRange } from '@/utils/week';
+import { weekRange } from '@/utils/week';
 
 registerCharts();
 
-const {
-    getActivities,
-    createActivity,
-    updateActivity,
-    deleteActivity,
-    importGpx,
-    importFit,
-} = useRunningApi();
+const { getActivities, deleteActivity, importGpx, importFit } = useRunningApi();
 const { getSetting, setSetting } = useSettingsApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
@@ -130,88 +126,18 @@ const showFilters = ref(false);
 
 // --- Dialog state ---
 const showDialog = ref(false);
-const editingId = ref<number | null>(null);
+const editingRun = ref<RunningActivity | null>(null);
 const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
-const formError = ref('');
-
-const isFormValid = computed(() => form.date.trim() !== '');
-const saveTooltip = computed(() =>
-    isFormValid.value ? undefined : 'Date is required',
-);
-
-const form = reactive({
-    date: toIsoDate(today),
-    title: '',
-    minutes: 0,
-    seconds: 0,
-    distance_km: 0,
-    notes: '',
-});
-
-function resetForm() {
-    form.date = toIsoDate(today);
-    form.title = '';
-    form.minutes = 0;
-    form.seconds = 0;
-    form.distance_km = 0;
-    form.notes = '';
-    editingId.value = null;
-    formError.value = '';
-}
 
 function openAddDialog() {
-    resetForm();
+    editingRun.value = null;
     showDialog.value = true;
 }
 
 function openEditDialog(run: RunningActivity) {
-    editingId.value = run.id;
-    form.date = run.date;
-    form.title = run.title ?? '';
-    form.minutes = Math.floor(run.duration_seconds / 60);
-    form.seconds = run.duration_seconds % 60;
-    form.distance_km = parseFloat(fromKm(run.distance_km).toFixed(2));
-    form.notes = run.notes ?? '';
-    formError.value = '';
+    editingRun.value = run;
     showDialog.value = true;
-}
-
-async function saveRun() {
-    formError.value = '';
-    const durationSeconds = form.minutes * 60 + form.seconds;
-    const distance_km = toKm(form.distance_km);
-    if (editingId.value) {
-        const res = await updateActivity(editingId.value, {
-            date: form.date,
-            duration_seconds: durationSeconds,
-            distance_km,
-            notes: form.notes || null,
-            title: form.title || null,
-        });
-        if (res.success) {
-            toast.showSuccess('Run updated');
-            showDialog.value = false;
-            await loadData();
-        } else {
-            formError.value = res.error?.message ?? 'Failed to save run';
-        }
-    } else {
-        const res = await createActivity({
-            date: form.date,
-            duration_seconds: durationSeconds,
-            distance_km,
-            notes: form.notes || null,
-            title: form.title || null,
-        });
-        if (res.success) {
-            toast.showSuccess('Run added');
-            showDialog.value = false;
-            await loadData();
-        } else {
-            formError.value = res.error?.message ?? 'Failed to save run';
-        }
-    }
 }
 
 function confirmDelete(id: number) {
@@ -446,9 +372,6 @@ const chartOptions = computed(() => ({
         },
     },
 }));
-
-// --- Formatting helpers ---
-const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
 </script>
 
 <template>
@@ -657,92 +580,33 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                 </div>
 
                 <!-- Distance Range -->
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Min Distance ({{ distanceUnit }})
-                    </label>
-                    <AppInputNumber
-                        v-model="filters.distanceMin"
-                        class="w-full"
-                        :max-fraction-digits="1"
-                        :min="0"
-                        placeholder="Min"
-                        show-buttons
-                        :step="0.5"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Max Distance ({{ distanceUnit }})
-                    </label>
-                    <AppInputNumber
-                        v-model="filters.distanceMax"
-                        class="w-full"
-                        :max-fraction-digits="1"
-                        :min="0"
-                        placeholder="Max"
-                        show-buttons
-                        :step="0.5"
-                    />
-                </div>
+                <NumberRangeFilter
+                    v-model:max="filters.distanceMax"
+                    v-model:min="filters.distanceMin"
+                    label="Distance"
+                    :max-fraction-digits="1"
+                    :step="0.5"
+                    :unit="distanceUnit"
+                />
 
                 <!-- Duration Range (in minutes) -->
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Min Duration (min)
-                    </label>
-                    <AppInputNumber
-                        v-model="filters.durationMin"
-                        class="w-full"
-                        :min="0"
-                        placeholder="Min"
-                        show-buttons
-                        :step="5"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Max Duration (min)
-                    </label>
-                    <AppInputNumber
-                        v-model="filters.durationMax"
-                        class="w-full"
-                        :min="0"
-                        placeholder="Max"
-                        show-buttons
-                        :step="5"
-                    />
-                </div>
+                <NumberRangeFilter
+                    v-model:max="filters.durationMax"
+                    v-model:min="filters.durationMin"
+                    label="Duration"
+                    :step="5"
+                    unit="min"
+                />
 
                 <!-- Pace Range -->
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Min Pace (min/{{ distanceUnit }})
-                    </label>
-                    <AppInputNumber
-                        v-model="filters.paceMin"
-                        class="w-full"
-                        :max-fraction-digits="1"
-                        :min="0"
-                        placeholder="Min"
-                        show-buttons
-                        :step="0.5"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Max Pace (min/{{ distanceUnit }})
-                    </label>
-                    <AppInputNumber
-                        v-model="filters.paceMax"
-                        class="w-full"
-                        :max-fraction-digits="1"
-                        :min="0"
-                        placeholder="Max"
-                        show-buttons
-                        :step="0.5"
-                    />
-                </div>
+                <NumberRangeFilter
+                    v-model:max="filters.paceMax"
+                    v-model:min="filters.paceMin"
+                    label="Pace"
+                    :max-fraction-digits="1"
+                    :step="0.5"
+                    :unit="`min/${distanceUnit}`"
+                />
             </div>
             <div class="mt-3 flex items-center justify-between">
                 <span class="text-surface-500 text-sm">
@@ -771,6 +635,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
         <!-- Data Table -->
         <AppDataTable
             :loading="loading"
+            :row-class="() => 'group'"
             sort-field="date"
             :sort-order="-1"
             striped-rows
@@ -833,9 +698,12 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
             <AppColumn field="notes" header="Notes" />
             <AppColumn header="Actions" style="width: 8rem">
                 <template #body="{ data }">
-                    <div class="row-actions flex gap-2">
+                    <div
+                        class="flex gap-2 opacity-20 transition-opacity group-hover:opacity-100"
+                    >
                         <AppButton
                             v-if="(data as RunningActivity).has_gpx"
+                            aria-label="Run details"
                             icon="pi pi-chart-bar"
                             rounded
                             severity="secondary"
@@ -848,6 +716,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                             "
                         />
                         <AppButton
+                            aria-label="Edit run"
                             icon="pi pi-pencil"
                             rounded
                             severity="info"
@@ -855,6 +724,7 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
                             @click="openEditDialog(data as RunningActivity)"
                         />
                         <AppButton
+                            aria-label="Delete run"
                             icon="pi pi-trash"
                             rounded
                             severity="danger"
@@ -867,115 +737,19 @@ const dialogHeader = computed(() => (editingId.value ? 'Edit Run' : 'Add Run'));
         </AppDataTable>
 
         <!-- Add/Edit Dialog -->
-        <AppDialog
+        <AddEditRunDialog
             v-model:visible="showDialog"
-            :header="dialogHeader"
-            modal
-            :style="{ width: '28rem', maxWidth: '92vw' }"
-        >
-            <div class="flex flex-col gap-4">
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Date <span class="text-red-500">*</span>
-                    </label>
-                    <AppInputText
-                        v-model="form.date"
-                        class="w-full"
-                        type="date"
-                    />
-                    <p v-if="formError" class="mt-1 text-sm text-red-500">
-                        {{ formError }}
-                    </p>
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Title
-                    </label>
-                    <AppInputText
-                        v-model="form.title"
-                        class="w-full"
-                        placeholder="e.g. Morning Run"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Distance ({{ distanceUnit }})
-                    </label>
-                    <AppInputNumber
-                        v-model="form.distance_km"
-                        class="w-full"
-                        :max-fraction-digits="2"
-                        :min-fraction-digits="1"
-                        :step="0.1"
-                        :suffix="' ' + distanceUnit"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Duration
-                    </label>
-                    <div class="flex items-center gap-2">
-                        <AppInputNumber
-                            v-model="form.minutes"
-                            class="min-w-0 flex-1"
-                            fluid
-                            :min="0"
-                            suffix=" min"
-                        />
-                        <AppInputNumber
-                            v-model="form.seconds"
-                            class="min-w-0 flex-1"
-                            fluid
-                            :max="59"
-                            :min="0"
-                            suffix=" sec"
-                        />
-                    </div>
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Notes
-                    </label>
-                    <AppTextarea v-model="form.notes" class="w-full" rows="2" />
-                </div>
-                <div class="flex justify-end gap-2">
-                    <AppButton
-                        label="Cancel"
-                        text
-                        @click="showDialog = false"
-                    />
-                    <span v-tooltip.top="saveTooltip">
-                        <AppButton
-                            :disabled="!isFormValid"
-                            label="Save"
-                            @click="saveRun"
-                        />
-                    </span>
-                </div>
-            </div>
-        </AppDialog>
+            :run="editingRun"
+            @saved="loadData"
+        />
 
         <!-- Delete Confirmation Dialog -->
-        <AppDialog
+        <ConfirmDeleteDialog
             v-model:visible="showDeleteConfirm"
-            header="Confirm Delete"
-            modal
-            :style="{ width: '24rem', maxWidth: '92vw' }"
+            @confirm="executeDelete"
         >
-            <p>Are you sure you want to delete this run?</p>
-            <div class="mt-4 flex justify-end gap-2">
-                <AppButton
-                    label="Cancel"
-                    text
-                    @click="showDeleteConfirm = false"
-                />
-                <AppButton
-                    label="Delete"
-                    severity="danger"
-                    @click="executeDelete"
-                />
-            </div>
-        </AppDialog>
+            Are you sure you want to delete this run?
+        </ConfirmDeleteDialog>
 
         <!-- Weekly Goal Dialog -->
         <AppDialog

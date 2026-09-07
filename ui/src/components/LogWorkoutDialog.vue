@@ -238,6 +238,7 @@ function getExerciseGroups() {
                         }}</span>
                         <AppButton
                             v-if="!entry.saved"
+                            aria-label="Save set"
                             icon="pi pi-check"
                             severity="success"
                             size="small"

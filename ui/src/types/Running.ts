@@ -72,9 +72,6 @@ export interface RunImportResponse {
     laps: RunLap[];
 }
 
-/** Historical name; GPX imports return the same shape with an empty laps list. */
-export type GpxImportResponse = RunImportResponse;
-
 export interface RunningActivityCreate {
     date: string;
     duration_seconds: number;
