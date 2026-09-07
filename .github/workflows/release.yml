@@ -7,7 +7,12 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    # Pinned rather than macos-latest: a runner-image bump (to macOS 26
+    # "Tahoe") broke electron-builder's own keychain unlock during codesigning
+    # (SecKeychainUnlock failure in the "Package (macOS)" step) starting with
+    # the v0.3.0 build, with no change on our side. Revisit if/when
+    # electron-builder confirms compatibility with the newer image.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
