@@ -391,6 +391,18 @@ MIGRATIONS = [
                ALTER TABLE workout_logs ADD COLUMN completed INTEGER NOT NULL DEFAULT 1;
                """,
     },
+    {
+        "version": 31,
+        "name": "add_link_to_tasks",
+        # A task can optionally link to the thing it represents: a workout
+        # routine (link_routine_id set) or a run (no id — there's no run
+        # template entity, it's just a marker). Not an enforced FK, matching
+        # workout_logs.routine_id's existing loose-reference style.
+        "sql": """
+               ALTER TABLE tasks ADD COLUMN link_type TEXT;
+               ALTER TABLE tasks ADD COLUMN link_routine_id INTEGER;
+               """,
+    },
 ]
 
 

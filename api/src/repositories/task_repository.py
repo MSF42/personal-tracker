@@ -28,8 +28,8 @@ class SQLiteTaskRepository:
             """
             INSERT INTO tasks (title, description, category, due_date, completed,
                                repeat_type, repeat_interval, repeat_days, priority,
-                               created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               link_type, link_routine_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task.title,
@@ -41,6 +41,8 @@ class SQLiteTaskRepository:
                 task.repeat_interval,
                 repeat_days_str,
                 task.priority.value,
+                task.link_type.value if task.link_type else None,
+                task.link_routine_id,
                 now,
                 now,
             ),
@@ -114,6 +116,9 @@ class SQLiteTaskRepository:
 
         if "priority" in update_data and update_data["priority"] is not None:
             update_data["priority"] = update_data["priority"].value
+
+        if "link_type" in update_data and update_data["link_type"] is not None:
+            update_data["link_type"] = update_data["link_type"].value
 
         # Serialize repeat_days list to comma-separated string
         if "repeat_days" in update_data:

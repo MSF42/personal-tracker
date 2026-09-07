@@ -7,13 +7,21 @@ import { useUnits } from '@/composables/useUnits';
 import type { RunningActivity } from '@/types/Running';
 import { toIsoDate } from '@/utils/week';
 
-const props = defineProps<{ run: RunningActivity | null }>();
+const props = withDefaults(
+    defineProps<{ run: RunningActivity | null; defaultDate?: string | null }>(),
+    { defaultDate: null },
+);
 const emit = defineEmits<{ saved: [] }>();
 const visible = defineModel<boolean>('visible', { required: true });
 
-const { createActivity, updateActivity } = useRunningApi();
+const { createActivity, updateActivity, importGpx, importFit } =
+    useRunningApi();
 const toast = useToast();
 const { distanceUnit, toKm, fromKm } = useUnits();
+
+// The local/offline backend has no Python GPX/FIT parser to import with —
+// hide the button there rather than show one that can only fail.
+const importSupported = import.meta.env.VITE_BACKEND !== 'local';
 
 const formError = ref('');
 const isFormValid = computed(() => form.date.trim() !== '');
@@ -46,7 +54,7 @@ watch(visible, (isVisible) => {
         form.distance_km = parseFloat(fromKm(run.distance_km).toFixed(2));
         form.notes = run.notes ?? '';
     } else {
-        form.date = toIsoDate(new Date());
+        form.date = props.defaultDate ?? toIsoDate(new Date());
         form.title = '';
         form.minutes = 0;
         form.seconds = 0;
@@ -75,6 +83,39 @@ async function save() {
         formError.value = res.error?.message ?? 'Failed to save run';
     }
 }
+
+// --- Import GPX/FIT ---------------------------------------------------------
+// A single-file quick import, for entering one run from a device file
+// without leaving this dialog. The Running list page's own toolbar keeps its
+// separate multi-file bulk-import flow untouched.
+const importFileInput = ref<HTMLInputElement | null>(null);
+
+function triggerImport() {
+    importFileInput.value?.click();
+}
+
+async function handleImportFile(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    formError.value = '';
+    const isFit = file.name.toLowerCase().endsWith('.fit');
+    const res = isFit ? await importFit(file) : await importGpx(file);
+    if (res.success && res.data) {
+        toast.showSuccess('Run imported');
+        visible.value = false;
+        emit('saved');
+    } else if (res.error?.code === 'CONFLICT') {
+        toast.showWarning(
+            'Already imported',
+            'This file matches a run that’s already in your log.',
+        );
+    } else {
+        formError.value = res.error?.message ?? 'Import failed';
+    }
+}
 </script>
 
 <template>
@@ -85,6 +126,30 @@ async function save() {
         :style="{ width: '28rem', maxWidth: '92vw' }"
     >
         <div class="flex flex-col gap-4">
+            <div v-if="!run && importSupported" class="flex flex-col gap-3">
+                <AppButton
+                    icon="pi pi-upload"
+                    label="Import GPX / FIT"
+                    outlined
+                    @click="triggerImport"
+                />
+                <input
+                    ref="importFileInput"
+                    accept=".gpx,.fit"
+                    class="hidden"
+                    type="file"
+                    @change="handleImportFile"
+                />
+                <div class="text-surface-400 flex items-center gap-2 text-xs">
+                    <div
+                        class="border-surface-200 dark:border-surface-700 h-px flex-1 border-t"
+                    ></div>
+                    or enter manually
+                    <div
+                        class="border-surface-200 dark:border-surface-700 h-px flex-1 border-t"
+                    ></div>
+                </div>
+            </div>
             <div>
                 <label class="mb-1 block text-sm font-medium">
                     Date <span class="text-red-500">*</span>

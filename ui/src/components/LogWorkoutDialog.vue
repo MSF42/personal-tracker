@@ -18,7 +18,10 @@ const props = withDefaults(
     }>(),
     { resumeLogId: null },
 );
-const emit = defineEmits<{ logged: [] }>();
+// `completed` distinguishes a real "Complete Workout" from a plain "Save"
+// (progress kept, still in-progress) — callers that only care about
+// refreshing a list can ignore the argument entirely.
+const emit = defineEmits<{ logged: [completed: boolean] }>();
 const visible = defineModel<boolean>('visible', { required: true });
 const { getRoutineExercises } = useWorkoutRoutineApi();
 const {
@@ -192,7 +195,7 @@ async function createLog() {
         setEntries.value = buildEntriesFromPrescription();
         logStep.value = 2;
         toast.showSuccess('Workout log created');
-        emit('logged');
+        emit('logged', false);
         await loadLastSets(logExercises.value.map((ex) => ex.id));
     }
 }
@@ -229,7 +232,7 @@ async function persistAllSets() {
 
 async function saveAndClose() {
     await persistAllSets();
-    emit('logged');
+    emit('logged', false);
     visible.value = false;
 }
 
@@ -239,7 +242,7 @@ async function completeAndClose() {
         await updateWorkoutLog(workoutLogId.value, { completed: true });
     }
     toast.showSuccess('Workout completed');
-    emit('logged');
+    emit('logged', true);
     visible.value = false;
 }
 

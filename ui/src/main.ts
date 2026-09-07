@@ -7,6 +7,7 @@ import Chart from 'primevue/chart';
 import Column from 'primevue/column';
 import PrimeVue from 'primevue/config';
 import DataTable from 'primevue/datatable';
+import DatePicker from 'primevue/datepicker';
 import Dialog from 'primevue/dialog';
 import InputNumber from 'primevue/inputnumber';
 import InputText from 'primevue/inputtext';
@@ -36,6 +37,9 @@ app.use(PrimeVue, {
         preset: Aura,
         options: { darkModeSelector: '.dark' },
     },
+    // The app's week convention is Monday-first everywhere (see utils/week.ts)
+    // — keep date pickers consistent with that.
+    locale: { firstDayOfWeek: 1 },
 });
 app.use(ToastService);
 app.use(router);
@@ -45,6 +49,7 @@ app.component('AppCard', Card);
 app.component('AppChart', Chart);
 app.component('AppColumn', Column);
 app.component('AppDataTable', DataTable);
+app.component('AppDatePicker', DatePicker);
 app.component('AppDialog', Dialog);
 app.component('AppInputNumber', InputNumber);
 app.component('AppInputText', InputText);

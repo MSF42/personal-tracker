@@ -21,6 +21,8 @@ interface TaskRow {
     repeat_interval: number | null;
     repeat_days: string | null;
     priority: 'high' | 'medium' | 'low';
+    link_type: 'workout_routine' | 'run' | null;
+    link_routine_id: number | null;
     created_at: string;
     updated_at: string;
 }
@@ -31,6 +33,8 @@ function rowToTask(row: TaskRow): Task {
         completed: intToBool(row.completed),
         repeat_days: repeatDaysFromString(row.repeat_days),
         priority: row.priority ?? 'medium',
+        link_type: row.link_type ?? null,
+        link_routine_id: row.link_routine_id ?? null,
     };
 }
 
@@ -133,10 +137,17 @@ export function useTaskApi() {
         const now = nowIso();
         const completedVal = task.completed ?? false;
         const repeatDaysVal = task.repeat_days ?? null;
+        const priorityVal = task.priority ?? 'medium';
+        const linkType = task.link_type ?? null;
+        const linkRoutineId =
+            linkType === 'workout_routine'
+                ? (task.link_routine_id ?? null)
+                : null;
         const result = await run(
             `INSERT INTO tasks (title, description, category, due_date, completed,
-                                repeat_type, repeat_interval, repeat_days, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                repeat_type, repeat_interval, repeat_days, priority,
+                                link_type, link_routine_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 task.title,
                 task.description ?? null,
@@ -146,6 +157,9 @@ export function useTaskApi() {
                 task.repeat_type ?? null,
                 task.repeat_interval ?? null,
                 repeatDaysToString(repeatDaysVal),
+                priorityVal,
+                linkType,
+                linkRoutineId,
                 now,
                 now,
             ],
@@ -164,7 +178,9 @@ export function useTaskApi() {
             repeat_type: task.repeat_type ?? null,
             repeat_interval: task.repeat_interval ?? null,
             repeat_days: repeatDaysVal,
-            priority: task.priority ?? 'medium',
+            priority: priorityVal,
+            link_type: linkType,
+            link_routine_id: linkRoutineId,
             created_at: now,
             updated_at: now,
         };
@@ -236,6 +252,18 @@ export function useTaskApi() {
         if (task.repeat_days !== undefined) {
             fields.push('repeat_days = ?');
             values.push(repeatDaysToString(task.repeat_days));
+        }
+        if (task.priority !== undefined) {
+            fields.push('priority = ?');
+            values.push(task.priority);
+        }
+        if (task.link_type !== undefined) {
+            fields.push('link_type = ?');
+            values.push(task.link_type);
+        }
+        if (task.link_routine_id !== undefined) {
+            fields.push('link_routine_id = ?');
+            values.push(task.link_routine_id);
         }
 
         if (fields.length === 0) return existing;

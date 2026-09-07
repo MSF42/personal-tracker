@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ENUMS
@@ -16,6 +16,14 @@ class Priority(StrEnum):
     low = "low"
 
 
+class TaskLinkType(StrEnum):
+    """What a task represents, so acting on it can jump straight into
+    performing/logging that thing instead of just marking it done."""
+
+    workout_routine = "workout_routine"
+    run = "run"
+
+
 # What the database will store
 class TaskInDB(BaseModel):
     id: int
@@ -28,6 +36,8 @@ class TaskInDB(BaseModel):
     repeat_interval: int | None
     repeat_days: str | None = None
     priority: str = "medium"
+    link_type: str | None = None
+    link_routine_id: int | None = None
     created_at: str
     updated_at: str
 
@@ -44,6 +54,8 @@ class TaskResponse(BaseModel):
     repeat_interval: int | None = None
     repeat_days: list[int] | None = None
     priority: str = "medium"
+    link_type: TaskLinkType | None = None
+    link_routine_id: int | None = None
     created_at: str
     updated_at: str
 
@@ -57,6 +69,13 @@ def _validate_repeat_days(v: list[int] | None) -> list[int] | None:
     return sorted(set(v))
 
 
+def _validate_link(link_type: TaskLinkType | None, link_routine_id: int | None) -> None:
+    if link_type == TaskLinkType.workout_routine and link_routine_id is None:
+        raise ValueError("link_routine_id is required when link_type is workout_routine")
+    if link_type != TaskLinkType.workout_routine and link_routine_id is not None:
+        raise ValueError("link_routine_id may only be set when link_type is workout_routine")
+
+
 # What clients will send to create a task
 class CreateTaskRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -68,11 +87,18 @@ class CreateTaskRequest(BaseModel):
     repeat_interval: int | None = Field(default=None, ge=1)
     repeat_days: list[int] | None = None
     priority: Priority = Priority.medium
+    link_type: TaskLinkType | None = None
+    link_routine_id: int | None = None
 
     @field_validator("repeat_days")
     @classmethod
     def validate_repeat_days(cls, v: list[int] | None) -> list[int] | None:
         return _validate_repeat_days(v)
+
+    @model_validator(mode="after")
+    def validate_link(self) -> "CreateTaskRequest":
+        _validate_link(self.link_type, self.link_routine_id)
+        return self
 
 
 # What clients will send to update a task
@@ -86,11 +112,24 @@ class UpdateTaskRequest(BaseModel):
     repeat_interval: int | None = Field(default=None, ge=1)
     repeat_days: list[int] | None = None
     priority: Priority | None = None
+    link_type: TaskLinkType | None = None
+    link_routine_id: int | None = None
 
     @field_validator("repeat_days")
     @classmethod
     def validate_repeat_days(cls, v: list[int] | None) -> list[int] | None:
         return _validate_repeat_days(v)
+
+    @model_validator(mode="after")
+    def validate_link(self) -> "UpdateTaskRequest":
+        # Only meaningful when both fields are actually part of this partial
+        # update — the app always sends them together (see
+        # AddEditTaskDialog.vue), but a request that only ever touches one
+        # (e.g. the plain `{completed: true}` completion call) leaves both
+        # unset here and this trivially passes.
+        if "link_type" in self.model_fields_set or "link_routine_id" in self.model_fields_set:
+            _validate_link(self.link_type, self.link_routine_id)
+        return self
 
 
 # Conversion Helper Function

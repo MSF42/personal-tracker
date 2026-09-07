@@ -2,14 +2,17 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import AddEditRunDialog from '@/components/AddEditRunDialog.vue';
 import AddEditTaskDialog from '@/components/AddEditTaskDialog.vue';
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import LoadingState from '@/components/LoadingState.vue';
+import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
 import { useCountdownApi } from '@/composables/api/useCountdownApi';
 import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useLoading } from '@/composables/useLoading';
+import { useTaskLinks } from '@/composables/useTaskLinks';
 import { useToast } from '@/composables/useToast';
 import type { Countdown } from '@/types/Countdown';
 import type { RunningActivity } from '@/types/Running';
@@ -17,16 +20,18 @@ import type { Task } from '@/types/Task';
 import type { WorkoutLog } from '@/types/WorkoutLog';
 import { formatDate as formatIsoDate } from '@/utils/format';
 import {
+    fromIsoDate,
     mondayIndex,
     toIsoDate,
     WEEKDAY_LABELS,
     weekRange,
 } from '@/utils/week';
 
-const { getActivities, createActivity } = useRunningApi();
+const { getActivities } = useRunningApi();
 const { getTasks } = useTaskApi();
 const { getWorkoutLogs } = useWorkoutLogApi();
-const { getCountdowns, createCountdown, deleteCountdown } = useCountdownApi();
+const { getCountdowns, createCountdown, updateCountdown, deleteCountdown } =
+    useCountdownApi();
 const toast = useToast();
 const router = useRouter();
 const { loading, withLoading } = useLoading();
@@ -35,8 +40,45 @@ const runs = ref<RunningActivity[]>([]);
 const tasks = ref<Task[]>([]);
 const workoutLogs = ref<WorkoutLog[]>([]);
 const countdowns = ref<Countdown[]>([]);
+
+async function refreshAfterTaskLink() {
+    const [tasksRes, logsRes, runsRes] = await Promise.all([
+        getTasks(),
+        getWorkoutLogs(),
+        getActivities(),
+    ]);
+    if (tasksRes.success && tasksRes.data) tasks.value = tasksRes.data;
+    if (logsRes.success && logsRes.data) workoutLogs.value = logsRes.data;
+    if (runsRes.success && runsRes.data) runs.value = runsRes.data;
+}
+
+const {
+    routines,
+    loadRoutines,
+    showLogWorkoutDialog,
+    activeRoutineId,
+    activeRoutineName,
+    activeResumeLogId,
+    showRunDialog,
+    runDefaultDate,
+    openLinkedWorkout,
+    openLinkedRun,
+    openPlainRun,
+    onWorkoutLogged,
+    onRunSaved,
+} = useTaskLinks(refreshAfterTaskLink);
+
 const showAddCountdown = ref(false);
+const editingCountdownId = ref<number | null>(null);
 const countdownForm = reactive({ title: '', date: '' });
+// AppDatePicker binds to a Date; the rest of the app (and the API) works in
+// ISO strings, so this is the conversion layer between the two.
+const countdownDateModel = computed<Date | null>({
+    get: () => (countdownForm.date ? fromIsoDate(countdownForm.date) : null),
+    set: (value) => {
+        countdownForm.date = value ? toIsoDate(value) : '';
+    },
+});
 const calendarView = ref<'5-day' | 'month'>('5-day');
 
 const today = new Date();
@@ -44,8 +86,9 @@ const todayStr = toIsoDate(today);
 const currentYear = today.getFullYear();
 const currentMonth = today.getMonth();
 
-onMounted(() =>
-    withLoading(async () => {
+onMounted(() => {
+    void loadRoutines();
+    return withLoading(async () => {
         const [runsRes, tasksRes, logsRes, countdownsRes] = await Promise.all([
             getActivities(),
             getTasks(),
@@ -62,8 +105,8 @@ onMounted(() =>
         if (logsRes.success && logsRes.data) workoutLogs.value = logsRes.data;
         else if (!logsRes.success)
             toast.showError('Failed to load workout logs');
-    }),
-);
+    });
+});
 
 // --- Summary computations ---
 
@@ -94,45 +137,21 @@ const lastWorkout = computed(() => {
     return { date: log.date, routineName: log.routine_name };
 });
 
-// --- Add Run dialog ---
-const showAddRun = ref(false);
-const runForm = reactive({
-    date: todayStr,
-    title: '',
-    minutes: 0,
-    seconds: 0,
-    distance_km: 0,
-    notes: '',
-});
-
-function openAddRun() {
-    runForm.date = todayStr;
-    runForm.title = '';
-    runForm.minutes = 0;
-    runForm.seconds = 0;
-    runForm.distance_km = 0;
-    runForm.notes = '';
-    showAddRun.value = true;
-}
-
-async function saveRun() {
-    const res = await createActivity({
-        date: runForm.date,
-        duration_seconds: runForm.minutes * 60 + runForm.seconds,
-        distance_km: runForm.distance_km,
-        notes: runForm.notes || null,
-        title: runForm.title || null,
-    });
-    if (res.success) {
-        toast.showSuccess('Run added');
-        showAddRun.value = false;
-        const runsRes = await getActivities();
-        if (runsRes.success && runsRes.data) runs.value = runsRes.data;
-    }
-}
-
-// --- Add Task dialog ---
+// --- Add/Edit Task dialog ---
+// Shared by the "Add Task" quick action (task: null) and clicking an
+// unlinked task on the calendar below (task: that task, for editing).
 const showAddTask = ref(false);
+const editingTask = ref<Task | null>(null);
+
+function openAddTask() {
+    editingTask.value = null;
+    showAddTask.value = true;
+}
+
+function openEditTask(task: Task) {
+    editingTask.value = task;
+    showAddTask.value = true;
+}
 
 // Same category autocomplete source as the full Tasks page, so a task added
 // from the dashboard gets the same suggestions.
@@ -146,6 +165,15 @@ const categoryOptions = computed(() => {
 async function refreshTasks() {
     const tasksRes = await getTasks();
     if (tasksRes.success && tasksRes.data) tasks.value = tasksRes.data;
+}
+
+/** Clicking a task on the calendar: jump into its linked workout/run, or —
+ *  for a plain task — open it for editing (same as clicking a Countdown
+ *  card above). */
+function onTaskEventClick(task: Task) {
+    if (task.link_type === 'workout_routine') void openLinkedWorkout(task);
+    else if (task.link_type === 'run') openLinkedRun(task);
+    else openEditTask(task);
 }
 
 // --- Countdowns ---
@@ -176,19 +204,61 @@ function countdownLabel(isoDate: string): string {
     return `${-days} days ago`;
 }
 
-async function addCountdown() {
+/** Opens the form blank for a new countdown — or, if it's already open in
+ *  edit mode, resets it back to add mode rather than closing it. */
+function openAddCountdown() {
+    if (showAddCountdown.value && editingCountdownId.value === null) {
+        showAddCountdown.value = false;
+        return;
+    }
+    editingCountdownId.value = null;
+    countdownForm.title = '';
+    countdownForm.date = '';
+    showAddCountdown.value = true;
+}
+
+function editCountdown(countdown: Countdown) {
+    editingCountdownId.value = countdown.id;
+    countdownForm.title = countdown.title;
+    countdownForm.date = countdown.date;
+    showAddCountdown.value = true;
+}
+
+function cancelCountdownForm() {
+    showAddCountdown.value = false;
+    editingCountdownId.value = null;
+    countdownForm.title = '';
+    countdownForm.date = '';
+}
+
+async function saveCountdownForm() {
     if (!countdownForm.title.trim() || !countdownForm.date) return;
-    const res = await createCountdown({
-        title: countdownForm.title.trim(),
-        date: countdownForm.date,
-    });
+    const title = countdownForm.title.trim();
+    const date = countdownForm.date;
+
+    if (editingCountdownId.value !== null) {
+        const res = await updateCountdown(editingCountdownId.value, {
+            title,
+            date,
+        });
+        if (res.success && res.data) {
+            const updated = res.data;
+            countdowns.value = countdowns.value
+                .map((c) => (c.id === updated.id ? updated : c))
+                .sort((a, b) => a.date.localeCompare(b.date));
+            cancelCountdownForm();
+        } else {
+            toast.showError('Failed to update countdown');
+        }
+        return;
+    }
+
+    const res = await createCountdown({ title, date });
     if (res.success && res.data) {
         countdowns.value = [...countdowns.value, res.data].sort((a, b) =>
             a.date.localeCompare(b.date),
         );
-        countdownForm.title = '';
-        countdownForm.date = '';
-        showAddCountdown.value = false;
+        cancelCountdownForm();
     } else if (!res.success) {
         toast.showError('Failed to add countdown');
     }
@@ -243,6 +313,8 @@ const next5Days = computed(() => {
 interface CalendarEvent {
     type: 'run' | 'workout' | 'task';
     label: string;
+    /** Set only for type 'task' — lets the calendar row act on a click. */
+    task?: Task;
 }
 
 function getEventsForDate(dateStr: string): CalendarEvent[] {
@@ -271,6 +343,7 @@ function getEventsForDate(dateStr: string): CalendarEvent[] {
             events.push({
                 type: 'task',
                 label: t.title,
+                task: t,
             });
         }
     }
@@ -423,7 +496,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                                 label="Add Task"
                                 outlined
                                 size="small"
-                                @click="showAddTask = true"
+                                @click="openAddTask"
                             />
                             <AppButton
                                 class="w-full"
@@ -431,7 +504,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                                 label="Add Run"
                                 outlined
                                 size="small"
-                                @click="openAddRun"
+                                @click="openPlainRun()"
                             />
                             <AppButton
                                 class="w-full"
@@ -455,7 +528,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                         label="Add"
                         outlined
                         size="small"
-                        @click="showAddCountdown = !showAddCountdown"
+                        @click="openAddCountdown"
                     />
                 </div>
                 <div
@@ -470,25 +543,33 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                             v-model="countdownForm.title"
                             class="w-full"
                             placeholder="e.g. Wicked 10K"
-                            @keyup.enter="addCountdown"
+                            @keyup.enter="saveCountdownForm"
                         />
                     </div>
                     <div>
                         <label class="mb-1 block text-xs font-medium"
                             >Date</label
                         >
-                        <AppInputText
-                            v-model="countdownForm.date"
-                            type="date"
+                        <AppDatePicker
+                            v-model="countdownDateModel"
+                            date-format="yy M dd"
+                            icon-display="input"
+                            show-icon
                         />
                     </div>
+                    <AppButton
+                        label="Cancel"
+                        size="small"
+                        text
+                        @click="cancelCountdownForm"
+                    />
                     <AppButton
                         :disabled="
                             !countdownForm.title.trim() || !countdownForm.date
                         "
-                        label="Save"
+                        :label="editingCountdownId !== null ? 'Update' : 'Save'"
                         size="small"
-                        @click="addCountdown"
+                        @click="saveCountdownForm"
                     />
                 </div>
                 <div
@@ -505,8 +586,13 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                     <div
                         v-for="c in countdowns"
                         :key="c.id"
-                        class="border-surface-200 dark:border-surface-700 group relative rounded-lg border p-4"
+                        class="border-surface-200 dark:border-surface-700 hover:border-primary-400 dark:hover:border-primary-500 group relative cursor-pointer rounded-lg border p-4 transition-colors"
                         :class="{ 'opacity-60': daysUntil(c.date) < 0 }"
+                        role="button"
+                        tabindex="0"
+                        @click="editCountdown(c)"
+                        @keydown.enter="editCountdown(c)"
+                        @keydown.space.prevent="editCountdown(c)"
                     >
                         <div
                             class="text-2xl font-bold"
@@ -528,7 +614,8 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                             aria-label="Delete countdown"
                             class="text-surface-400 absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
                             title="Delete countdown"
-                            @click="confirmDeleteCountdown(c)"
+                            type="button"
+                            @click.stop="confirmDeleteCountdown(c)"
                         >
                             <i class="pi pi-times text-sm" />
                         </button>
@@ -580,7 +667,16 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                                 )"
                                 :key="idx"
                                 class="truncate rounded border-l-3 px-2 py-1 text-xs"
-                                :class="eventBorderClass(event.type)"
+                                :class="[
+                                    eventBorderClass(event.type),
+                                    {
+                                        'hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer':
+                                            event.task,
+                                    },
+                                ]"
+                                @click="
+                                    event.task && onTaskEventClick(event.task)
+                                "
                             >
                                 {{ event.label }}
                             </div>
@@ -679,95 +775,31 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
             </div>
         </template>
 
-        <!-- Add Task Dialog -->
+        <!-- Add/Edit Task Dialog -->
         <AddEditTaskDialog
             v-model:visible="showAddTask"
             :category-options="categoryOptions"
-            :task="null"
+            :routine-options="routines"
+            :task="editingTask"
             @saved="refreshTasks"
         />
 
-        <!-- Add Run Dialog -->
-        <AppDialog
-            v-model:visible="showAddRun"
-            header="Add Run"
-            modal
-            :style="{ width: '28rem', maxWidth: '92vw' }"
-        >
-            <div class="flex flex-col gap-4">
-                <div>
-                    <label class="mb-1 block text-sm font-medium"> Date </label>
-                    <AppInputText
-                        v-model="runForm.date"
-                        class="w-full"
-                        type="date"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Title
-                    </label>
-                    <AppInputText
-                        v-model="runForm.title"
-                        class="w-full"
-                        placeholder="e.g. Morning Run"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Distance (km)
-                    </label>
-                    <AppInputNumber
-                        v-model="runForm.distance_km"
-                        class="w-full"
-                        :max-fraction-digits="2"
-                        :min-fraction-digits="1"
-                        :step="0.1"
-                        suffix=" km"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Duration
-                    </label>
-                    <div class="flex items-center gap-2">
-                        <AppInputNumber
-                            v-model="runForm.minutes"
-                            class="min-w-0 flex-1"
-                            fluid
-                            :min="0"
-                            suffix=" min"
-                        />
-                        <AppInputNumber
-                            v-model="runForm.seconds"
-                            class="min-w-0 flex-1"
-                            fluid
-                            :max="59"
-                            :min="0"
-                            suffix=" sec"
-                        />
-                    </div>
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Notes
-                    </label>
-                    <AppTextarea
-                        v-model="runForm.notes"
-                        class="w-full"
-                        rows="2"
-                    />
-                </div>
-                <div class="flex justify-end gap-2">
-                    <AppButton
-                        label="Cancel"
-                        text
-                        @click="showAddRun = false"
-                    />
-                    <AppButton label="Save" @click="saveRun" />
-                </div>
-            </div>
-        </AppDialog>
+        <!-- Add Run Dialog — also the "enter a linked run" target -->
+        <AddEditRunDialog
+            v-model:visible="showRunDialog"
+            :default-date="runDefaultDate"
+            :run="null"
+            @saved="onRunSaved"
+        />
+
+        <!-- Log Workout Dialog — the "enter a linked workout" target -->
+        <LogWorkoutDialog
+            v-model:visible="showLogWorkoutDialog"
+            :resume-log-id="activeResumeLogId"
+            :routine-id="activeRoutineId"
+            :routine-name="activeRoutineName"
+            @logged="onWorkoutLogged"
+        />
 
         <!-- Delete Countdown Confirmation -->
         <ConfirmDeleteDialog

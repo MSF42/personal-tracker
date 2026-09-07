@@ -3,11 +3,16 @@ import { computed, reactive, watch } from 'vue';
 
 import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useToast } from '@/composables/useToast';
-import type { Task } from '@/types/Task';
+import type { Task, TaskLinkType } from '@/types/Task';
+import type { WorkoutRoutine } from '@/types/WorkoutRoutine';
 
 const props = withDefaults(
-    defineProps<{ task: Task | null; categoryOptions?: string[] }>(),
-    { categoryOptions: () => [] },
+    defineProps<{
+        task: Task | null;
+        categoryOptions?: string[];
+        routineOptions?: WorkoutRoutine[];
+    }>(),
+    { categoryOptions: () => [], routineOptions: () => [] },
 );
 const emit = defineEmits<{ saved: [] }>();
 const visible = defineModel<boolean>('visible', { required: true });
@@ -30,6 +35,12 @@ const repeatTypeOptions = [
     { label: 'Monthly', value: 'monthly' },
 ];
 
+const linkTypeOptions = [
+    { label: 'None', value: null },
+    { label: 'Workout Routine', value: 'workout_routine' },
+    { label: 'Run', value: 'run' },
+];
+
 const dialogHeader = computed(() => (props.task ? 'Edit Task' : 'Add Task'));
 
 const form = reactive({
@@ -41,12 +52,21 @@ const form = reactive({
     repeat_interval: 1,
     repeat_days: [] as number[],
     priority: 'medium' as 'high' | 'medium' | 'low',
+    link_type: null as TaskLinkType | null,
+    link_routine_id: null as number | null,
 });
 
-const isFormValid = computed(() => form.title.trim() !== '');
-const saveTooltip = computed(() =>
-    isFormValid.value ? undefined : 'Title is required',
+const isFormValid = computed(
+    () =>
+        form.title.trim() !== '' &&
+        (form.link_type !== 'workout_routine' || form.link_routine_id !== null),
 );
+const saveTooltip = computed(() => {
+    if (form.title.trim() === '') return 'Title is required';
+    if (form.link_type === 'workout_routine' && form.link_routine_id === null)
+        return 'Choose a routine to link to';
+    return undefined;
+});
 
 // Populate the form whenever the dialog opens: reset for "add", or load the
 // task being edited. `editingId` state lives entirely in the parent — this
@@ -63,6 +83,8 @@ watch(visible, (isVisible) => {
         form.repeat_interval = task.repeat_interval ?? 1;
         form.repeat_days = task.repeat_days ?? [];
         form.priority = task.priority;
+        form.link_type = task.link_type;
+        form.link_routine_id = task.link_routine_id;
     } else {
         form.title = '';
         form.description = '';
@@ -72,8 +94,19 @@ watch(visible, (isVisible) => {
         form.repeat_interval = 1;
         form.repeat_days = [];
         form.priority = 'medium';
+        form.link_type = null;
+        form.link_routine_id = null;
     }
 });
+
+// Selecting a link type other than "Workout Routine" clears any previously
+// chosen routine so a stale id never rides along with the wrong type.
+watch(
+    () => form.link_type,
+    (type) => {
+        if (type !== 'workout_routine') form.link_routine_id = null;
+    },
+);
 
 function toggleDay(day: number) {
     const idx = form.repeat_days.indexOf(day);
@@ -98,6 +131,9 @@ async function save() {
                 ? form.repeat_days
                 : null,
         priority: form.priority,
+        link_type: form.link_type,
+        link_routine_id:
+            form.link_type === 'workout_routine' ? form.link_routine_id : null,
     };
     const res = props.task
         ? await updateTask(props.task.id, payload)
@@ -162,6 +198,32 @@ async function save() {
                     option-label="label"
                     option-value="value"
                     :options="priorityOptions"
+                />
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium">Link To</label>
+                <AppSelect
+                    v-model="form.link_type"
+                    class="w-full"
+                    option-label="label"
+                    option-value="value"
+                    :options="linkTypeOptions"
+                />
+                <p class="text-surface-400 mt-1 text-xs">
+                    Turns this task into a shortcut — click it on the dashboard
+                    calendar to jump straight into logging the workout or run it
+                    represents.
+                </p>
+            </div>
+            <div v-if="form.link_type === 'workout_routine'">
+                <label class="mb-1 block text-sm font-medium"> Routine </label>
+                <AppSelect
+                    v-model="form.link_routine_id"
+                    class="w-full"
+                    option-label="name"
+                    option-value="id"
+                    :options="routineOptions"
+                    placeholder="Select a routine..."
                 />
             </div>
             <div>

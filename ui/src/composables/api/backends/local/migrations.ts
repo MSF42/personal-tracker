@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     repeat_type TEXT,
     repeat_interval INTEGER,
     repeat_days TEXT,
+    priority TEXT NOT NULL DEFAULT 'medium',
+    link_type TEXT,
+    link_routine_id INTEGER,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );

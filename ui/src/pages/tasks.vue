@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
+import AddEditRunDialog from '@/components/AddEditRunDialog.vue';
 import AddEditTaskDialog from '@/components/AddEditTaskDialog.vue';
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
+import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
 import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useLoading } from '@/composables/useLoading';
+import { useTaskLinks } from '@/composables/useTaskLinks';
 import { useToast } from '@/composables/useToast';
 import type { Task } from '@/types/Task';
 import { formatDate } from '@/utils/format';
@@ -12,6 +15,21 @@ import { formatDate } from '@/utils/format';
 const { getTasks, updateTask, deleteTask } = useTaskApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
+
+const {
+    routines,
+    loadRoutines,
+    showLogWorkoutDialog,
+    activeRoutineId,
+    activeRoutineName,
+    activeResumeLogId,
+    showRunDialog,
+    runDefaultDate,
+    openLinkedWorkout,
+    openLinkedRun,
+    onWorkoutLogged,
+    onRunSaved,
+} = useTaskLinks(loadData);
 
 const tasks = ref<Task[]>([]);
 const todayStr = new Date().toISOString().split('T')[0] as string;
@@ -68,6 +86,11 @@ function openEditDialog(task: Task) {
     showDialog.value = true;
 }
 
+function enterLinkedTask(task: Task) {
+    if (task.link_type === 'workout_routine') void openLinkedWorkout(task);
+    else if (task.link_type === 'run') openLinkedRun(task);
+}
+
 async function toggleCompleted(task: Task) {
     const res = await updateTask(task.id, { completed: !task.completed });
     if (res.success) {
@@ -101,6 +124,7 @@ async function loadData() {
 
 onMounted(() => {
     withLoading(loadData);
+    void loadRoutines();
 });
 
 // --- Helpers ---
@@ -326,11 +350,21 @@ const filterCategoryOptions = computed(() => [
                     {{ formatRepeat(data as Task) }}
                 </template>
             </AppColumn>
-            <AppColumn header="Actions" style="width: 8rem">
+            <AppColumn header="Actions" style="width: 10rem">
                 <template #body="{ data }">
                     <div
                         class="flex gap-2 opacity-20 transition-opacity group-hover:opacity-100"
                     >
+                        <AppButton
+                            v-if="(data as Task).link_type"
+                            aria-label="Enter"
+                            icon="pi pi-play"
+                            rounded
+                            severity="success"
+                            text
+                            title="Enter"
+                            @click="enterLinkedTask(data as Task)"
+                        />
                         <AppButton
                             aria-label="Edit task"
                             icon="pi pi-pencil"
@@ -356,6 +390,7 @@ const filterCategoryOptions = computed(() => [
         <AddEditTaskDialog
             v-model:visible="showDialog"
             :category-options="categoryOptions"
+            :routine-options="routines"
             :task="editingTask"
             @saved="loadData"
         />
@@ -367,5 +402,20 @@ const filterCategoryOptions = computed(() => [
         >
             Are you sure you want to delete this task?
         </ConfirmDeleteDialog>
+
+        <!-- Enter a linked task: workout or run -->
+        <LogWorkoutDialog
+            v-model:visible="showLogWorkoutDialog"
+            :resume-log-id="activeResumeLogId"
+            :routine-id="activeRoutineId"
+            :routine-name="activeRoutineName"
+            @logged="onWorkoutLogged"
+        />
+        <AddEditRunDialog
+            v-model:visible="showRunDialog"
+            :default-date="runDefaultDate"
+            :run="null"
+            @saved="onRunSaved"
+        />
     </div>
 </template>

@@ -1,3 +1,5 @@
+export type TaskLinkType = 'workout_routine' | 'run';
+
 export interface Task {
     id: number;
     title: string;
@@ -9,6 +11,8 @@ export interface Task {
     repeat_interval: number | null;
     repeat_days: number[] | null;
     priority: 'high' | 'medium' | 'low';
+    link_type: TaskLinkType | null;
+    link_routine_id: number | null;
     created_at: string;
     updated_at: string;
 }
@@ -23,6 +27,8 @@ export interface TaskCreate {
     repeat_interval?: number | null;
     repeat_days?: number[] | null;
     priority?: 'high' | 'medium' | 'low';
+    link_type?: TaskLinkType | null;
+    link_routine_id?: number | null;
 }
 
 export interface TaskUpdate {
@@ -35,4 +41,6 @@ export interface TaskUpdate {
     repeat_interval?: number | null;
     repeat_days?: number[] | null;
     priority?: 'high' | 'medium' | 'low' | null;
+    link_type?: TaskLinkType | null;
+    link_routine_id?: number | null;
 }
