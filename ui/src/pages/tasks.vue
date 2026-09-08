@@ -38,16 +38,24 @@ const todayStr = new Date().toISOString().split('T')[0] as string;
 const showCompleted = ref(false);
 const selectedCategory = ref('');
 const selectedPriority = ref('');
+const searchQuery = ref('');
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 const filteredTasks = computed(() => {
+    const query = searchQuery.value.trim().toLowerCase();
     return tasks.value
         .filter((t) => {
             if (!showCompleted.value && t.completed) return false;
             if (selectedCategory.value && t.category !== selectedCategory.value)
                 return false;
             if (selectedPriority.value && t.priority !== selectedPriority.value)
+                return false;
+            if (
+                query &&
+                !t.title.toLowerCase().includes(query) &&
+                !t.description?.toLowerCase().includes(query)
+            )
                 return false;
             return true;
         })
@@ -228,6 +236,12 @@ const filterCategoryOptions = computed(() => [
         <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <h2 class="text-xl font-semibold">Task List</h2>
+                <AppInputText
+                    v-model="searchQuery"
+                    class="min-w-48"
+                    placeholder="Search tasks..."
+                    size="small"
+                />
                 <AppSelect
                     v-model="selectedCategory"
                     class="min-w-44"

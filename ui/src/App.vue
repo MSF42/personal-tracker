@@ -4,7 +4,6 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import CommandPalette from '@/components/CommandPalette.vue';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
-import { useBackup } from '@/composables/useBackup';
 import { useUiState } from '@/composables/useUiState';
 import { useUnits } from '@/composables/useUnits';
 import { useUserProfile } from '@/composables/useUserProfile';
@@ -14,38 +13,11 @@ const router = useRouter();
 const { getSetting, setSetting } = useSettingsApi();
 const ui = useUiState();
 
-const restoreFileInput = ref<HTMLInputElement | null>(null);
-
-const {
-    restoreConfirmText,
-    showRestoreDialog,
-    backingUp,
-    restoring,
-    downloadBackup,
-    onRestoreFileSelected,
-    confirmRestore,
-} = useBackup();
-
-function triggerRestoreUpload() {
-    restoreFileInput.value?.click();
-}
-
 const { profilePicture, userName, loadProfile } = useUserProfile();
-const {
-    weightUnit,
-    distanceUnit,
-    temperatureUnit,
-    setWeightUnit,
-    setDistanceUnit,
-    setTemperatureUnit,
-    loadUnits,
-} = useUnits();
-const weightOptions = ['kg', 'lbs'];
-const distanceOptions = ['km', 'mi'];
-const temperatureOptions = [
-    { label: '°C', value: 'c' },
-    { label: '°F', value: 'f' },
-];
+// Units and Data Management (backup/restore) now live on the Settings page
+// — this just bootstraps the shared unit-preference state on app start, the
+// same way loadProfile() does for the profile picture/name.
+const { loadUnits } = useUnits();
 
 const theme = ref('dark');
 const themeOptions = ['light', 'dark'];
@@ -203,76 +175,6 @@ function goToSettings() {
                         />
                     </div>
 
-                    <!-- Units -->
-                    <div>
-                        <h3
-                            class="text-surface-500 dark:text-surface-400 mb-2 text-xs font-semibold tracking-wide uppercase"
-                        >
-                            Units
-                        </h3>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <AppSelectButton
-                                :allow-empty="false"
-                                aria-label="Weight unit"
-                                :model-value="weightUnit"
-                                :options="weightOptions"
-                                size="small"
-                                @update:model-value="setWeightUnit"
-                            />
-                            <AppSelectButton
-                                :allow-empty="false"
-                                aria-label="Distance unit"
-                                :model-value="distanceUnit"
-                                :options="distanceOptions"
-                                size="small"
-                                @update:model-value="setDistanceUnit"
-                            />
-                            <AppSelectButton
-                                :allow-empty="false"
-                                aria-label="Temperature unit"
-                                :model-value="temperatureUnit"
-                                option-label="label"
-                                option-value="value"
-                                :options="temperatureOptions"
-                                size="small"
-                                @update:model-value="setTemperatureUnit"
-                            />
-                        </div>
-                    </div>
-
-                    <!-- Data Management -->
-                    <div>
-                        <h3
-                            class="text-surface-500 dark:text-surface-400 mb-2 text-xs font-semibold tracking-wide uppercase"
-                        >
-                            Data Management
-                        </h3>
-                        <div class="flex flex-col gap-1.5">
-                            <AppButton
-                                icon="pi pi-download"
-                                label="Download Backup"
-                                :loading="backingUp"
-                                severity="secondary"
-                                size="small"
-                                @click="downloadBackup"
-                            />
-                            <input
-                                ref="restoreFileInput"
-                                accept=".zip"
-                                class="hidden"
-                                type="file"
-                                @change="onRestoreFileSelected"
-                            />
-                            <AppButton
-                                icon="pi pi-upload"
-                                label="Restore from Backup"
-                                severity="secondary"
-                                size="small"
-                                @click="triggerRestoreUpload"
-                            />
-                        </div>
-                    </div>
-
                     <!-- Divider -->
                     <div
                         class="border-surface-200 dark:border-surface-700 border-t"
@@ -290,39 +192,6 @@ function goToSettings() {
             </AppPopover>
         </div>
     </nav>
-
-    <!-- Restore Confirmation Dialog -->
-    <AppDialog
-        v-model:visible="showRestoreDialog"
-        header="Restore from Backup"
-        :modal="true"
-        :style="{ width: '28rem' }"
-    >
-        <p class="text-surface-600 dark:text-surface-400 mb-4 text-sm">
-            This will replace all current data with the backup. This action
-            cannot be undone. Type <strong>RESTORE</strong> to confirm.
-        </p>
-        <AppInputText
-            v-model="restoreConfirmText"
-            class="mb-4 w-full"
-            placeholder="Type RESTORE to confirm"
-            @keydown.enter="confirmRestore"
-        />
-        <div class="flex justify-end gap-2">
-            <AppButton
-                label="Cancel"
-                severity="secondary"
-                @click="showRestoreDialog = false"
-            />
-            <AppButton
-                :disabled="restoreConfirmText !== 'RESTORE'"
-                label="Restore"
-                :loading="restoring"
-                severity="warn"
-                @click="confirmRestore"
-            />
-        </div>
-    </AppDialog>
 
     <div
         class="min-h-0 flex-1"

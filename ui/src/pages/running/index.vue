@@ -13,7 +13,7 @@ import { useUnits } from '@/composables/useUnits';
 import type { RunningActivity } from '@/types/Running';
 import { registerCharts } from '@/utils/chart';
 import { formatDate, formatDuration } from '@/utils/format';
-import { weekRange } from '@/utils/week';
+import { fromIsoDate, toIsoDate, weekRange } from '@/utils/week';
 
 registerCharts();
 
@@ -41,18 +41,67 @@ const filters = reactive({
     paceMax: null as number | null,
 });
 
-const hasActiveFilters = computed(() =>
-    Boolean(
-        filters.dateFrom ||
-        filters.dateTo ||
-        filters.distanceMin !== null ||
-        filters.distanceMax !== null ||
-        filters.durationMin !== null ||
-        filters.durationMax !== null ||
-        filters.paceMin !== null ||
-        filters.paceMax !== null,
-    ),
-);
+// AppDatePicker binds to a Date; filters.dateFrom/dateTo stay plain ISO
+// strings (compared directly against activity dates elsewhere), so these
+// are just the conversion layer between the two — same pattern as the
+// Add Countdown form.
+const dateFromModel = computed<Date | null>({
+    get: () => (filters.dateFrom ? fromIsoDate(filters.dateFrom) : null),
+    set: (value) => {
+        filters.dateFrom = value ? toIsoDate(value) : '';
+    },
+});
+const dateToModel = computed<Date | null>({
+    get: () => (filters.dateTo ? fromIsoDate(filters.dateTo) : null),
+    set: (value) => {
+        filters.dateTo = value ? toIsoDate(value) : '';
+    },
+});
+
+// Seeded once from the full activity list so opening the filter panel shows
+// the actual range of data rather than empty boxes — "clear filters" resets
+// back to this full range, not to nothing.
+type RunningFilters = typeof filters;
+const filterDefaults = ref<RunningFilters | null>(null);
+
+function computeFilterDefaults(): RunningFilters | null {
+    if (activities.value.length === 0) return null;
+    const paceMultiplier = distanceUnit.value === 'mi' ? 1.60934 : 1;
+    const dates = activities.value.map((r) => r.date);
+    const distancesKm = activities.value.map((r) => r.distance_km);
+    const durationsSec = activities.value.map((r) => r.duration_seconds);
+    const paces = activities.value
+        .filter((r) => r.pace > 0)
+        .map((r) => r.pace * paceMultiplier);
+
+    return {
+        dateFrom: dates.reduce((a, b) => (a < b ? a : b)),
+        dateTo: dates.reduce((a, b) => (a > b ? a : b)),
+        distanceMin: Math.floor(fromKm(Math.min(...distancesKm)) * 10) / 10,
+        distanceMax: Math.ceil(fromKm(Math.max(...distancesKm)) * 10) / 10,
+        // Duration filters work in whole seconds directly (matching
+        // formatDuration/parseDuration's H:MM:SS shape) rather than minutes.
+        durationMin: Math.min(...durationsSec),
+        durationMax: Math.max(...durationsSec),
+        paceMin: paces.length ? Math.floor(Math.min(...paces) * 10) / 10 : null,
+        paceMax: paces.length ? Math.ceil(Math.max(...paces) * 10) / 10 : null,
+    };
+}
+
+const hasActiveFilters = computed(() => {
+    const d = filterDefaults.value;
+    if (!d) return false;
+    return (
+        filters.dateFrom !== d.dateFrom ||
+        filters.dateTo !== d.dateTo ||
+        filters.distanceMin !== d.distanceMin ||
+        filters.distanceMax !== d.distanceMax ||
+        filters.durationMin !== d.durationMin ||
+        filters.durationMax !== d.durationMax ||
+        filters.paceMin !== d.paceMin ||
+        filters.paceMax !== d.paceMax
+    );
+});
 
 const filterWarning = computed(() => {
     if (
@@ -73,14 +122,8 @@ const filterWarning = computed(() => {
 });
 
 function clearFilters() {
-    filters.dateFrom = '';
-    filters.dateTo = '';
-    filters.distanceMin = null;
-    filters.distanceMax = null;
-    filters.durationMin = null;
-    filters.durationMax = null;
-    filters.paceMin = null;
-    filters.paceMax = null;
+    if (!filterDefaults.value) return;
+    Object.assign(filters, filterDefaults.value);
 }
 
 const filteredActivities = computed(() => {
@@ -106,15 +149,15 @@ const filteredActivities = computed(() => {
         if (filters.dateTo && r.date > filters.dateTo) return false;
         if (distMinKm !== null && r.distance_km < distMinKm) return false;
         if (distMaxKm !== null && r.distance_km > distMaxKm) return false;
-        const durationMin = filters.durationMin
-            ? filters.durationMin * 60
-            : null;
-        const durationMax = filters.durationMax
-            ? filters.durationMax * 60
-            : null;
-        if (durationMin !== null && r.duration_seconds < durationMin)
+        if (
+            filters.durationMin !== null &&
+            r.duration_seconds < filters.durationMin
+        )
             return false;
-        if (durationMax !== null && r.duration_seconds > durationMax)
+        if (
+            filters.durationMax !== null &&
+            r.duration_seconds > filters.durationMax
+        )
             return false;
         if (paceMinKm !== null && r.pace < paceMinKm) return false;
         if (paceMaxKm !== null && r.pace > paceMaxKm) return false;
@@ -245,9 +288,19 @@ async function saveGoal() {
 // --- Data loading ---
 async function loadData() {
     const runsRes = await getActivities();
-    if (runsRes.success && runsRes.data) activities.value = runsRes.data;
-    else if (!runsRes.success)
+    if (runsRes.success && runsRes.data) {
+        activities.value = runsRes.data;
+        // Seed the filter range once, from the first load — later reloads
+        // (after add/edit/delete/import) leave the user's own filter
+        // choices alone rather than resetting them.
+        if (!filterDefaults.value) {
+            filterDefaults.value = computeFilterDefaults();
+            if (filterDefaults.value)
+                Object.assign(filters, filterDefaults.value);
+        }
+    } else if (!runsRes.success) {
         toast.showError('Failed to load running activities');
+    }
 }
 
 async function loadGoal() {
@@ -340,7 +393,7 @@ const bracketPBs = computed(() =>
         ),
 );
 
-// --- Pace Over Time Chart ---
+// --- Pace & Distance Over Time Chart ---
 const chartData = computed(() => {
     const sorted = [...filteredActivities.value]
         .filter((r) => r.pace > 0)
@@ -356,6 +409,16 @@ const chartData = computed(() => {
                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
                 fill: true,
                 tension: 0.3,
+                yAxisID: 'y',
+            },
+            {
+                label: `Distance (${distanceUnit.value})`,
+                data: sorted.map((r) => fromKm(r.distance_km)),
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                fill: false,
+                tension: 0.3,
+                yAxisID: 'y1',
             },
         ],
     };
@@ -364,11 +427,17 @@ const chartData = computed(() => {
 const chartOptions = computed(() => ({
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
+    plugins: { legend: { display: true } },
     scales: {
         y: {
             reverse: true,
+            position: 'left',
             title: { display: true, text: `Pace (min/${distanceUnit.value})` },
+        },
+        y1: {
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: `Distance (${distanceUnit.value})` },
         },
     },
 }));
@@ -506,9 +575,11 @@ const chartOptions = computed(() => ({
             </div>
         </div>
 
-        <!-- Pace Over Time Chart -->
+        <!-- Pace & Distance Over Time Chart -->
         <div v-if="filteredActivities.length > 1" class="mb-6">
-            <h2 class="mb-3 text-xl font-semibold">Pace Over Time</h2>
+            <h2 class="mb-3 text-xl font-semibold">
+                Pace &amp; Distance Over Time
+            </h2>
             <div class="h-64">
                 <AppChart
                     :data="chartData"
@@ -556,27 +627,35 @@ const chartOptions = computed(() => ({
             v-if="showFilters"
             class="border-surface-200 dark:border-surface-700 mb-4 rounded-lg border p-4"
         >
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="flex flex-wrap gap-x-6 gap-y-4">
                 <!-- Date Range -->
                 <div>
                     <label class="mb-1 block text-sm font-medium">
                         Date From
                     </label>
-                    <AppInputText
-                        v-model="filters.dateFrom"
-                        class="w-full"
-                        type="date"
-                    />
+                    <div class="w-44 shrink-0">
+                        <AppDatePicker
+                            v-model="dateFromModel"
+                            date-format="yy M dd"
+                            fluid
+                            icon-display="input"
+                            show-icon
+                        />
+                    </div>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
                         Date To
                     </label>
-                    <AppInputText
-                        v-model="filters.dateTo"
-                        class="w-full"
-                        type="date"
-                    />
+                    <div class="w-44 shrink-0">
+                        <AppDatePicker
+                            v-model="dateToModel"
+                            date-format="yy M dd"
+                            fluid
+                            icon-display="input"
+                            show-icon
+                        />
+                    </div>
                 </div>
 
                 <!-- Distance Range -->
@@ -589,22 +668,16 @@ const chartOptions = computed(() => ({
                     :unit="distanceUnit"
                 />
 
-                <!-- Duration Range (in minutes) -->
-                <NumberRangeFilter
+                <!-- Duration Range, as H:MM:SS / M:SS -->
+                <DurationRangeFilter
                     v-model:max="filters.durationMax"
                     v-model:min="filters.durationMin"
-                    label="Duration"
-                    :step="5"
-                    unit="min"
                 />
 
-                <!-- Pace Range -->
-                <NumberRangeFilter
+                <!-- Pace Range, as M:SS -->
+                <PaceRangeFilter
                     v-model:max="filters.paceMax"
                     v-model:min="filters.paceMin"
-                    label="Pace"
-                    :max-fraction-digits="1"
-                    :step="0.5"
                     :unit="`min/${distanceUnit}`"
                 />
             </div>

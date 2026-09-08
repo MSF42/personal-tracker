@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 
 import { useImageApi } from '@/composables/api/useImageApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
+import { useBackup } from '@/composables/useBackup';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
 import { useUserProfile } from '@/composables/useUserProfile';
@@ -21,6 +22,21 @@ const confirmText = ref('');
 const showResetDialog = ref(false);
 const resetting = ref(false);
 const seeding = ref(false);
+
+const restoreFileInput = ref<HTMLInputElement | null>(null);
+const {
+    restoreConfirmText,
+    showRestoreDialog,
+    backingUp,
+    restoring,
+    downloadBackup,
+    onRestoreFileSelected,
+    confirmRestore,
+} = useBackup();
+
+function triggerRestoreUpload() {
+    restoreFileInput.value?.click();
+}
 
 const {
     weightUnit,
@@ -292,6 +308,42 @@ async function confirmReset() {
             </p>
         </section>
 
+        <!-- Data Management -->
+        <section
+            class="border-surface-200 dark:border-surface-700 mb-8 rounded-lg border p-6"
+        >
+            <h2
+                class="text-surface-800 dark:text-surface-100 mb-2 text-lg font-semibold"
+            >
+                Data Management
+            </h2>
+            <p class="text-surface-600 dark:text-surface-400 mb-4 text-sm">
+                Download a full backup, or restore from one you saved earlier.
+            </p>
+            <div class="flex flex-wrap gap-2">
+                <AppButton
+                    icon="pi pi-download"
+                    label="Download Backup"
+                    :loading="backingUp"
+                    severity="secondary"
+                    @click="downloadBackup"
+                />
+                <input
+                    ref="restoreFileInput"
+                    accept=".zip"
+                    class="hidden"
+                    type="file"
+                    @change="onRestoreFileSelected"
+                />
+                <AppButton
+                    icon="pi pi-upload"
+                    label="Restore from Backup"
+                    severity="secondary"
+                    @click="triggerRestoreUpload"
+                />
+            </div>
+        </section>
+
         <!-- Danger Zone -->
         <section
             class="rounded-lg border border-red-300 p-6 dark:border-red-800"
@@ -343,6 +395,39 @@ async function confirmReset() {
                     :loading="resetting"
                     severity="danger"
                     @click="confirmReset"
+                />
+            </div>
+        </AppDialog>
+
+        <!-- Restore Confirmation Dialog -->
+        <AppDialog
+            v-model:visible="showRestoreDialog"
+            header="Restore from Backup"
+            :modal="true"
+            :style="{ width: '28rem', maxWidth: '92vw' }"
+        >
+            <p class="text-surface-600 dark:text-surface-400 mb-4 text-sm">
+                This will replace all current data with the backup. This action
+                cannot be undone. Type <strong>RESTORE</strong> to confirm.
+            </p>
+            <AppInputText
+                v-model="restoreConfirmText"
+                class="mb-4 w-full"
+                placeholder="Type RESTORE to confirm"
+                @keydown.enter="confirmRestore"
+            />
+            <div class="flex justify-end gap-2">
+                <AppButton
+                    label="Cancel"
+                    severity="secondary"
+                    @click="showRestoreDialog = false"
+                />
+                <AppButton
+                    :disabled="restoreConfirmText !== 'RESTORE'"
+                    label="Restore"
+                    :loading="restoring"
+                    severity="warn"
+                    @click="confirmRestore"
                 />
             </div>
         </AppDialog>
