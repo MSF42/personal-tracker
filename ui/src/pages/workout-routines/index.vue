@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
@@ -33,6 +33,7 @@ const { getExercises } = useExerciseApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
 const router = useRouter();
+const route = useRoute();
 
 const routines = ref<WorkoutRoutine[]>([]);
 const workoutLogs = ref<WorkoutLog[]>([]);
@@ -197,16 +198,33 @@ async function handleAddExercise() {
         addExerciseForm.sets = 3;
         addExerciseForm.reps = 10;
         await loadRoutineExercises(editingId.value);
+    } else {
+        toast.showError(res.error?.message ?? 'Failed to add exercise');
     }
 }
 
-async function handleRemoveExercise(exerciseId: number) {
-    if (!editingId.value) return;
-    const res = await removeRoutineExercise(editingId.value, exerciseId);
+const showRemoveExerciseConfirm = ref(false);
+const removingExerciseId = ref<number | null>(null);
+
+function confirmRemoveExercise(exerciseId: number) {
+    removingExerciseId.value = exerciseId;
+    showRemoveExerciseConfirm.value = true;
+}
+
+async function handleRemoveExercise() {
+    if (!editingId.value || removingExerciseId.value === null) return;
+    const res = await removeRoutineExercise(
+        editingId.value,
+        removingExerciseId.value,
+    );
     if (res.success) {
         toast.showSuccess('Exercise removed from routine');
         await loadRoutineExercises(editingId.value);
+    } else {
+        toast.showError(res.error?.message ?? 'Failed to remove exercise');
     }
+    showRemoveExerciseConfirm.value = false;
+    removingExerciseId.value = null;
 }
 
 // --- Log Workout Dialog (shared component) ---
@@ -251,7 +269,19 @@ async function loadData() {
     await loadExerciseCounts();
 }
 
-onMounted(() => withLoading(loadData));
+// Landing here from a command-palette search hit
+// (`/workout-routines?routine=123`) opens that routine for editing, then
+// clears the param.
+async function openFromSearch() {
+    const id = Number(route.query.routine);
+    if (!id) return;
+    const match = routines.value.find((r) => r.id === id);
+    if (match) await openEditDialog(match);
+    const { routine: _routine, ...rest } = route.query;
+    await router.replace({ query: rest });
+}
+
+onMounted(() => withLoading(loadData).then(openFromSearch));
 
 const dialogHeader = computed(() =>
     editingId.value ? `Edit ${form.name || 'Routine'}` : 'Add Routine',
@@ -432,7 +462,7 @@ const dialogHeader = computed(() =>
             :style="{ width: '52rem', maxWidth: '94vw' }"
         >
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <!-- Left: routine details -->
+                <!-- Left: routine details + add exercise -->
                 <div class="flex flex-col gap-4">
                     <div>
                         <label class="mb-1 block text-sm font-medium">
@@ -450,9 +480,59 @@ const dialogHeader = computed(() =>
                         <AppTextarea
                             v-model="form.description"
                             class="w-full"
-                            rows="4"
+                            rows="6"
                         />
                     </div>
+
+                    <!-- Add exercise section -->
+                    <div
+                        v-if="editingId"
+                        class="border-surface-200 dark:border-surface-700 rounded-lg border p-3"
+                    >
+                        <div class="mb-2 text-sm font-medium">Add Exercise</div>
+                        <div class="flex flex-col gap-2">
+                            <AppSelect
+                                v-model="addExerciseForm.exerciseId"
+                                class="w-full"
+                                option-label="name"
+                                option-value="id"
+                                :options="availableExercises"
+                                placeholder="Select exercise..."
+                            />
+                            <div class="flex gap-2">
+                                <div class="min-w-0 flex-1">
+                                    <label class="mb-1 block text-xs"
+                                        >Sets</label
+                                    >
+                                    <AppInputNumber
+                                        v-model="addExerciseForm.sets"
+                                        fluid
+                                        :min="1"
+                                        show-buttons
+                                    />
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <label class="mb-1 block text-xs"
+                                        >Reps</label
+                                    >
+                                    <AppInputNumber
+                                        v-model="addExerciseForm.reps"
+                                        fluid
+                                        :min="1"
+                                        show-buttons
+                                    />
+                                </div>
+                            </div>
+                            <AppButton
+                                :disabled="!addExerciseForm.exerciseId"
+                                icon="pi pi-plus"
+                                label="Add"
+                                size="small"
+                                @click="handleAddExercise"
+                            />
+                        </div>
+                    </div>
+
                     <div class="flex justify-end">
                         <span v-tooltip.top="saveTooltip">
                             <AppButton
@@ -504,58 +584,8 @@ const dialogHeader = computed(() =>
                                 rounded
                                 severity="danger"
                                 text
-                                @click="handleRemoveExercise(re.id)"
+                                @click="confirmRemoveExercise(re.id)"
                             />
-                        </div>
-
-                        <!-- Add exercise section -->
-                        <div
-                            class="border-surface-200 dark:border-surface-700 rounded-lg border p-3"
-                        >
-                            <div class="mb-2 text-sm font-medium">
-                                Add Exercise
-                            </div>
-                            <div class="flex flex-col gap-2">
-                                <AppSelect
-                                    v-model="addExerciseForm.exerciseId"
-                                    class="w-full"
-                                    option-label="name"
-                                    option-value="id"
-                                    :options="availableExercises"
-                                    placeholder="Select exercise..."
-                                />
-                                <div class="flex gap-2">
-                                    <div class="min-w-0 flex-1">
-                                        <label class="mb-1 block text-xs"
-                                            >Sets</label
-                                        >
-                                        <AppInputNumber
-                                            v-model="addExerciseForm.sets"
-                                            fluid
-                                            :min="1"
-                                            show-buttons
-                                        />
-                                    </div>
-                                    <div class="min-w-0 flex-1">
-                                        <label class="mb-1 block text-xs"
-                                            >Reps</label
-                                        >
-                                        <AppInputNumber
-                                            v-model="addExerciseForm.reps"
-                                            fluid
-                                            :min="1"
-                                            show-buttons
-                                        />
-                                    </div>
-                                </div>
-                                <AppButton
-                                    :disabled="!addExerciseForm.exerciseId"
-                                    icon="pi pi-plus"
-                                    label="Add"
-                                    size="small"
-                                    @click="handleAddExercise"
-                                />
-                            </div>
                         </div>
                     </template>
                 </div>
@@ -584,6 +614,14 @@ const dialogHeader = computed(() =>
             @confirm="executeDelete"
         >
             Are you sure you want to delete this routine?
+        </ConfirmDeleteDialog>
+
+        <!-- Remove Exercise Confirmation Dialog -->
+        <ConfirmDeleteDialog
+            v-model:visible="showRemoveExerciseConfirm"
+            @confirm="handleRemoveExercise"
+        >
+            Are you sure you want to remove this exercise from the routine?
         </ConfirmDeleteDialog>
     </div>
 </template>

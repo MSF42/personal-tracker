@@ -65,7 +65,7 @@ export function useUnits() {
     function fmtWeight(kg: number | null | undefined): string {
         if (kg == null) return '—';
         if (weightUnit.value === 'lbs') {
-            return `${(kg * KG_TO_LBS).toFixed(1)} lbs`;
+            return `${(kg * KG_TO_LBS).toFixed(2)} lbs`;
         }
         return `${kg} kg`;
     }

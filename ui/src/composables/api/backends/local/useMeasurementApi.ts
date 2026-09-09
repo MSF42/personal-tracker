@@ -50,6 +50,10 @@ export function useMeasurementApi() {
             fields.push('unit = ?');
             values.push(data.unit);
         }
+        if (data.sort_order !== undefined) {
+            fields.push('sort_order = ?');
+            values.push(data.sort_order);
+        }
 
         if (fields.length === 0) {
             return queryOne<Measurement>(

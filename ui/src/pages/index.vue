@@ -8,6 +8,7 @@ import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
 import { useCountdownApi } from '@/composables/api/useCountdownApi';
+import { useHabitApi } from '@/composables/api/useHabitApi';
 import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
@@ -15,6 +16,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useTaskLinks } from '@/composables/useTaskLinks';
 import { useToast } from '@/composables/useToast';
 import type { Countdown } from '@/types/Countdown';
+import type { Habit } from '@/types/Habit';
 import type { RunningActivity } from '@/types/Running';
 import type { Task } from '@/types/Task';
 import type { WorkoutLog } from '@/types/WorkoutLog';
@@ -30,6 +32,7 @@ import {
 const { getActivities } = useRunningApi();
 const { getTasks } = useTaskApi();
 const { getWorkoutLogs } = useWorkoutLogApi();
+const { getHabits } = useHabitApi();
 const { getCountdowns, createCountdown, updateCountdown, deleteCountdown } =
     useCountdownApi();
 const toast = useToast();
@@ -40,6 +43,7 @@ const runs = ref<RunningActivity[]>([]);
 const tasks = ref<Task[]>([]);
 const workoutLogs = ref<WorkoutLog[]>([]);
 const countdowns = ref<Countdown[]>([]);
+const habits = ref<Habit[]>([]);
 
 async function refreshAfterTaskLink() {
     const [tasksRes, logsRes, runsRes] = await Promise.all([
@@ -89,12 +93,14 @@ const currentMonth = today.getMonth();
 onMounted(() => {
     void loadRoutines();
     return withLoading(async () => {
-        const [runsRes, tasksRes, logsRes, countdownsRes] = await Promise.all([
-            getActivities(),
-            getTasks(),
-            getWorkoutLogs(),
-            getCountdowns(),
-        ]);
+        const [runsRes, tasksRes, logsRes, countdownsRes, habitsRes] =
+            await Promise.all([
+                getActivities(),
+                getTasks(),
+                getWorkoutLogs(),
+                getCountdowns(),
+                getHabits(),
+            ]);
         if (countdownsRes.success && countdownsRes.data)
             countdowns.value = countdownsRes.data;
         if (runsRes.success && runsRes.data) runs.value = runsRes.data;
@@ -105,6 +111,8 @@ onMounted(() => {
         if (logsRes.success && logsRes.data) workoutLogs.value = logsRes.data;
         else if (!logsRes.success)
             toast.showError('Failed to load workout logs');
+        if (habitsRes.success && habitsRes.data) habits.value = habitsRes.data;
+        else if (!habitsRes.success) toast.showError('Failed to load habits');
     });
 });
 
@@ -119,6 +127,11 @@ const tasksDueToday = computed(() => {
     );
     return { dueCount: dueToday.length, overdueCount: overdue.length };
 });
+
+const habitsToday = computed(() => ({
+    done: habits.value.filter((h) => h.completed_today).length,
+    total: habits.value.length,
+}));
 
 const weeklyRunning = computed(() => {
     const { start: monStr, end: sunStr } = weekRange(today);
@@ -417,7 +430,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
         <template v-else>
             <!-- Summary Cards -->
             <div
-                class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
             >
                 <!-- Tasks Due Today -->
                 <AppCard>
@@ -439,6 +452,31 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                         </div>
                         <div v-else class="text-surface-500 text-sm">
                             none overdue
+                        </div>
+                    </template>
+                </AppCard>
+
+                <!-- Habits Today -->
+                <AppCard>
+                    <template #title>
+                        <div class="flex items-center gap-2">
+                            <i class="pi pi-check-circle text-violet-500"></i>
+                            <span>Habits Today</span>
+                        </div>
+                    </template>
+                    <template #content>
+                        <div class="text-2xl font-bold">
+                            {{ habitsToday.done }}
+                            <span class="text-surface-400 text-lg font-normal"
+                                >/ {{ habitsToday.total }}</span
+                            >
+                        </div>
+                        <div class="text-surface-500 text-sm">
+                            {{
+                                habitsToday.total === 0
+                                    ? 'no habits tracked'
+                                    : 'done today'
+                            }}
                         </div>
                     </template>
                 </AppCard>

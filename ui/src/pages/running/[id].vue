@@ -202,8 +202,8 @@ const highlightPlugin = {
             }
         }
         if (first < 0 || last < first) return;
-        const x1 = xScale.getPixelForValue(first);
-        const x2 = xScale.getPixelForValue(last);
+        const x1 = xScale.getPixelForValue(chartXValues.value[first]!);
+        const x2 = xScale.getPixelForValue(chartXValues.value[last]!);
         const { top, bottom } = chart.chartArea;
         const { ctx } = chart;
         ctx.save();
@@ -220,13 +220,24 @@ const highlightPlugin = {
 const chartPlugins = [highlightPlugin];
 
 // --- Charts -------------------------------------------------------------------
-const chartLabels = computed(() =>
-    samples.value.map((s) =>
-        s.distance_km != null
-            ? fromKm(s.distance_km).toFixed(2)
-            : formatDuration(s.t_seconds),
-    ),
+// A run's samples are recorded roughly once per second — uniform in time,
+// not in distance (pauses, hills, and pace changes all mean equal time
+// doesn't cover equal ground). Plotting them on a numeric x-axis keyed to
+// the real distance (or elapsed time, for an indoor run with no GPS) is
+// what makes the x-axis actually proportionate; a category axis of
+// per-sample labels spaces every point evenly by index regardless of how
+// much distance/time it actually represents.
+const hasDistanceSamples = computed(() =>
+    samples.value.some((s) => s.distance_km != null),
 );
+
+function xValueFor(s: RunSample): number {
+    return hasDistanceSamples.value && s.distance_km != null
+        ? fromKm(s.distance_km)
+        : s.t_seconds / 60;
+}
+
+const chartXValues = computed(() => samples.value.map(xValueFor));
 
 function series<T>(pick: (s: RunSample) => T | null): (T | null)[] {
     return samples.value.map(pick);
@@ -278,12 +289,12 @@ const elevationSeries = computed(() =>
 );
 
 function lineData(label: string, data: (number | null)[], color: string) {
+    const xValues = chartXValues.value;
     return {
-        labels: chartLabels.value,
         datasets: [
             {
                 label,
-                data,
+                data: data.map((y, i) => ({ x: xValues[i]!, y })),
                 borderColor: color,
                 backgroundColor: color + '22',
                 fill: true,
@@ -295,7 +306,11 @@ function lineData(label: string, data: (number | null)[], color: string) {
     };
 }
 
-const xTitle = computed(() => `Distance (${distanceUnit.value})`);
+const xTitle = computed(() =>
+    hasDistanceSamples.value
+        ? `Distance (${distanceUnit.value})`
+        : 'Time (min)',
+);
 
 function lineOptions(yTitle: string, reverse = false) {
     return {
@@ -305,6 +320,7 @@ function lineOptions(yTitle: string, reverse = false) {
         plugins: { legend: { display: false } },
         scales: {
             x: {
+                type: 'linear' as const,
                 title: { display: true, text: xTitle.value },
                 ticks: { maxTicksLimit: 8 },
             },

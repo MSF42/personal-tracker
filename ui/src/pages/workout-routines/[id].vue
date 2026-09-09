@@ -11,6 +11,7 @@ import WorkoutLogDetailDialog from '@/components/WorkoutLogDetailDialog.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
 import { useSmartBack } from '@/composables/useSmartBack';
+import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
 import type {
     ExerciseHistoryEntry,
@@ -30,6 +31,7 @@ const {
     getExerciseHistory,
 } = useWorkoutLogApi();
 const { fmtWeight } = useUnits();
+const toast = useToast();
 
 const routine = ref<WorkoutRoutine | null>(null);
 const exercises = ref<RoutineExercise[]>([]);
@@ -117,6 +119,8 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
     if (res.success && res.data) {
         historyEntries.value = res.data;
         showHistory.value = true;
+    } else {
+        toast.showError('Failed to load exercise history');
     }
 }
 

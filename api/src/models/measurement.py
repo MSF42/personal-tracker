@@ -18,6 +18,7 @@ class CreateMeasurementRequest(BaseModel):
 class UpdateMeasurementRequest(BaseModel):
     name: str | None = None
     unit: str | None = None
+    sort_order: int | None = None
 
 
 class MeasurementEntryResponse(BaseModel):

@@ -4,6 +4,8 @@ import { computed, ref } from 'vue';
 import { useUnits } from '@/composables/useUnits';
 import type { ExerciseHistoryEntry } from '@/types/WorkoutLog';
 import { registerCharts } from '@/utils/chart';
+import { formatDate } from '@/utils/format';
+import { fromIsoDate, toIsoDate } from '@/utils/week';
 
 const props = defineProps<{
     exerciseName: string;
@@ -46,7 +48,9 @@ const historyByDate = computed<HistoryDateGroup[]>(() => {
 const { weightUnit, fromKg, fmtWeight } = useUnits();
 
 // Weights arrive in kg; everything shown here is in the user's unit.
-const round1 = (n: number) => Math.round(n * 10) / 10;
+// Entries can be logged to the nearest 0.25/0.75, so round display to 2
+// decimals rather than 1 to avoid misrepresenting the logged value.
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const hasWeightData = computed(() =>
     props.entries.some((e) => e.weight !== null && e.weight > 0),
@@ -75,26 +79,28 @@ const summaryStats = computed(() => {
 
     return {
         sessions,
-        prWeight: round1(prWeight),
+        prWeight: round2(prWeight),
         bestVolume: Math.round(bestVolume),
         avgVolume,
     };
 });
 
+// Points sit on a numeric (real-time) x-axis rather than a category axis of
+// session dates — a category axis spaces sessions evenly by count, which is
+// wrong whenever sessions aren't evenly spaced in time.
 const chartData = computed(() => {
     const groups = [...historyByDate.value].reverse();
-    const labels = groups.map((g) => g.date);
+    const xValues = groups.map((g) => fromIsoDate(g.date).getTime());
 
     if (!hasWeightData.value) {
         const totalReps = groups.map((g) =>
             g.sets.reduce((sum, s) => sum + s.reps, 0),
         );
         return {
-            labels,
             datasets: [
                 {
                     label: 'Total Reps',
-                    data: totalReps,
+                    data: totalReps.map((y, i) => ({ x: xValues[i]!, y })),
                     borderColor: '#6366f1',
                     backgroundColor: 'rgba(99, 102, 241, 0.1)',
                     fill: true,
@@ -105,7 +111,7 @@ const chartData = computed(() => {
     }
 
     const maxWeight = groups.map((g) =>
-        round1(Math.max(...g.sets.map((s) => fromKg(s.weight ?? 0)))),
+        round2(Math.max(...g.sets.map((s) => fromKg(s.weight ?? 0)))),
     );
     const volume = groups.map((g) =>
         Math.round(
@@ -114,11 +120,10 @@ const chartData = computed(() => {
     );
 
     return {
-        labels,
         datasets: [
             {
                 label: `Max Weight (${weightUnit.value})`,
-                data: maxWeight,
+                data: maxWeight.map((y, i) => ({ x: xValues[i]!, y })),
                 borderColor: '#6366f1',
                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
                 fill: false,
@@ -127,7 +132,7 @@ const chartData = computed(() => {
             },
             {
                 label: `Total Volume (${weightUnit.value})`,
-                data: volume,
+                data: volume.map((y, i) => ({ x: xValues[i]!, y })),
                 borderColor: '#22c55e',
                 backgroundColor: 'rgba(34, 197, 94, 0.1)',
                 fill: true,
@@ -139,12 +144,20 @@ const chartData = computed(() => {
 });
 
 const chartOptions = computed(() => {
+    const xScale = {
+        type: 'linear' as const,
+        ticks: {
+            callback: (value: number) => formatDate(toIsoDate(new Date(value))),
+        },
+    };
+
     if (!hasWeightData.value) {
         return {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: true } },
             scales: {
+                x: xScale,
                 y: {
                     beginAtZero: true,
                     title: { display: true, text: 'Reps' },
@@ -158,6 +171,7 @@ const chartOptions = computed(() => {
         maintainAspectRatio: false,
         plugins: { legend: { display: true } },
         scales: {
+            x: xScale,
             y: {
                 type: 'linear' as const,
                 position: 'left' as const,

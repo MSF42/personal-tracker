@@ -15,6 +15,7 @@ export interface MeasurementCreate {
 export interface MeasurementUpdate {
     name?: string;
     unit?: string;
+    sort_order?: number;
 }
 
 export interface MeasurementEntry {

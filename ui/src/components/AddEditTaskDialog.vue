@@ -5,6 +5,7 @@ import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useToast } from '@/composables/useToast';
 import type { Task, TaskLinkType } from '@/types/Task';
 import type { WorkoutRoutine } from '@/types/WorkoutRoutine';
+import { fromIsoDate, toIsoDate } from '@/utils/week';
 
 const props = withDefaults(
     defineProps<{
@@ -54,6 +55,13 @@ const form = reactive({
     priority: 'medium' as 'high' | 'medium' | 'low',
     link_type: null as TaskLinkType | null,
     link_routine_id: null as number | null,
+});
+// AppDatePicker binds to a Date; form.due_date stays a plain ISO string.
+const dueDateModel = computed<Date | null>({
+    get: () => (form.due_date ? fromIsoDate(form.due_date) : null),
+    set: (value) => {
+        form.due_date = value ? toIsoDate(value) : '';
+    },
 });
 
 const isFormValid = computed(
@@ -184,10 +192,12 @@ async function save() {
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium">Due Date</label>
-                <AppInputText
-                    v-model="form.due_date"
-                    class="w-full"
-                    type="date"
+                <AppDatePicker
+                    v-model="dueDateModel"
+                    date-format="yy M dd"
+                    fluid
+                    icon-display="input"
+                    show-icon
                 />
             </div>
             <div>

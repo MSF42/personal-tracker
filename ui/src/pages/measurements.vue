@@ -9,6 +9,7 @@ import { useToast } from '@/composables/useToast';
 import type { Measurement, MeasurementEntry } from '@/types/Measurement';
 import { registerCharts } from '@/utils/chart';
 import { formatDate } from '@/utils/format';
+import { fromIsoDate, toIsoDate } from '@/utils/week';
 
 registerCharts();
 
@@ -33,72 +34,68 @@ const selectedMeasurement = computed(() =>
     measurements.value.find((m) => m.id === selectedId.value),
 );
 
-// --- Add Measurement Dialog ---
-const showAddMeasurement = ref(false);
+// --- Add/Edit Measurement Dialog ---
+const showMeasurementDialog = ref(false);
+const editingMeasurementId = ref<number | null>(null);
 const measurementForm = reactive({ name: '', unit: '' });
-const addMeasurementError = ref('');
+const measurementFormError = ref('');
 
-const isAddFormValid = computed(() => measurementForm.name.trim() !== '');
-const addSaveTooltip = computed(() =>
-    isAddFormValid.value ? undefined : 'Name is required',
+const isMeasurementFormValid = computed(
+    () => measurementForm.name.trim() !== '',
+);
+const measurementSaveTooltip = computed(() =>
+    isMeasurementFormValid.value ? undefined : 'Name is required',
+);
+const measurementDialogHeader = computed(() =>
+    editingMeasurementId.value ? 'Edit Measurement' : 'Add Measurement',
 );
 
 function openAddMeasurement() {
+    editingMeasurementId.value = null;
     measurementForm.name = '';
     measurementForm.unit = '';
-    addMeasurementError.value = '';
-    showAddMeasurement.value = true;
+    measurementFormError.value = '';
+    showMeasurementDialog.value = true;
 }
-
-async function saveMeasurement() {
-    addMeasurementError.value = '';
-    const res = await createMeasurement({
-        name: measurementForm.name,
-        unit: measurementForm.unit,
-    });
-    if (res.success && res.data) {
-        toast.showSuccess('Measurement added');
-        showAddMeasurement.value = false;
-        await loadMeasurements();
-        await selectMeasurement(res.data.id);
-    } else if (!res.success) {
-        addMeasurementError.value =
-            res.error?.message ?? 'Something went wrong';
-    }
-}
-
-// --- Edit Measurement Dialog ---
-const showEditMeasurement = ref(false);
-const editMeasurementForm = reactive({ name: '', unit: '' });
-const editMeasurementError = ref('');
-
-const isEditFormValid = computed(() => editMeasurementForm.name.trim() !== '');
-const editSaveTooltip = computed(() =>
-    isEditFormValid.value ? undefined : 'Name is required',
-);
 
 function openEditMeasurement() {
     if (!selectedMeasurement.value) return;
-    editMeasurementForm.name = selectedMeasurement.value.name;
-    editMeasurementForm.unit = selectedMeasurement.value.unit;
-    editMeasurementError.value = '';
-    showEditMeasurement.value = true;
+    editingMeasurementId.value = selectedMeasurement.value.id;
+    measurementForm.name = selectedMeasurement.value.name;
+    measurementForm.unit = selectedMeasurement.value.unit;
+    measurementFormError.value = '';
+    showMeasurementDialog.value = true;
 }
 
-async function saveEditMeasurement() {
-    if (!selectedId.value) return;
-    editMeasurementError.value = '';
-    const res = await updateMeasurement(selectedId.value, {
-        name: editMeasurementForm.name,
-        unit: editMeasurementForm.unit,
-    });
-    if (res.success) {
-        toast.showSuccess('Measurement updated');
-        showEditMeasurement.value = false;
-        await loadMeasurements();
+async function saveMeasurementForm() {
+    measurementFormError.value = '';
+    if (editingMeasurementId.value) {
+        const res = await updateMeasurement(editingMeasurementId.value, {
+            name: measurementForm.name,
+            unit: measurementForm.unit,
+        });
+        if (res.success) {
+            toast.showSuccess('Measurement updated');
+            showMeasurementDialog.value = false;
+            await loadMeasurements();
+        } else {
+            measurementFormError.value =
+                res.error?.message ?? 'Something went wrong';
+        }
     } else {
-        editMeasurementError.value =
-            res.error?.message ?? 'Something went wrong';
+        const res = await createMeasurement({
+            name: measurementForm.name,
+            unit: measurementForm.unit,
+        });
+        if (res.success && res.data) {
+            toast.showSuccess('Measurement added');
+            showMeasurementDialog.value = false;
+            await loadMeasurements();
+            await selectMeasurement(res.data.id);
+        } else {
+            measurementFormError.value =
+                res.error?.message ?? 'Something went wrong';
+        }
     }
 }
 
@@ -118,6 +115,8 @@ async function confirmDeleteMeasurement() {
             selectedId.value = null;
             entries.value = [];
         }
+    } else {
+        toast.showError(res.error?.message ?? 'Failed to delete measurement');
     }
 }
 
@@ -127,15 +126,30 @@ const editingEntryId = ref<number | null>(null);
 const today = new Date().toISOString().split('T')[0] as string;
 const entryForm = reactive({
     date: today,
-    value: 0,
+    value: null as number | null,
     notes: '',
 });
 const entryFormError = ref('');
+const isEntryFormValid = computed(
+    () => entryForm.date !== '' && entryForm.value !== null,
+);
+const entrySaveTooltip = computed(() => {
+    if (entryForm.date === '') return 'Date is required';
+    if (entryForm.value === null) return 'Value is required';
+    return undefined;
+});
+// AppDatePicker binds to a Date; entryForm.date stays a plain ISO string.
+const entryDateModel = computed<Date | null>({
+    get: () => (entryForm.date ? fromIsoDate(entryForm.date) : null),
+    set: (value) => {
+        entryForm.date = value ? toIsoDate(value) : '';
+    },
+});
 
 function openAddEntry() {
     editingEntryId.value = null;
     entryForm.date = today;
-    entryForm.value = 0;
+    entryForm.value = null;
     entryForm.notes = '';
     entryFormError.value = '';
     showEntryDialog.value = true;
@@ -151,12 +165,13 @@ function openEditEntry(entry: MeasurementEntry) {
 }
 
 async function saveEntry() {
-    if (!selectedId.value) return;
+    if (!selectedId.value || entryForm.value === null) return;
+    const value = entryForm.value;
     entryFormError.value = '';
     if (editingEntryId.value) {
         const res = await updateEntry(editingEntryId.value, {
             date: entryForm.date,
-            value: entryForm.value,
+            value,
             notes: entryForm.notes || null,
         });
         if (res.success) {
@@ -169,7 +184,7 @@ async function saveEntry() {
     } else {
         const res = await createEntry(selectedId.value, {
             date: entryForm.date,
-            value: entryForm.value,
+            value,
             notes: entryForm.notes || null,
         });
         if (res.success) {
@@ -196,24 +211,86 @@ async function executeDeleteEntry() {
     const res = await deleteEntry(deletingEntryId.value);
     if (res.success) {
         toast.showSuccess('Entry deleted');
+    } else {
+        toast.showError(res.error?.message ?? 'Failed to delete entry');
     }
     showDeleteEntry.value = false;
     deletingEntryId.value = null;
     await loadEntries();
 }
 
+// --- Reorder measurements ---
+const canMoveEarlier = computed(() => {
+    if (!selectedId.value) return false;
+    return measurements.value.findIndex((m) => m.id === selectedId.value) > 0;
+});
+const canMoveLater = computed(() => {
+    if (!selectedId.value) return false;
+    const idx = measurements.value.findIndex((m) => m.id === selectedId.value);
+    return idx !== -1 && idx < measurements.value.length - 1;
+});
+
+async function moveMeasurement(direction: -1 | 1) {
+    if (!selectedId.value) return;
+    const idx = measurements.value.findIndex((m) => m.id === selectedId.value);
+    const swapIdx = idx + direction;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= measurements.value.length)
+        return;
+    const current = measurements.value[idx]!;
+    const neighbor = measurements.value[swapIdx]!;
+    const [resCurrent, resNeighbor] = await Promise.all([
+        updateMeasurement(current.id, { sort_order: neighbor.sort_order }),
+        updateMeasurement(neighbor.id, { sort_order: current.sort_order }),
+    ]);
+    if (resCurrent.success && resNeighbor.success) {
+        await loadMeasurements();
+    } else {
+        toast.showError('Failed to reorder measurements');
+    }
+}
+
+// --- Export entries as CSV ---
+function csvField(value: string): string {
+    return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+function exportEntriesCsv() {
+    if (!selectedMeasurement.value) return;
+    const unit = selectedMeasurement.value.unit;
+    const header = ['Date', unit ? `Value (${unit})` : 'Value', 'Notes'];
+    const rows = [...entries.value]
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((e) => [e.date, String(e.value), e.notes ?? '']);
+    const csv = [header, ...rows]
+        .map((row) => row.map(csvField).join(','))
+        .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${selectedMeasurement.value.name}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
 // --- Chart ---
+// Points sit on a numeric (real-time) x-axis rather than a category axis of
+// formatted date labels — a category axis spaces entries evenly by count,
+// which is wrong whenever entries aren't evenly spaced in time (e.g. daily
+// for a week, then a two-week gap).
 const chartData = computed(() => {
     const sorted = [...entries.value].sort((a, b) =>
         a.date.localeCompare(b.date),
     );
     const unit = selectedMeasurement.value?.unit ?? '';
     return {
-        labels: sorted.map((e) => formatDate(e.date)),
         datasets: [
             {
                 label: unit ? `Value (${unit})` : 'Value',
-                data: sorted.map((e) => e.value),
+                data: sorted.map((e) => ({
+                    x: fromIsoDate(e.date).getTime(),
+                    y: e.value,
+                })),
                 borderColor: '#6366f1',
                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
                 fill: true,
@@ -228,6 +305,13 @@ const chartOptions = computed(() => ({
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
+        x: {
+            type: 'linear' as const,
+            ticks: {
+                callback: (value: number) =>
+                    formatDate(toIsoDate(new Date(value))),
+            },
+        },
         y: {
             title: {
                 display: true,
@@ -295,14 +379,41 @@ const entryDialogHeader = computed(() =>
         <div
             v-else-if="measurements.length"
             class="mb-6 flex flex-wrap items-center gap-2"
+            role="tablist"
         >
             <AppButton
                 v-for="m in measurements"
                 :key="m.id"
+                :aria-selected="selectedId === m.id"
                 :label="m.name"
                 :outlined="selectedId !== m.id"
+                role="tab"
                 size="small"
                 @click="selectMeasurement(m.id)"
+            />
+            <AppButton
+                v-if="selectedMeasurement"
+                aria-label="Move earlier"
+                :disabled="!canMoveEarlier"
+                icon="pi pi-arrow-left"
+                rounded
+                severity="secondary"
+                size="small"
+                text
+                title="Move earlier"
+                @click="moveMeasurement(-1)"
+            />
+            <AppButton
+                v-if="selectedMeasurement"
+                aria-label="Move later"
+                :disabled="!canMoveLater"
+                icon="pi pi-arrow-right"
+                rounded
+                severity="secondary"
+                size="small"
+                text
+                title="Move later"
+                @click="moveMeasurement(1)"
             />
             <AppButton
                 v-if="selectedMeasurement"
@@ -326,8 +437,17 @@ const entryDialogHeader = computed(() =>
             />
         </div>
 
-        <div v-else class="text-surface-500 py-12 text-center">
-            No measurements yet. Add one to get started.
+        <div v-else class="flex flex-col items-center py-10 text-center">
+            <i
+                class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"
+            ></i>
+            <p class="text-surface-500 mb-3">No measurements yet</p>
+            <AppButton
+                icon="pi pi-plus"
+                label="Add your first measurement"
+                size="small"
+                @click="openAddMeasurement"
+            />
         </div>
 
         <!-- Selected measurement view -->
@@ -351,11 +471,21 @@ const entryDialogHeader = computed(() =>
                 <h2 class="text-xl font-semibold">
                     {{ selectedMeasurement.name }} Log
                 </h2>
-                <AppButton
-                    icon="pi pi-plus"
-                    label="Add Entry"
-                    @click="openAddEntry"
-                />
+                <div class="flex gap-2">
+                    <AppButton
+                        v-if="entries.length > 0"
+                        icon="pi pi-download"
+                        label="Export CSV"
+                        outlined
+                        severity="secondary"
+                        @click="exportEntriesCsv"
+                    />
+                    <AppButton
+                        icon="pi pi-plus"
+                        label="Add Entry"
+                        @click="openAddEntry"
+                    />
+                </div>
             </div>
 
             <!-- Entries Table -->
@@ -365,6 +495,20 @@ const entryDialogHeader = computed(() =>
                 striped-rows
                 :value="entries"
             >
+                <template #empty>
+                    <div class="flex flex-col items-center py-10 text-center">
+                        <i
+                            class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"
+                        ></i>
+                        <p class="text-surface-500 mb-3">No entries yet</p>
+                        <AppButton
+                            icon="pi pi-plus"
+                            label="Add your first entry"
+                            size="small"
+                            @click="openAddEntry"
+                        />
+                    </div>
+                </template>
                 <AppColumn field="date" header="Date" sortable>
                     <template #body="{ data }">
                         {{ formatDate((data as MeasurementEntry).date) }}
@@ -406,10 +550,10 @@ const entryDialogHeader = computed(() =>
             </AppDataTable>
         </template>
 
-        <!-- Add Measurement Dialog -->
+        <!-- Add/Edit Measurement Dialog -->
         <AppDialog
-            v-model:visible="showAddMeasurement"
-            header="Add Measurement"
+            v-model:visible="showMeasurementDialog"
+            :header="measurementDialogHeader"
             modal
             :style="{ width: '24rem', maxWidth: '92vw' }"
         >
@@ -424,10 +568,10 @@ const entryDialogHeader = computed(() =>
                         placeholder="e.g. Waist"
                     />
                     <p
-                        v-if="addMeasurementError"
+                        v-if="measurementFormError"
                         class="mt-1 text-sm text-red-500"
                     >
-                        {{ addMeasurementError }}
+                        {{ measurementFormError }}
                     </p>
                 </div>
                 <div>
@@ -446,64 +590,13 @@ const entryDialogHeader = computed(() =>
                     <AppButton
                         label="Cancel"
                         text
-                        @click="showAddMeasurement = false"
+                        @click="showMeasurementDialog = false"
                     />
-                    <span v-tooltip.top="addSaveTooltip">
+                    <span v-tooltip.top="measurementSaveTooltip">
                         <AppButton
-                            :disabled="!isAddFormValid"
+                            :disabled="!isMeasurementFormValid"
                             label="Save"
-                            @click="saveMeasurement"
-                        />
-                    </span>
-                </div>
-            </div>
-        </AppDialog>
-
-        <!-- Edit Measurement Dialog -->
-        <AppDialog
-            v-model:visible="showEditMeasurement"
-            header="Edit Measurement"
-            modal
-            :style="{ width: '24rem', maxWidth: '92vw' }"
-        >
-            <div class="flex flex-col gap-4">
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Name <span class="text-red-500">*</span>
-                    </label>
-                    <AppInputText
-                        v-model="editMeasurementForm.name"
-                        class="w-full"
-                    />
-                    <p
-                        v-if="editMeasurementError"
-                        class="mt-1 text-sm text-red-500"
-                    >
-                        {{ editMeasurementError }}
-                    </p>
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium"> Unit </label>
-                    <AppInputText
-                        v-model="editMeasurementForm.unit"
-                        class="w-full"
-                    />
-                    <p class="text-surface-400 mt-1 text-xs">
-                        Free-form text, independent of the units set in
-                        Settings.
-                    </p>
-                </div>
-                <div class="flex justify-end gap-2">
-                    <AppButton
-                        label="Cancel"
-                        text
-                        @click="showEditMeasurement = false"
-                    />
-                    <span v-tooltip.top="editSaveTooltip">
-                        <AppButton
-                            :disabled="!isEditFormValid"
-                            label="Save"
-                            @click="saveEditMeasurement"
+                            @click="saveMeasurementForm"
                         />
                     </span>
                 </div>
@@ -520,15 +613,17 @@ const entryDialogHeader = computed(() =>
             <div class="flex flex-col gap-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium"> Date </label>
-                    <AppInputText
-                        v-model="entryForm.date"
-                        class="w-full"
-                        type="date"
+                    <AppDatePicker
+                        v-model="entryDateModel"
+                        date-format="yy M dd"
+                        fluid
+                        icon-display="input"
+                        show-icon
                     />
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Value
+                        Value <span class="text-red-500">*</span>
                         <span
                             v-if="selectedMeasurement?.unit"
                             class="text-surface-400"
@@ -540,6 +635,7 @@ const entryDialogHeader = computed(() =>
                         v-model="entryForm.value"
                         class="w-full"
                         :max-fraction-digits="2"
+                        placeholder="Enter a value"
                         :step="0.1"
                     />
                 </div>
@@ -562,7 +658,13 @@ const entryDialogHeader = computed(() =>
                         text
                         @click="showEntryDialog = false"
                     />
-                    <AppButton label="Save" @click="saveEntry" />
+                    <span v-tooltip.top="entrySaveTooltip">
+                        <AppButton
+                            :disabled="!isEntryFormValid"
+                            label="Save"
+                            @click="saveEntry"
+                        />
+                    </span>
                 </div>
             </div>
         </AppDialog>

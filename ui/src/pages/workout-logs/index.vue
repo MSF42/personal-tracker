@@ -11,6 +11,7 @@ import { useToast } from '@/composables/useToast';
 import type { WorkoutLog } from '@/types/WorkoutLog';
 import type { WorkoutRoutine } from '@/types/WorkoutRoutine';
 import { formatDate } from '@/utils/format';
+import { fromIsoDate, toIsoDate } from '@/utils/week';
 
 const { getWorkoutLogs, deleteWorkoutLog } = useWorkoutLogApi();
 const { getWorkoutRoutines } = useWorkoutRoutineApi();
@@ -48,6 +49,21 @@ const filters = reactive({
 const hasActiveFilters = computed(() =>
     Boolean(filters.routineName || filters.dateFrom || filters.dateTo),
 );
+
+// AppDatePicker binds to a Date; filters.dateFrom/dateTo stay plain ISO
+// strings (compared directly against log dates elsewhere).
+const dateFromModel = computed<Date | null>({
+    get: () => (filters.dateFrom ? fromIsoDate(filters.dateFrom) : null),
+    set: (value) => {
+        filters.dateFrom = value ? toIsoDate(value) : '';
+    },
+});
+const dateToModel = computed<Date | null>({
+    get: () => (filters.dateTo ? fromIsoDate(filters.dateTo) : null),
+    set: (value) => {
+        filters.dateTo = value ? toIsoDate(value) : '';
+    },
+});
 
 function clearFilters() {
     filters.routineName = '';
@@ -236,21 +252,29 @@ onMounted(() => withLoading(loadData));
                     <label class="mb-1 block text-sm font-medium">
                         Date From
                     </label>
-                    <AppInputText
-                        v-model="filters.dateFrom"
-                        class="w-full"
-                        type="date"
-                    />
+                    <div class="w-44 shrink-0">
+                        <AppDatePicker
+                            v-model="dateFromModel"
+                            date-format="yy M dd"
+                            fluid
+                            icon-display="input"
+                            show-icon
+                        />
+                    </div>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
                         Date To
                     </label>
-                    <AppInputText
-                        v-model="filters.dateTo"
-                        class="w-full"
-                        type="date"
-                    />
+                    <div class="w-44 shrink-0">
+                        <AppDatePicker
+                            v-model="dateToModel"
+                            date-format="yy M dd"
+                            fluid
+                            icon-display="input"
+                            show-icon
+                        />
+                    </div>
                 </div>
             </div>
             <div class="mt-3 flex items-center justify-between">
@@ -325,7 +349,7 @@ onMounted(() => withLoading(loadData));
             <AppColumn header="Actions" style="width: 11rem">
                 <template #body="{ data }">
                     <div
-                        class="flex gap-2 opacity-20 transition-opacity group-hover:opacity-100"
+                        class="flex justify-end gap-2 opacity-20 transition-opacity group-hover:opacity-100"
                     >
                         <AppButton
                             v-if="!(data as WorkoutLog).completed"

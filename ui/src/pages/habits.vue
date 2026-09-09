@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import LoadingState from '@/components/LoadingState.vue';
@@ -7,6 +8,7 @@ import { useHabitApi } from '@/composables/api/useHabitApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import type { Habit, HabitCreate, HabitUpdate } from '@/types/Habit';
+import { formatDate } from '@/utils/format';
 import { toIsoDate, weekDays } from '@/utils/week';
 
 const {
@@ -19,6 +21,8 @@ const {
 } = useHabitApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
+const route = useRoute();
+const router = useRouter();
 
 const habits = ref<Habit[]>([]);
 const completionHistory = ref<Record<number, string[]>>({});
@@ -203,27 +207,30 @@ async function executeDelete() {
     if (deletingId.value) {
         const res = await deleteHabit(deletingId.value);
         if (res.success) toast.showSuccess('Habit deleted');
+        else toast.showError(res.error?.message ?? 'Failed to delete habit');
     }
     showDeleteConfirm.value = false;
     deletingId.value = null;
     await loadData();
 }
 
-async function toggle(habit: Habit) {
-    const res = await toggleCompletion(habit.id, todayStr);
+async function toggle(habit: Habit, date: string = todayStr) {
+    if (date > todayStr) return; // can't log a day that hasn't happened yet
+    const res = await toggleCompletion(habit.id, date);
     if (res.success && res.data) {
         const idx = habits.value.findIndex((h) => h.id === habit.id);
         if (idx !== -1) habits.value[idx] = res.data;
-        // Refresh history so dots update
-        if (completionHistory.value[habit.id]) {
-            const dateIdx =
-                completionHistory.value[habit.id]!.indexOf(todayStr);
-            if (dateIdx === -1) {
-                completionHistory.value[habit.id]!.push(todayStr);
-            } else {
-                completionHistory.value[habit.id]!.splice(dateIdx, 1);
-            }
-        }
+        // Update history locally so dots update immediately. Assign a new
+        // array (rather than push/splice on a possibly-missing one) so this
+        // works even for a habit with zero completions in the loaded range.
+        const existing = completionHistory.value[habit.id] ?? [];
+        const dateIdx = existing.indexOf(date);
+        completionHistory.value[habit.id] =
+            dateIdx === -1
+                ? [...existing, date]
+                : existing.filter((d) => d !== date);
+    } else if (!res.success) {
+        toast.showError(res.error?.message ?? 'Failed to update habit');
     }
 }
 
@@ -232,6 +239,8 @@ async function archiveHabit(habit: Habit) {
     if (res.success) {
         toast.showSuccess('Habit archived');
         await loadData();
+    } else {
+        toast.showError(res.error?.message ?? 'Failed to archive habit');
     }
 }
 
@@ -240,6 +249,8 @@ async function restoreHabit(habit: Habit) {
     if (res.success) {
         toast.showSuccess('Habit restored');
         await loadData();
+    } else {
+        toast.showError(res.error?.message ?? 'Failed to restore habit');
     }
 }
 
@@ -257,7 +268,18 @@ async function loadData() {
     }
 }
 
-onMounted(() => withLoading(loadData));
+// Landing here from a command-palette search hit (`/habits?habit=123`)
+// opens that habit for editing, then clears the param.
+async function openFromSearch() {
+    const id = Number(route.query.habit);
+    if (!id) return;
+    const match = habits.value.find((h) => h.id === id);
+    if (match) openEditDialog(match);
+    const { habit: _habit, ...rest } = route.query;
+    await router.replace({ query: rest });
+}
+
+onMounted(() => withLoading(loadData).then(openFromSearch));
 
 const dialogHeader = computed(() =>
     editingId.value ? 'Edit Habit' : 'Add Habit',
@@ -322,7 +344,7 @@ const dialogHeader = computed(() =>
                  week" (a shorter period) rather than scrolling horizontally
                  to fit all 4. -->
             <div
-                class="border-surface-200 dark:border-surface-700 grid grid-cols-[6rem_minmax(0,1fr)_auto] gap-2 border-b px-3 py-2 sm:grid-cols-[14rem_minmax(0,1fr)_auto] sm:gap-4 sm:px-4"
+                class="border-surface-200 dark:border-surface-700 grid grid-cols-[6rem_minmax(0,1fr)_auto_auto] gap-2 border-b px-3 py-2 sm:grid-cols-[14rem_minmax(0,1fr)_auto_auto] sm:gap-4 sm:px-4"
             >
                 <span class="text-surface-400 text-xs font-medium">Habit</span>
                 <div class="flex gap-6 pl-1">
@@ -338,13 +360,16 @@ const dialogHeader = computed(() =>
                 <span class="text-surface-400 w-10 text-center text-xs sm:w-16"
                     >Streak</span
                 >
+                <span class="text-surface-400 w-16 text-center text-xs"
+                    >Actions</span
+                >
             </div>
 
             <!-- Habit rows -->
             <div
                 v-for="(habit, idx) in activeHabits"
                 :key="habit.id"
-                class="grid grid-cols-[6rem_minmax(0,1fr)_auto] items-center gap-2 px-3 py-3 transition-colors hover:bg-slate-50 sm:grid-cols-[14rem_minmax(0,1fr)_auto] sm:gap-4 sm:px-4 dark:hover:bg-slate-700/40"
+                class="grid grid-cols-[6rem_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-3 transition-colors hover:bg-slate-50 sm:grid-cols-[14rem_minmax(0,1fr)_auto_auto] sm:gap-4 sm:px-4 dark:hover:bg-slate-700/40"
                 :class="{
                     'border-surface-100 dark:border-surface-700 border-t':
                         idx > 0,
@@ -397,16 +422,24 @@ const dialogHeader = computed(() =>
                         class="flex flex-1 justify-around"
                         :class="wi < 3 ? 'hidden sm:flex' : 'flex'"
                     >
-                        <div
+                        <button
                             v-for="day in week"
                             :key="day"
+                            :aria-label="`${formatDate(day)}: ${
+                                isDayCompleted(habit.id, day)
+                                    ? 'completed'
+                                    : 'not completed'
+                            }${day > todayStr ? ' (upcoming)' : ''}`"
                             class="h-4 w-4 rounded-full transition-all sm:h-5 sm:w-5"
                             :class="[
                                 isDayCompleted(habit.id, day)
                                     ? ''
                                     : 'bg-surface-100 dark:bg-surface-700',
-                                day > todayStr ? 'opacity-30' : '',
+                                day > todayStr
+                                    ? 'cursor-not-allowed opacity-30'
+                                    : 'cursor-pointer hover:opacity-75',
                             ]"
+                            :disabled="day > todayStr"
                             :style="[
                                 isDayCompleted(habit.id, day)
                                     ? { backgroundColor: habit.color }
@@ -418,8 +451,10 @@ const dialogHeader = computed(() =>
                                       }
                                     : {},
                             ]"
-                            :title="day"
-                        ></div>
+                            :title="formatDate(day)"
+                            type="button"
+                            @click="toggle(habit, day)"
+                        ></button>
                     </div>
                 </div>
 
@@ -437,6 +472,29 @@ const dialogHeader = computed(() =>
                         {{ habit.current_streak }}
                     </span>
                     <span v-else class="text-surface-300 text-xs">—</span>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex w-16 items-center justify-center gap-1">
+                    <AppButton
+                        aria-label="Archive habit"
+                        icon="pi pi-inbox"
+                        rounded
+                        severity="secondary"
+                        size="small"
+                        text
+                        title="Archive habit"
+                        @click="archiveHabit(habit)"
+                    />
+                    <AppButton
+                        aria-label="Delete habit"
+                        icon="pi pi-trash"
+                        rounded
+                        severity="danger"
+                        size="small"
+                        text
+                        @click="confirmDelete(habit.id)"
+                    />
                 </div>
             </div>
         </div>
@@ -509,10 +567,15 @@ const dialogHeader = computed(() =>
                             Last 7 days
                         </div>
                         <div class="flex gap-1">
-                            <div
+                            <button
                                 v-for="day in last7Days"
                                 :key="day"
-                                class="h-5 flex-1 rounded-sm transition-all"
+                                :aria-label="`${formatDate(day)}: ${
+                                    isDayCompleted(habit.id, day)
+                                        ? 'completed'
+                                        : 'not completed'
+                                }`"
+                                class="h-5 flex-1 cursor-pointer rounded-sm transition-all hover:opacity-75"
                                 :class="[
                                     day === todayStr ? 'ring-1' : '',
                                     isDayCompleted(habit.id, day)
@@ -524,8 +587,10 @@ const dialogHeader = computed(() =>
                                         ? { backgroundColor: habit.color }
                                         : {}
                                 "
-                                :title="day"
-                            ></div>
+                                :title="formatDate(day)"
+                                type="button"
+                                @click="toggle(habit, day)"
+                            ></button>
                         </div>
                         <div
                             class="text-surface-400 mt-1 flex justify-between text-[10px]"
@@ -614,8 +679,20 @@ const dialogHeader = computed(() =>
             </div>
         </div>
 
-        <div v-else-if="!loading" class="text-surface-400 py-12 text-center">
-            No habits yet. Add one to get started!
+        <div
+            v-else-if="!loading"
+            class="flex flex-col items-center py-10 text-center"
+        >
+            <i
+                class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"
+            ></i>
+            <p class="text-surface-500 mb-3">No habits yet</p>
+            <AppButton
+                icon="pi pi-plus"
+                label="Add your first habit"
+                size="small"
+                @click="openAddDialog"
+            />
         </div>
 
         <!-- Archived section -->

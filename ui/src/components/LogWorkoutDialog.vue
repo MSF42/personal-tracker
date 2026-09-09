@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 
+import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
+import { completeTasksLinkedToWorkout } from '@/composables/useTaskLinks';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
 import type { RoutineExercise } from '@/types/WorkoutRoutine';
 import { formatDate } from '@/utils/format';
+import { fromIsoDate, toIsoDate } from '@/utils/week';
 
 const props = withDefaults(
     defineProps<{
@@ -32,6 +35,7 @@ const {
     getWorkoutLog,
     updateWorkoutLog,
 } = useWorkoutLogApi();
+const { getTasks, updateTask } = useTaskApi();
 const toast = useToast();
 const { weightUnit, toKg, fromKg } = useUnits();
 
@@ -43,6 +47,14 @@ const workoutLogId = ref<number | null>(null);
 const logForm = reactive({
     date: todayStr,
     notes: '',
+});
+// AppDatePicker binds to a Date; logForm.date stays a plain ISO string (sent
+// to the API as-is).
+const logDateModel = computed<Date | null>({
+    get: () => (logForm.date ? fromIsoDate(logForm.date) : null),
+    set: (value) => {
+        logForm.date = value ? toIsoDate(value) : '';
+    },
 });
 
 interface SetEntry {
@@ -94,7 +106,7 @@ async function loadLastSets(exerciseIds: number[]) {
             for (const e of lastSession) {
                 bySetNumber[e.set_number] =
                     e.weight != null && e.weight > 0
-                        ? `${Math.round(fromKg(e.weight) * 10) / 10} × ${e.reps}`
+                        ? `${Math.round(fromKg(e.weight) * 100) / 100} × ${e.reps}`
                         : `BW × ${e.reps}`;
             }
             lastSets.value[exerciseId] = bySetNumber;
@@ -144,6 +156,13 @@ async function openResume(routineId: number, logId: number) {
     ]);
     if (exercisesRes.success && exercisesRes.data) {
         logExercises.value = exercisesRes.data;
+    }
+    // Step 2 (resumed logs skip step 1) never shows the date field, but we
+    // still need the log's real date — not whatever was left over from a
+    // previous dialog session — to match it against a linked task on
+    // completion.
+    if (logRes.success && logRes.data) {
+        logForm.date = logRes.data.date;
     }
 
     // Reconcile the prescription against what's already been logged: a slot
@@ -204,15 +223,15 @@ async function createLog() {
  *  per-set "save" step anymore, so every entry gets persisted (or
  *  re-persisted, if it was already saved and edited since) when the
  *  workout is saved or completed. */
-async function persistEntry(entry: SetEntry) {
-    if (!workoutLogId.value) return;
+async function persistEntry(entry: SetEntry): Promise<boolean> {
+    if (!workoutLogId.value) return false;
     const weightKg = entry.weight != null ? toKg(entry.weight) : null;
     if (entry.setId != null) {
-        await updateSet(workoutLogId.value, entry.setId, {
+        const res = await updateSet(workoutLogId.value, entry.setId, {
             reps: entry.reps,
             weight: weightKg,
         });
-        return;
+        return res.success;
     }
     const res = await logSet(
         workoutLogId.value,
@@ -224,22 +243,49 @@ async function persistEntry(entry: SetEntry) {
     if (res.success && res.data) {
         entry.setId = res.data.id;
     }
+    return res.success;
 }
 
-async function persistAllSets() {
-    await Promise.all(setEntries.value.map((e) => persistEntry(e)));
+async function persistAllSets(): Promise<boolean> {
+    const results = await Promise.all(
+        setEntries.value.map((e) => persistEntry(e)),
+    );
+    return results.every(Boolean);
 }
 
 async function saveAndClose() {
-    await persistAllSets();
+    const ok = await persistAllSets();
+    if (!ok) {
+        toast.showError('Some sets failed to save — try again');
+        return;
+    }
+    toast.showSuccess('Progress saved');
     emit('logged', false);
     visible.value = false;
 }
 
 async function completeAndClose() {
-    await persistAllSets();
+    const ok = await persistAllSets();
+    if (!ok) {
+        toast.showError('Some sets failed to save — try again');
+        return;
+    }
     if (workoutLogId.value) {
-        await updateWorkoutLog(workoutLogId.value, { completed: true });
+        const res = await updateWorkoutLog(workoutLogId.value, {
+            completed: true,
+        });
+        if (!res.success) {
+            toast.showError(res.error?.message ?? 'Failed to complete workout');
+            return;
+        }
+    }
+    if (props.routineId) {
+        await completeTasksLinkedToWorkout(
+            getTasks,
+            updateTask,
+            props.routineId,
+            logForm.date,
+        );
     }
     toast.showSuccess('Workout completed');
     emit('logged', true);
@@ -276,10 +322,12 @@ function getExerciseGroups() {
         <div v-if="logStep === 1" class="flex flex-col gap-4">
             <div>
                 <label class="mb-1 block text-sm font-medium">Date</label>
-                <AppInputText
-                    v-model="logForm.date"
-                    class="w-full"
-                    type="date"
+                <AppDatePicker
+                    v-model="logDateModel"
+                    date-format="yy M dd"
+                    fluid
+                    icon-display="input"
+                    show-icon
                 />
             </div>
             <div>
@@ -348,7 +396,7 @@ function getExerciseGroups() {
                             <AppInputNumber
                                 v-model="entry.weight"
                                 fluid
-                                :max-fraction-digits="1"
+                                :max-fraction-digits="2"
                                 :min="0"
                                 placeholder="Wt"
                             />

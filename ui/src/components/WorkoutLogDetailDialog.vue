@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 
+import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
+import { completeTasksLinkedToWorkout } from '@/composables/useTaskLinks';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
 import type {
@@ -10,6 +12,7 @@ import type {
     WorkoutLogDetail,
 } from '@/types/WorkoutLog';
 import { formatDate } from '@/utils/format';
+import { fromIsoDate, toIsoDate } from '@/utils/week';
 
 import ExerciseHistoryDialog from './ExerciseHistoryDialog.vue';
 import StatTileGrid from './StatTileGrid.vue';
@@ -20,6 +23,7 @@ const visible = defineModel<boolean>('visible', { required: true });
 
 const { getWorkoutLog, updateSet, updateWorkoutLog, getExerciseHistory } =
     useWorkoutLogApi();
+const { getTasks, updateTask } = useTaskApi();
 const { fmtWeight, weightUnit, toKg, fromKg } = useUnits();
 const toast = useToast();
 
@@ -102,6 +106,14 @@ watch(detail, (d) => {
     }
 });
 
+// AppDatePicker binds to a Date; editForm.date stays a plain ISO string.
+const editDateModel = computed<Date | null>({
+    get: () => (editForm.date ? fromIsoDate(editForm.date) : null),
+    set: (value) => {
+        editForm.date = value ? toIsoDate(value) : '';
+    },
+});
+
 async function saveDetails() {
     if (!detail.value) return;
     const res = await updateWorkoutLog(detail.value.id, {
@@ -138,9 +150,12 @@ async function saveSet(set: SetLog) {
     if (res.success && res.data) {
         const idx = detail.value.sets.findIndex((s) => s.id === set.id);
         if (idx !== -1) detail.value.sets[idx] = res.data;
+        toast.showSuccess('Set updated');
         emit('updated');
+        editingSetId.value = null;
+    } else {
+        toast.showError(res.error?.message ?? 'Failed to update set');
     }
-    editingSetId.value = null;
 }
 
 // --- Complete workout ------------------------------------------------------
@@ -149,6 +164,12 @@ async function completeWorkout() {
     const res = await updateWorkoutLog(detail.value.id, { completed: true });
     if (res.success && res.data) {
         detail.value.completed = true;
+        await completeTasksLinkedToWorkout(
+            getTasks,
+            updateTask,
+            detail.value.routine_id,
+            detail.value.date,
+        );
         toast.showSuccess('Workout completed');
         emit('updated');
     }
@@ -165,6 +186,8 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
     if (res.success && res.data) {
         historyEntries.value = res.data;
         showHistory.value = true;
+    } else {
+        toast.showError('Failed to load exercise history');
     }
 }
 </script>
@@ -174,7 +197,7 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
         v-model:visible="visible"
         :header="header"
         modal
-        :style="{ width: '44rem', maxWidth: '92vw' }"
+        :style="{ width: '52rem', maxWidth: '92vw' }"
     >
         <div v-if="loading" class="py-10 text-center">
             <i class="pi pi-spin pi-spinner text-surface-400 text-2xl"></i>
@@ -200,12 +223,13 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
             <StatTileGrid :tiles="heroTiles" />
 
             <div class="flex flex-col gap-4">
-                <div>
+                <div class="w-48">
                     <label class="mb-1 block text-sm font-medium">Date</label>
-                    <AppInputText
-                        v-model="editForm.date"
-                        class="w-full"
-                        type="date"
+                    <AppDatePicker
+                        v-model="editDateModel"
+                        date-format="yy M dd"
+                        icon-display="input"
+                        show-icon
                     />
                 </div>
                 <div>
@@ -234,83 +258,85 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
                 No sets logged for this workout.
             </div>
 
-            <div
-                v-for="group in setGroups"
-                :key="group.exerciseName"
-                class="border-surface-200 dark:border-surface-700 rounded-lg border p-4"
-            >
-                <button
-                    class="text-primary mb-2 cursor-pointer font-medium hover:underline"
-                    @click="
-                        openExerciseHistory(
-                            group.exerciseId,
-                            group.exerciseName,
-                        )
-                    "
+            <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div
+                    v-for="group in setGroups"
+                    :key="group.exerciseName"
+                    class="border-surface-200 dark:border-surface-700 rounded-lg border p-4"
                 >
-                    {{ group.exerciseName }}
-                </button>
-                <div class="flex flex-col gap-1">
-                    <div
-                        v-for="set in group.sets"
-                        :key="set.id"
-                        class="text-surface-600 dark:text-surface-400 flex items-center gap-2 text-sm"
+                    <button
+                        class="text-primary mb-2 cursor-pointer font-medium hover:underline"
+                        @click="
+                            openExerciseHistory(
+                                group.exerciseId,
+                                group.exerciseName,
+                            )
+                        "
                     >
-                        <span class="text-surface-500 w-12 shrink-0">
-                            Set {{ set.set_number }}
-                        </span>
-                        <template v-if="editingSetId !== set.id">
-                            <span>{{ set.reps }} reps</span>
-                            <span>
-                                {{
-                                    set.weight !== null
-                                        ? fmtWeight(set.weight)
-                                        : '—'
-                                }}
+                        {{ group.exerciseName }}
+                    </button>
+                    <div class="flex flex-col gap-1">
+                        <div
+                            v-for="set in group.sets"
+                            :key="set.id"
+                            class="text-surface-600 dark:text-surface-400 flex items-center gap-2 text-sm"
+                        >
+                            <span class="text-surface-500 w-12 shrink-0">
+                                Set {{ set.set_number }}
                             </span>
-                            <button
-                                class="text-surface-400 hover:text-primary ml-1"
-                                title="Edit set"
-                                @click="startEditSet(set)"
-                            >
-                                <i class="pi pi-pencil text-xs" />
-                            </button>
-                        </template>
-                        <template v-else>
-                            <AppInputNumber
-                                v-model="editSetReps"
-                                :max="999"
-                                :min="1"
-                                size="small"
-                                style="width: 5rem"
-                            />
-                            <span class="text-surface-500">reps ×</span>
-                            <AppInputNumber
-                                v-model="editSetWeight"
-                                :max="9999"
-                                :max-fraction-digits="2"
-                                :min="0"
-                                size="small"
-                                style="width: 6rem"
-                            />
-                            <span class="text-surface-500">{{
-                                weightUnit
-                            }}</span>
-                            <button
-                                class="text-green-500 hover:text-green-600"
-                                title="Save"
-                                @click="saveSet(set)"
-                            >
-                                <i class="pi pi-check text-sm" />
-                            </button>
-                            <button
-                                class="text-red-400 hover:text-red-600"
-                                title="Cancel"
-                                @click="editingSetId = null"
-                            >
-                                <i class="pi pi-times text-sm" />
-                            </button>
-                        </template>
+                            <template v-if="editingSetId !== set.id">
+                                <span>{{ set.reps }} reps</span>
+                                <span>
+                                    {{
+                                        set.weight !== null
+                                            ? fmtWeight(set.weight)
+                                            : '—'
+                                    }}
+                                </span>
+                                <button
+                                    class="text-surface-400 hover:text-primary ml-1"
+                                    title="Edit set"
+                                    @click="startEditSet(set)"
+                                >
+                                    <i class="pi pi-pencil text-xs" />
+                                </button>
+                            </template>
+                            <template v-else>
+                                <AppInputNumber
+                                    v-model="editSetReps"
+                                    :max="999"
+                                    :min="1"
+                                    size="small"
+                                    style="width: 5rem"
+                                />
+                                <span class="text-surface-500">reps ×</span>
+                                <AppInputNumber
+                                    v-model="editSetWeight"
+                                    :max="9999"
+                                    :max-fraction-digits="2"
+                                    :min="0"
+                                    size="small"
+                                    style="width: 6rem"
+                                />
+                                <span class="text-surface-500">{{
+                                    weightUnit
+                                }}</span>
+                                <button
+                                    class="text-green-500 hover:text-green-600"
+                                    title="Save"
+                                    @click="saveSet(set)"
+                                >
+                                    <i class="pi pi-check text-sm" />
+                                </button>
+                                <button
+                                    class="text-red-400 hover:text-red-600"
+                                    title="Cancel"
+                                    @click="editingSetId = null"
+                                >
+                                    <i class="pi pi-times text-sm" />
+                                </button>
+                            </template>
+                        </div>
                     </div>
                 </div>
             </div>

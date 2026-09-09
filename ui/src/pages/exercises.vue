@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
@@ -23,6 +24,8 @@ const { getExerciseHistory, getExerciseLastPerformed, getExercisePRs } =
 const { loading, withLoading } = useLoading();
 const { fmtWeight } = useUnits();
 const toast = useToast();
+const route = useRoute();
+const router = useRouter();
 
 const exercises = ref<Exercise[]>([]);
 const exerciseLastPerformed = ref<Record<number, string>>({});
@@ -122,10 +125,20 @@ const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
 const formError = ref('');
 
-const isFormValid = computed(() => form.name.trim() !== '');
-const saveTooltip = computed(() =>
-    isFormValid.value ? undefined : 'Name is required',
+const isFormValid = computed(
+    () =>
+        form.name.trim().length >= 3 &&
+        form.name.trim().length <= 50 &&
+        form.muscle_group !== '',
 );
+const saveTooltip = computed(() => {
+    if (form.name.trim().length < 3)
+        return 'Name must be at least 3 characters';
+    if (form.name.trim().length > 50)
+        return 'Name must be 50 characters or fewer';
+    if (form.muscle_group === '') return 'Muscle group is required';
+    return undefined;
+});
 
 const form = reactive({
     name: '',
@@ -226,6 +239,8 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
     if (res.success && res.data) {
         historyEntries.value = res.data;
         showHistory.value = true;
+    } else {
+        toast.showError('Failed to load exercise history');
     }
 }
 
@@ -243,7 +258,18 @@ async function loadData() {
     if (prsRes.success && prsRes.data) exercisePRs.value = prsRes.data;
 }
 
-onMounted(() => withLoading(loadData));
+// Landing here from a command-palette search hit (`/exercises?exercise=123`)
+// opens that exercise for editing, then clears the param.
+async function openFromSearch() {
+    const id = Number(route.query.exercise);
+    if (!id) return;
+    const match = exercises.value.find((e) => e.id === id);
+    if (match) openEditDialog(match);
+    const { exercise: _exercise, ...rest } = route.query;
+    await router.replace({ query: rest });
+}
+
+onMounted(() => withLoading(loadData).then(openFromSearch));
 
 const dialogHeader = computed(() =>
     editingId.value ? 'Edit Exercise' : 'Add Exercise',
@@ -483,14 +509,18 @@ const dialogHeader = computed(() =>
                     <label class="mb-1 block text-sm font-medium">
                         Name <span class="text-red-500">*</span>
                     </label>
-                    <AppInputText v-model="form.name" class="w-full" />
+                    <AppInputText
+                        v-model="form.name"
+                        class="w-full"
+                        maxlength="50"
+                    />
                     <p v-if="formError" class="mt-1 text-sm text-red-500">
                         {{ formError }}
                     </p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Muscle Group
+                        Muscle Group <span class="text-red-500">*</span>
                     </label>
                     <AppSelect
                         v-model="form.muscle_group"
@@ -498,6 +528,7 @@ const dialogHeader = computed(() =>
                         option-label="label"
                         option-value="value"
                         :options="muscleGroupFormOptions"
+                        placeholder="Select a muscle group"
                     />
                 </div>
                 <div>
@@ -507,8 +538,9 @@ const dialogHeader = computed(() =>
                     <AppSelect
                         v-model="form.equipment"
                         class="w-full"
+                        editable
                         :options="EQUIPMENT_OPTIONS"
-                        placeholder="Select equipment"
+                        placeholder="Select or type equipment"
                     />
                 </div>
                 <div>

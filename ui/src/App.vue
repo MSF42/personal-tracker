@@ -160,7 +160,7 @@ function goToSettings() {
                 <i v-else class="pi pi-cog text-lg"></i>
             </button>
             <AppPopover ref="popover">
-                <div class="flex w-[22rem] max-w-[92vw] flex-col gap-4 p-2">
+                <div class="flex w-56 max-w-[92vw] flex-col gap-4 p-2">
                     <!-- Appearance -->
                     <div>
                         <h3

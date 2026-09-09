@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import AddEditRunDialog from '@/components/AddEditRunDialog.vue';
 import AddEditTaskDialog from '@/components/AddEditTaskDialog.vue';
@@ -15,6 +16,8 @@ import { formatDate } from '@/utils/format';
 const { getTasks, updateTask, deleteTask } = useTaskApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
+const route = useRoute();
+const router = useRouter();
 
 const {
     routines,
@@ -130,8 +133,20 @@ async function loadData() {
     else if (!res.success) toast.showError('Failed to load tasks');
 }
 
+// Landing here from a command-palette search hit (`/tasks?task=123`) opens
+// that task for editing, then clears the param so it doesn't reopen on a
+// later refresh/back-navigation.
+async function openFromSearch() {
+    const id = Number(route.query.task);
+    if (!id) return;
+    const match = tasks.value.find((t) => t.id === id);
+    if (match) openEditDialog(match);
+    const { task: _task, ...rest } = route.query;
+    await router.replace({ query: rest });
+}
+
 onMounted(() => {
-    withLoading(loadData);
+    withLoading(loadData).then(openFromSearch);
     void loadRoutines();
 });
 
@@ -367,7 +382,7 @@ const filterCategoryOptions = computed(() => [
             <AppColumn header="Actions" style="width: 10rem">
                 <template #body="{ data }">
                     <div
-                        class="flex gap-2 opacity-20 transition-opacity group-hover:opacity-100"
+                        class="flex justify-end gap-2 opacity-20 transition-opacity group-hover:opacity-100"
                     >
                         <AppButton
                             v-if="(data as Task).link_type"

@@ -5,7 +5,7 @@ import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
 import type { RunningActivity } from '@/types/Running';
-import { toIsoDate } from '@/utils/week';
+import { fromIsoDate, toIsoDate } from '@/utils/week';
 
 const props = withDefaults(
     defineProps<{ run: RunningActivity | null; defaultDate?: string | null }>(),
@@ -37,6 +37,13 @@ const form = reactive({
     seconds: 0,
     distance_km: 0,
     notes: '',
+});
+// AppDatePicker binds to a Date; form.date stays a plain ISO string.
+const dateModel = computed<Date | null>({
+    get: () => (form.date ? fromIsoDate(form.date) : null),
+    set: (value) => {
+        form.date = value ? toIsoDate(value) : '';
+    },
 });
 
 // Populate the form whenever the dialog opens: reset for "add", or load the
@@ -154,7 +161,13 @@ async function handleImportFile(event: Event) {
                 <label class="mb-1 block text-sm font-medium">
                     Date <span class="text-red-500">*</span>
                 </label>
-                <AppInputText v-model="form.date" class="w-full" type="date" />
+                <AppDatePicker
+                    v-model="dateModel"
+                    date-format="yy M dd"
+                    fluid
+                    icon-display="input"
+                    show-icon
+                />
                 <p v-if="formError" class="mt-1 text-sm text-red-500">
                     {{ formError }}
                 </p>

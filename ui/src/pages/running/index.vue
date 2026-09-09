@@ -274,15 +274,15 @@ function openGoalDialog() {
 }
 
 async function saveGoal() {
-    if (goalFormValue.value > 0) {
-        const goalKm = toKm(goalFormValue.value);
-        await setSetting('running_weekly_goal_km', String(goalKm));
-        weeklyGoalKm.value = goalKm;
+    const goalKm = goalFormValue.value > 0 ? toKm(goalFormValue.value) : 0;
+    const res = await setSetting('running_weekly_goal_km', String(goalKm));
+    if (res.success) {
+        weeklyGoalKm.value = goalKm > 0 ? goalKm : null;
+        toast.showSuccess('Weekly goal updated');
+        showGoalDialog.value = false;
     } else {
-        await setSetting('running_weekly_goal_km', '0');
-        weeklyGoalKm.value = null;
+        toast.showError(res.error?.message ?? 'Failed to save weekly goal');
     }
-    showGoalDialog.value = false;
 }
 
 // --- Data loading ---
@@ -394,17 +394,22 @@ const bracketPBs = computed(() =>
 );
 
 // --- Pace & Distance Over Time Chart ---
+// Points sit on a numeric (real-time) x-axis rather than a category axis of
+// formatted date labels — a category axis spaces entries evenly by count,
+// which is wrong whenever runs aren't evenly spaced in time.
 const chartData = computed(() => {
     const sorted = [...filteredActivities.value]
         .filter((r) => r.pace > 0)
         .sort((a, b) => a.date.localeCompare(b.date));
     const paceMultiplier = distanceUnit.value === 'mi' ? 1.60934 : 1;
     return {
-        labels: sorted.map((r) => formatDate(r.date)),
         datasets: [
             {
                 label: `Pace (min/${distanceUnit.value})`,
-                data: sorted.map((r) => r.pace * paceMultiplier),
+                data: sorted.map((r) => ({
+                    x: fromIsoDate(r.date).getTime(),
+                    y: r.pace * paceMultiplier,
+                })),
                 borderColor: '#6366f1',
                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
                 fill: true,
@@ -413,7 +418,10 @@ const chartData = computed(() => {
             },
             {
                 label: `Distance (${distanceUnit.value})`,
-                data: sorted.map((r) => fromKm(r.distance_km)),
+                data: sorted.map((r) => ({
+                    x: fromIsoDate(r.date).getTime(),
+                    y: fromKm(r.distance_km),
+                })),
                 borderColor: '#f59e0b',
                 backgroundColor: 'rgba(245, 158, 11, 0.1)',
                 fill: false,
@@ -429,6 +437,13 @@ const chartOptions = computed(() => ({
     maintainAspectRatio: false,
     plugins: { legend: { display: true } },
     scales: {
+        x: {
+            type: 'linear' as const,
+            ticks: {
+                callback: (value: number) =>
+                    formatDate(toIsoDate(new Date(value))),
+            },
+        },
         y: {
             reverse: true,
             position: 'left',
@@ -454,11 +469,13 @@ const chartOptions = computed(() => ({
                     <div class="flex items-center justify-between">
                         <span>This Week</span>
                         <AppButton
+                            aria-label="Set weekly goal"
                             icon="pi pi-cog"
                             rounded
                             severity="secondary"
                             size="small"
                             text
+                            title="Set weekly goal"
                             @click="openGoalDialog"
                         />
                     </div>
@@ -772,7 +789,7 @@ const chartOptions = computed(() => ({
             <AppColumn header="Actions" style="width: 8rem">
                 <template #body="{ data }">
                     <div
-                        class="flex gap-2 opacity-20 transition-opacity group-hover:opacity-100"
+                        class="flex justify-end gap-2 opacity-20 transition-opacity group-hover:opacity-100"
                     >
                         <AppButton
                             v-if="(data as RunningActivity).has_gpx"
