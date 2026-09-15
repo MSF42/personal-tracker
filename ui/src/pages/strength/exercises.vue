@@ -258,8 +258,9 @@ async function loadData() {
     if (prsRes.success && prsRes.data) exercisePRs.value = prsRes.data;
 }
 
-// Landing here from a command-palette search hit (`/exercises?exercise=123`)
-// opens that exercise for editing, then clears the param.
+// Landing here from a command-palette search hit
+// (`/strength/exercises?exercise=123`) opens that exercise for editing, then
+// clears the param.
 async function openFromSearch() {
     const id = Number(route.query.exercise);
     if (!id) return;
@@ -277,7 +278,7 @@ const dialogHeader = computed(() =>
 </script>
 
 <template>
-    <div class="mx-auto max-w-6xl p-6">
+    <div>
         <h1 class="mb-6 text-2xl font-bold">Exercises</h1>
 
         <!-- Stats Cards -->

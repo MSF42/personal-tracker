@@ -10,8 +10,8 @@ import type { WorkoutRoutine } from '@/types/WorkoutRoutine';
 /**
  * Marks complete any incomplete task linked to this workout routine whose
  * due date matches the workout log being completed. Called from wherever a
- * workout log can actually be marked completed (LogWorkoutDialog,
- * WorkoutLogDetailDialog) rather than tracked by "which task opened this
+ * workout log can actually be marked completed (the Log Workout dialog, the
+ * workout log detail page) rather than tracked by "which task opened this
  * dialog" — a workout started via a linked task can just as easily be
  * resumed and finished later from the Workout Logs list, a routine's
  * history, or anywhere else, and the task should still complete then too.
@@ -43,16 +43,47 @@ export async function completeTasksLinkedToWorkout(
 }
 
 /**
+ * The run equivalent of {@link completeTasksLinkedToWorkout}: marks complete any
+ * incomplete task linked to "a run" whose due date matches a run just logged.
+ * A run task carries no target (there's no run-template entity), so the match is
+ * date-only — any run on that day satisfies "go for a run today". Called from
+ * wherever a run gets created (the Add Run dialog's manual save and single-file
+ * import, plus the Running page's bulk import) so the task completes regardless
+ * of how the run was entered — not only when the run dialog was opened by
+ * clicking the task on the calendar.
+ *
+ * Same argument-passing rationale as the workout version: it runs after an
+ * `await` in the caller, past the point where `inject()`-based composables work,
+ * so the caller resolves `useTaskApi()` at setup and passes the methods through.
+ */
+export async function completeTasksLinkedToRun(
+    getTasks: ReturnType<typeof useTaskApi>['getTasks'],
+    updateTask: ReturnType<typeof useTaskApi>['updateTask'],
+    date: string,
+): Promise<void> {
+    const res = await getTasks({ completed: false });
+    if (!res.success || !res.data) return;
+    const matches = res.data.filter(
+        (t) => t.link_type === 'run' && t.due_date === date,
+    );
+    await Promise.all(
+        matches.map((t) => updateTask(t.id, { completed: true })),
+    );
+}
+
+/**
  * Shared "enter" behavior for a task linked to a workout routine or a run —
  * used by both the homepage calendar and the Tasks list, so clicking a
  * linked task opens the right modal (resuming an in-progress workout log if
- * one exists) and, on real completion, marks the task done too.
+ * one exists). Completing the linked activity marks the task done, but that
+ * now lives in the dialogs themselves (see `completeTasksLinkedToWorkout` /
+ * `completeTasksLinkedToRun`) so it fires no matter how the activity was
+ * reached — this composable only opens the right modal and refreshes.
  *
  * `refresh` is called after anything here changes task/workout/run state —
  * callers reload whatever lists they show (tasks, workout logs, runs).
  */
 export function useTaskLinks(refresh: () => Promise<void> | void) {
-    const { updateTask } = useTaskApi();
     const { getLogsByRoutine } = useWorkoutLogApi();
     const { getWorkoutRoutines } = useWorkoutRoutineApi();
     const toast = useToast();
@@ -68,18 +99,13 @@ export function useTaskLinks(refresh: () => Promise<void> | void) {
     const activeRoutineId = ref<number | null>(null);
     const activeRoutineName = ref('');
     const activeResumeLogId = ref<number | null>(null);
+    // The linked task's due date — used as the new log's default date so
+    // completing a workout planned for a future/past day still checks off
+    // that day's task (matched by routine + date).
+    const activeWorkoutDate = ref<string | null>(null);
 
     const showRunDialog = ref(false);
     const runDefaultDate = ref<string | null>(null);
-
-    // Only the Run flow needs this: a run has no stable id to match a task
-    // against the way a routine does, so we track which task (if any)
-    // opened this dialog and complete it on save. The workout flow doesn't
-    // need this — LogWorkoutDialog and WorkoutLogDetailDialog complete any
-    // task linked to that routine+date themselves once the workout is
-    // actually completed, which also covers resuming/completing it later
-    // from anywhere else in the app (not just this dialog instance).
-    const pendingLinkedTaskId = ref<number | null>(null);
 
     async function openLinkedWorkout(task: Task) {
         if (task.link_routine_id == null) return;
@@ -100,36 +126,32 @@ export function useTaskLinks(refresh: () => Promise<void> | void) {
         activeRoutineId.value = routine.id;
         activeRoutineName.value = routine.name;
         activeResumeLogId.value = inProgress?.id ?? null;
+        activeWorkoutDate.value = task.due_date;
         showLogWorkoutDialog.value = true;
     }
 
-    function openLinkedRun(task: Task) {
-        pendingLinkedTaskId.value = task.id;
-        runDefaultDate.value = task.due_date;
-        showRunDialog.value = true;
-    }
-
-    /** The plain "Add Run" entry point shares this same dialog — make sure
-     *  a linked task abandoned earlier (dialog closed without saving) can
-     *  never get completed by an unrelated save through this path. */
-    function openPlainRun(defaultDate: string | null = null) {
-        pendingLinkedTaskId.value = null;
+    /** Opening the Add Run dialog — from a linked task's `due_date`, or with
+     *  no date for the plain "Add Run" action. A matching run task completes
+     *  itself when the run is saved (see `completeTasksLinkedToRun`), so both
+     *  entry points behave the same here. */
+    function openRunDialog(defaultDate: string | null = null) {
         runDefaultDate.value = defaultDate;
         showRunDialog.value = true;
     }
 
-    // Task completion for a completed workout is handled inside
-    // LogWorkoutDialog/WorkoutLogDetailDialog themselves (see
-    // completeTasksLinkedToWorkout above) — this just refreshes.
+    const openLinkedRun = (task: Task) => openRunDialog(task.due_date);
+    const openPlainRun = (defaultDate: string | null = null) =>
+        openRunDialog(defaultDate);
+
+    // Task completion for a completed workout / saved run is handled inside
+    // the dialogs themselves (completeTasksLinkedToWorkout /
+    // completeTasksLinkedToRun) — these just refresh whatever list the caller
+    // shows.
     async function onWorkoutLogged() {
         await refresh();
     }
 
     async function onRunSaved() {
-        if (pendingLinkedTaskId.value != null) {
-            await updateTask(pendingLinkedTaskId.value, { completed: true });
-            pendingLinkedTaskId.value = null;
-        }
         await refresh();
     }
 
@@ -140,6 +162,7 @@ export function useTaskLinks(refresh: () => Promise<void> | void) {
         activeRoutineId,
         activeRoutineName,
         activeResumeLogId,
+        activeWorkoutDate,
         showRunDialog,
         runDefaultDate,
         openLinkedWorkout,

@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
+import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
+import LoadingState from '@/components/LoadingState.vue';
+import NotFoundState from '@/components/NotFoundState.vue';
+import StatTileGrid from '@/components/StatTileGrid.vue';
 import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
+import { useSmartBack } from '@/composables/useSmartBack';
 import { completeTasksLinkedToWorkout } from '@/composables/useTaskLinks';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
@@ -14,38 +20,45 @@ import type {
 import { formatDate } from '@/utils/format';
 import { fromIsoDate, toIsoDate } from '@/utils/week';
 
-import ExerciseHistoryDialog from './ExerciseHistoryDialog.vue';
-import StatTileGrid from './StatTileGrid.vue';
-
-const props = defineProps<{ logId: number | null }>();
-const emit = defineEmits<{ updated: [] }>();
-const visible = defineModel<boolean>('visible', { required: true });
-
+const route = useRoute<'/strength/logs/[id]'>();
+const { back } = useSmartBack('/strength/logs');
 const { getWorkoutLog, updateSet, updateWorkoutLog, getExerciseHistory } =
     useWorkoutLogApi();
 const { getTasks, updateTask } = useTaskApi();
-const { fmtWeight, weightUnit, toKg, fromKg } = useUnits();
+const { fmtWeight, weightUnit, toKg, fromKg, roundWeight } = useUnits();
 const toast = useToast();
 
 const detail = ref<WorkoutLogDetail | null>(null);
-const loading = ref(false);
+const loading = ref(true);
+const notFound = ref(false);
 
 async function load(id: number) {
     loading.value = true;
+    notFound.value = false;
     detail.value = null;
     const res = await getWorkoutLog(id);
     if (res.success && res.data) detail.value = res.data;
+    else notFound.value = true;
     loading.value = false;
 }
 
+// Vue Router reuses this component instance across param changes, so fetch off
+// the param, not only on mount.
 watch(
-    () => [visible.value, props.logId] as const,
-    ([isVisible, logId]) => {
-        if (isVisible && logId) void load(logId);
+    () => route.params.id,
+    (value) => {
+        const id = Number(value);
+        if (Number.isNaN(id)) {
+            notFound.value = true;
+            loading.value = false;
+            return;
+        }
+        void load(id);
     },
+    { immediate: true },
 );
 
-const header = computed(() => {
+const title = computed(() => {
     if (!detail.value) return 'Workout Log';
     const routine = detail.value.routine_name ?? 'Workout';
     return `${routine} — ${formatDate(detail.value.date)}`;
@@ -75,7 +88,6 @@ const setGroups = computed<SetGroup[]>(() => {
     return groups;
 });
 
-// --- Hero tiles --------------------------------------------------------------
 const heroTiles = computed(() => {
     if (!detail.value) return [];
     const sets = detail.value.sets;
@@ -124,7 +136,6 @@ async function saveDetails() {
         detail.value.date = res.data.date;
         detail.value.notes = res.data.notes;
         toast.showSuccess('Workout log updated');
-        emit('updated');
     }
 }
 
@@ -138,7 +149,7 @@ function startEditSet(set: SetLog) {
     editSetReps.value = set.reps;
     // Edit in the user's unit; convert back to kg on save.
     editSetWeight.value =
-        set.weight != null ? Math.round(fromKg(set.weight) * 100) / 100 : 0;
+        set.weight != null ? roundWeight(fromKg(set.weight)) : 0;
 }
 
 async function saveSet(set: SetLog) {
@@ -151,7 +162,6 @@ async function saveSet(set: SetLog) {
         const idx = detail.value.sets.findIndex((s) => s.id === set.id);
         if (idx !== -1) detail.value.sets[idx] = res.data;
         toast.showSuccess('Set updated');
-        emit('updated');
         editingSetId.value = null;
     } else {
         toast.showError(res.error?.message ?? 'Failed to update set');
@@ -171,7 +181,6 @@ async function completeWorkout() {
             detail.value.date,
         );
         toast.showSuccess('Workout completed');
-        emit('updated');
     }
 }
 
@@ -193,31 +202,43 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
 </script>
 
 <template>
-    <AppDialog
-        v-model:visible="visible"
-        :header="header"
-        modal
-        :style="{ width: '52rem', maxWidth: '92vw' }"
-    >
-        <div v-if="loading" class="py-10 text-center">
-            <i class="pi pi-spin pi-spinner text-surface-400 text-2xl"></i>
-        </div>
+    <div class="mx-auto max-w-4xl p-6">
+        <button
+            class="text-surface-500 hover:text-surface-900 dark:hover:text-surface-100 mb-4 inline-flex cursor-pointer items-center gap-1.5 text-sm"
+            type="button"
+            @click="back"
+        >
+            <i class="pi pi-arrow-left text-xs"></i>
+            Back
+        </button>
+
+        <LoadingState v-if="loading" />
+
+        <NotFoundState
+            v-else-if="notFound"
+            back-label="Back to Workout Logs"
+            back-to="/strength/logs"
+            entity="workout log"
+        />
 
         <div v-else-if="detail" class="flex flex-col gap-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <AppTag
-                    v-if="!detail.completed"
-                    severity="warn"
-                    value="In Progress"
-                />
-                <AppTag v-else severity="success" value="Complete" />
-                <AppButton
-                    v-if="!detail.completed"
-                    icon="pi pi-check"
-                    label="Complete Workout"
-                    size="small"
-                    @click="completeWorkout"
-                />
+                <h1 class="text-2xl font-bold">{{ title }}</h1>
+                <div class="flex items-center gap-3">
+                    <AppTag
+                        v-if="!detail.completed"
+                        severity="warn"
+                        value="In Progress"
+                    />
+                    <AppTag v-else severity="success" value="Complete" />
+                    <AppButton
+                        v-if="!detail.completed"
+                        icon="pi pi-check"
+                        label="Complete Workout"
+                        size="small"
+                        @click="completeWorkout"
+                    />
+                </div>
             </div>
 
             <StatTileGrid :tiles="heroTiles" />
@@ -347,5 +368,5 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
             :entries="historyEntries"
             :exercise-name="historyExerciseName"
         />
-    </AppDialog>
+    </div>
 </template>

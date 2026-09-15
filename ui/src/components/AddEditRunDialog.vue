@@ -2,6 +2,9 @@
 import { computed, reactive, ref, watch } from 'vue';
 
 import { useRunningApi } from '@/composables/api/useRunningApi';
+import { useTaskApi } from '@/composables/api/useTaskApi';
+import { useFileDrop } from '@/composables/useFileDrop';
+import { completeTasksLinkedToRun } from '@/composables/useTaskLinks';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
 import type { RunningActivity } from '@/types/Running';
@@ -11,11 +14,13 @@ const props = withDefaults(
     defineProps<{ run: RunningActivity | null; defaultDate?: string | null }>(),
     { defaultDate: null },
 );
-const emit = defineEmits<{ saved: [] }>();
+// `saved` carries the run's id so a caller can jump to its detail page.
+const emit = defineEmits<{ saved: [runId: number] }>();
 const visible = defineModel<boolean>('visible', { required: true });
 
 const { createActivity, updateActivity, importGpx, importFit } =
     useRunningApi();
+const { getTasks, updateTask } = useTaskApi();
 const toast = useToast();
 const { distanceUnit, toKm, fromKm } = useUnits();
 
@@ -82,10 +87,14 @@ async function save() {
     const res = props.run
         ? await updateActivity(props.run.id, payload)
         : await createActivity(payload);
-    if (res.success) {
+    if (res.success && res.data) {
         toast.showSuccess(props.run ? 'Run updated' : 'Run added');
+        // A brand-new run on a given day satisfies any "run" task due that day.
+        if (!props.run) {
+            await completeTasksLinkedToRun(getTasks, updateTask, res.data.date);
+        }
         visible.value = false;
-        emit('saved');
+        emit('saved', res.data.id);
     } else {
         formError.value = res.error?.message ?? 'Failed to save run';
     }
@@ -101,19 +110,19 @@ function triggerImport() {
     importFileInput.value?.click();
 }
 
-async function handleImportFile(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file) return;
-
+async function importOneFile(file: File) {
     formError.value = '';
     const isFit = file.name.toLowerCase().endsWith('.fit');
     const res = isFit ? await importFit(file) : await importGpx(file);
     if (res.success && res.data) {
         toast.showSuccess('Run imported');
+        await completeTasksLinkedToRun(
+            getTasks,
+            updateTask,
+            res.data.activity.date,
+        );
         visible.value = false;
-        emit('saved');
+        emit('saved', res.data.activity.id);
     } else if (res.error?.code === 'CONFLICT') {
         toast.showWarning(
             'Already imported',
@@ -122,6 +131,39 @@ async function handleImportFile(event: Event) {
     } else {
         formError.value = res.error?.message ?? 'Import failed';
     }
+}
+
+async function handleImportFile(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file) await importOneFile(file);
+}
+
+// Drag a .gpx/.fit file onto the dialog as a shortcut for the picker above —
+// only one file is used (this dialog adds a single run), matching how it
+// only ever imports one file via the button too. Only live in add mode with
+// import support, same gate as the button/input above.
+const canImportViaDrop = computed(() => !props.run && importSupported);
+const {
+    isOver: isFileDragOver,
+    onDragEnter,
+    onDragOver,
+    onDragLeave,
+    onFileDrop,
+} = useFileDrop((files) => void importOneFile(files[0]!), ['.gpx', '.fit']);
+
+function onDialogDragEnter(e: DragEvent) {
+    if (canImportViaDrop.value) onDragEnter(e);
+}
+function onDialogDragOver(e: DragEvent) {
+    if (canImportViaDrop.value) onDragOver(e);
+}
+function onDialogDragLeave(e: DragEvent) {
+    if (canImportViaDrop.value) onDragLeave(e);
+}
+function onDialogDrop(e: DragEvent) {
+    if (canImportViaDrop.value) onFileDrop(e);
 }
 </script>
 
@@ -132,7 +174,20 @@ async function handleImportFile(event: Event) {
         modal
         :style="{ width: '28rem', maxWidth: '92vw' }"
     >
-        <div class="flex flex-col gap-4">
+        <div
+            class="relative flex flex-col gap-4"
+            @dragenter="onDialogDragEnter"
+            @dragleave="onDialogDragLeave"
+            @dragover="onDialogDragOver"
+            @drop="onDialogDrop"
+        >
+            <div
+                v-if="isFileDragOver"
+                class="border-primary-400 bg-surface-0/90 dark:bg-surface-900/90 pointer-events-none absolute -inset-2 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed"
+            >
+                <i class="pi pi-upload text-primary-500 text-2xl"></i>
+                <p class="text-sm font-medium">Drop to import</p>
+            </div>
             <div v-if="!run && importSupported" class="flex flex-col gap-3">
                 <AppButton
                     icon="pi pi-upload"
@@ -140,6 +195,9 @@ async function handleImportFile(event: Event) {
                     outlined
                     @click="triggerImport"
                 />
+                <p class="text-surface-400 -mt-1.5 text-center text-xs">
+                    or drag a file onto this window
+                </p>
                 <input
                     ref="importFileInput"
                     accept=".gpx,.fit"

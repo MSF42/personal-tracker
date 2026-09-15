@@ -26,7 +26,7 @@ import { routePoints as toRoutePoints, type TimeRange } from '@/utils/route';
 registerCharts();
 
 const route = useRoute<'/running/[id]'>();
-const { back } = useSmartBack('/running');
+const { back } = useSmartBack('/running/log');
 const { getActivity, getSegments, getLaps, getSamples } = useRunningApi();
 const { distanceUnit, fmtDistance, fmtPace, fmtTemperature, fromKm } =
     useUnits();
@@ -358,7 +358,7 @@ const elevationUnit = computed(() =>
         <NotFoundState
             v-else-if="notFound"
             back-label="Back to Running"
-            back-to="/running"
+            back-to="/running/log"
             entity="run"
         />
 

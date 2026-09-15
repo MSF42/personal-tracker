@@ -4,18 +4,15 @@ import { RouterLink, RouterView, useRoute } from 'vue-router';
 
 const route = useRoute();
 
-// Detail routes (/strength/logs/:id, /strength/routines/:id) render on their
-// own — full width, their own container and Back button, like the run detail
-// page. The section routes get the left rail + shared page container so their
+// The run detail route (/running/:id) renders on its own — full width, its
+// own two-column map/chart layout — like Strength's [id] routes. The section
+// routes (Progress, Log) get the left rail + shared page container so their
 // <h1> lines up with every other top-level page.
-const isDetail = computed(() =>
-    /^\/strength\/(logs|routines)\/.+/.test(route.path),
-);
+const isDetail = computed(() => /^\/running\/\d+$/.test(route.path));
 
 const sections = [
-    { label: 'Logs', to: '/strength/logs' },
-    { label: 'Exercises', to: '/strength/exercises' },
-    { label: 'Routines', to: '/strength/routines' },
+    { label: 'Progress', to: '/running/progress' },
+    { label: 'Log', to: '/running/log' },
 ];
 
 function railClass(to: string): string {

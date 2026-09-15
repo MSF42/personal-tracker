@@ -61,13 +61,23 @@ export function useUnits() {
         return `${Math.round(celsius)} °C`;
     }
 
+    /** Snap a displayed weight to the nearest quarter-unit. Plates and
+     *  dumbbells come in quarter increments, and rounding to that grid also
+     *  absorbs kg⇄lbs conversion noise — most visibly on weights imported
+     *  from the Steve2026 sheet, which rounded kg to 2 decimals on the way
+     *  in, so converting back to lbs for display lands a hair off a whole
+     *  number (e.g. 60 lbs → 27.22 kg → 60.01 lbs) without this. */
+    function roundWeight(n: number): number {
+        return Math.round(n * 4) / 4;
+    }
+
     /** Format a weight stored in kg for display */
     function fmtWeight(kg: number | null | undefined): string {
         if (kg == null) return '—';
         if (weightUnit.value === 'lbs') {
-            return `${(kg * KG_TO_LBS).toFixed(2)} lbs`;
+            return `${roundWeight(kg * KG_TO_LBS).toFixed(2)} lbs`;
         }
-        return `${kg} kg`;
+        return `${roundWeight(kg)} kg`;
     }
 
     /** Format a distance stored in km for display */
@@ -126,6 +136,7 @@ export function useUnits() {
         fromKm,
         toKg,
         fromKg,
+        roundWeight,
         KG_TO_LBS,
         KM_TO_MI,
         MI_TO_KM,

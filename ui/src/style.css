@@ -9,6 +9,11 @@ body {
     margin: 0;
     padding: 0;
     height: 100%;
+    /* Always reserve the scrollbar gutter so pages that don't scroll lay out at
+       the same width as pages that do — otherwise every mx-auto container (the
+       nav included) re-centers by ~15px between routes, and opening a PrimeVue
+       dialog (which toggles body overflow) does the same. */
+    scrollbar-gutter: stable;
     color: var(--p-surface-900);
     background-color: var(--p-surface-0);
     font-family:
@@ -50,6 +55,13 @@ html.dark,
 /* Give PrimeVue cards a visible border in dark mode */
 .dark .p-card {
     border: 1px solid var(--p-surface-700);
+}
+
+/* Every AppChart is wrapped in a fixed-height container (h-44 / h-64); make
+   PrimeVue's chart wrapper fill it so responsive+maintainAspectRatio:false
+   charts use the whole box instead of the canvas's 150px intrinsic default. */
+.p-chart {
+    height: 100%;
 }
 
 /* Search snippet <mark> rendering in the command palette */

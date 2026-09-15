@@ -26,6 +26,7 @@ const {
     activeRoutineId,
     activeRoutineName,
     activeResumeLogId,
+    activeWorkoutDate,
     showRunDialog,
     runDefaultDate,
     openLinkedWorkout,
@@ -435,6 +436,7 @@ const filterCategoryOptions = computed(() => [
         <!-- Enter a linked task: workout or run -->
         <LogWorkoutDialog
             v-model:visible="showLogWorkoutDialog"
+            :default-date="activeWorkoutDate"
             :resume-log-id="activeResumeLogId"
             :routine-id="activeRoutineId"
             :routine-name="activeRoutineName"

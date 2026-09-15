@@ -45,12 +45,7 @@ const historyByDate = computed<HistoryDateGroup[]>(() => {
     return groups;
 });
 
-const { weightUnit, fromKg, fmtWeight } = useUnits();
-
-// Weights arrive in kg; everything shown here is in the user's unit.
-// Entries can be logged to the nearest 0.25/0.75, so round display to 2
-// decimals rather than 1 to avoid misrepresenting the logged value.
-const round2 = (n: number) => Math.round(n * 100) / 100;
+const { weightUnit, fromKg, fmtWeight, roundWeight } = useUnits();
 
 const hasWeightData = computed(() =>
     props.entries.some((e) => e.weight !== null && e.weight > 0),
@@ -79,7 +74,7 @@ const summaryStats = computed(() => {
 
     return {
         sessions,
-        prWeight: round2(prWeight),
+        prWeight: roundWeight(prWeight),
         bestVolume: Math.round(bestVolume),
         avgVolume,
     };
@@ -111,7 +106,7 @@ const chartData = computed(() => {
     }
 
     const maxWeight = groups.map((g) =>
-        round2(Math.max(...g.sets.map((s) => fromKg(s.weight ?? 0)))),
+        roundWeight(Math.max(...g.sets.map((s) => fromKg(s.weight ?? 0)))),
     );
     const volume = groups.map((g) =>
         Math.round(

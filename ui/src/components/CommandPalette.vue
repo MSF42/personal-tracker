@@ -67,8 +67,8 @@ function routeFor(hit: SearchHit): string {
     const routes: Record<SearchKind, string> = {
         task: `/tasks?task=${hit.entity_id}`,
         habit: `/habits?habit=${hit.entity_id}`,
-        exercise: `/exercises?exercise=${hit.entity_id}`,
-        routine: `/workout-routines?routine=${hit.entity_id}`,
+        exercise: `/strength/exercises?exercise=${hit.entity_id}`,
+        routine: `/strength/routines/${hit.entity_id}`,
     };
     return routes[hit.kind];
 }

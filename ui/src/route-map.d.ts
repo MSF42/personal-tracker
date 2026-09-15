@@ -33,13 +33,6 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/exercises': RouteRecordInfo<
-      '/exercises',
-      '/exercises',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
     '/habits': RouteRecordInfo<
       '/habits',
       '/habits',
@@ -53,6 +46,16 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       Record<never, never>,
       | never
+    >,
+    '/running': RouteRecordInfo<
+      '/running',
+      '/running',
+      Record<never, never>,
+      Record<never, never>,
+      | '/running/'
+      | '/running/[id]'
+      | '/running/log'
+      | '/running/progress'
     >,
     '/running/': RouteRecordInfo<
       '/running/',
@@ -68,6 +71,20 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/running/log': RouteRecordInfo<
+      '/running/log',
+      '/running/log',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/running/progress': RouteRecordInfo<
+      '/running/progress',
+      '/running/progress',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/settings': RouteRecordInfo<
       '/settings',
       '/settings',
@@ -80,6 +97,53 @@ declare module 'vue-router/auto-routes' {
       '/strength',
       Record<never, never>,
       Record<never, never>,
+      | '/strength/'
+      | '/strength/exercises'
+      | '/strength/logs/'
+      | '/strength/logs/[id]'
+      | '/strength/routines/'
+      | '/strength/routines/[id]'
+    >,
+    '/strength/': RouteRecordInfo<
+      '/strength/',
+      '/strength',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/strength/exercises': RouteRecordInfo<
+      '/strength/exercises',
+      '/strength/exercises',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/strength/logs/': RouteRecordInfo<
+      '/strength/logs/',
+      '/strength/logs',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/strength/logs/[id]': RouteRecordInfo<
+      '/strength/logs/[id]',
+      '/strength/logs/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/strength/routines/': RouteRecordInfo<
+      '/strength/routines/',
+      '/strength/routines',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/strength/routines/[id]': RouteRecordInfo<
+      '/strength/routines/[id]',
+      '/strength/routines/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
       | never
     >,
     '/tasks': RouteRecordInfo<
@@ -87,27 +151,6 @@ declare module 'vue-router/auto-routes' {
       '/tasks',
       Record<never, never>,
       Record<never, never>,
-      | never
-    >,
-    '/workout-logs/': RouteRecordInfo<
-      '/workout-logs/',
-      '/workout-logs',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/workout-routines/': RouteRecordInfo<
-      '/workout-routines/',
-      '/workout-routines',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/workout-routines/[id]': RouteRecordInfo<
-      '/workout-routines/[id]',
-      '/workout-routines/:id',
-      { id: ParamValue<true> },
-      { id: ParamValue<false> },
       | never
     >,
   }
@@ -129,12 +172,6 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/exercises.vue': {
-      routes:
-        | '/exercises'
-      views:
-        | never
-    }
     'src/pages/habits.vue': {
       routes:
         | '/habits'
@@ -146,6 +183,16 @@ declare module 'vue-router/auto-routes' {
         | '/measurements'
       views:
         | never
+    }
+    'src/pages/running.vue': {
+      routes:
+        | '/running'
+        | '/running/'
+        | '/running/[id]'
+        | '/running/log'
+        | '/running/progress'
+      views:
+        | 'default'
     }
     'src/pages/running/index.vue': {
       routes:
@@ -159,6 +206,18 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/running/log.vue': {
+      routes:
+        | '/running/log'
+      views:
+        | never
+    }
+    'src/pages/running/progress.vue': {
+      routes:
+        | '/running/progress'
+      views:
+        | never
+    }
     'src/pages/settings.vue': {
       routes:
         | '/settings'
@@ -168,30 +227,54 @@ declare module 'vue-router/auto-routes' {
     'src/pages/strength.vue': {
       routes:
         | '/strength'
+        | '/strength/'
+        | '/strength/exercises'
+        | '/strength/logs/'
+        | '/strength/logs/[id]'
+        | '/strength/routines/'
+        | '/strength/routines/[id]'
+      views:
+        | 'default'
+    }
+    'src/pages/strength/index.vue': {
+      routes:
+        | '/strength/'
+      views:
+        | never
+    }
+    'src/pages/strength/exercises.vue': {
+      routes:
+        | '/strength/exercises'
+      views:
+        | never
+    }
+    'src/pages/strength/logs/index.vue': {
+      routes:
+        | '/strength/logs/'
+      views:
+        | never
+    }
+    'src/pages/strength/logs/[id].vue': {
+      routes:
+        | '/strength/logs/[id]'
+      views:
+        | never
+    }
+    'src/pages/strength/routines/index.vue': {
+      routes:
+        | '/strength/routines/'
+      views:
+        | never
+    }
+    'src/pages/strength/routines/[id].vue': {
+      routes:
+        | '/strength/routines/[id]'
       views:
         | never
     }
     'src/pages/tasks.vue': {
       routes:
         | '/tasks'
-      views:
-        | never
-    }
-    'src/pages/workout-logs/index.vue': {
-      routes:
-        | '/workout-logs/'
-      views:
-        | never
-    }
-    'src/pages/workout-routines/index.vue': {
-      routes:
-        | '/workout-routines/'
-      views:
-        | never
-    }
-    'src/pages/workout-routines/[id].vue': {
-      routes:
-        | '/workout-routines/[id]'
       views:
         | never
     }

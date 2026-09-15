@@ -18,13 +18,16 @@ const props = withDefaults(
         /** Set to reopen this dialog against an existing in-progress log
          *  instead of starting a new one. */
         resumeLogId?: number | null;
+        /** Pre-fill the new log's date (e.g. a linked task's due date) so
+         *  completing it matches that task. Defaults to today. */
+        defaultDate?: string | null;
     }>(),
-    { resumeLogId: null },
+    { resumeLogId: null, defaultDate: null },
 );
 // `completed` distinguishes a real "Complete Workout" from a plain "Save"
-// (progress kept, still in-progress) — callers that only care about
-// refreshing a list can ignore the argument entirely.
-const emit = defineEmits<{ logged: [completed: boolean] }>();
+// (progress kept, still in-progress); `logId` lets a caller jump to the log's
+// detail page. Callers that only refresh a list can ignore both args.
+const emit = defineEmits<{ logged: [completed: boolean, logId: number] }>();
 const visible = defineModel<boolean>('visible', { required: true });
 const { getRoutineExercises } = useWorkoutRoutineApi();
 const {
@@ -37,7 +40,7 @@ const {
 } = useWorkoutLogApi();
 const { getTasks, updateTask } = useTaskApi();
 const toast = useToast();
-const { weightUnit, toKg, fromKg } = useUnits();
+const { weightUnit, toKg, fromKg, roundWeight } = useUnits();
 
 const todayStr = new Date().toISOString().split('T')[0] as string;
 
@@ -106,7 +109,7 @@ async function loadLastSets(exerciseIds: number[]) {
             for (const e of lastSession) {
                 bySetNumber[e.set_number] =
                     e.weight != null && e.weight > 0
-                        ? `${Math.round(fromKg(e.weight) * 100) / 100} × ${e.reps}`
+                        ? `${roundWeight(fromKg(e.weight))} × ${e.reps}`
                         : `BW × ${e.reps}`;
             }
             lastSets.value[exerciseId] = bySetNumber;
@@ -136,7 +139,7 @@ function buildEntriesFromPrescription(): SetEntry[] {
 async function openFresh(routineId: number) {
     logStep.value = 1;
     workoutLogId.value = null;
-    logForm.date = todayStr;
+    logForm.date = props.defaultDate ?? todayStr;
     logForm.notes = '';
     setEntries.value = [];
 
@@ -214,7 +217,7 @@ async function createLog() {
         setEntries.value = buildEntriesFromPrescription();
         logStep.value = 2;
         toast.showSuccess('Workout log created');
-        emit('logged', false);
+        emit('logged', false, res.data.id);
         await loadLastSets(logExercises.value.map((ex) => ex.id));
     }
 }
@@ -260,7 +263,7 @@ async function saveAndClose() {
         return;
     }
     toast.showSuccess('Progress saved');
-    emit('logged', false);
+    emit('logged', false, workoutLogId.value ?? 0);
     visible.value = false;
 }
 
@@ -288,7 +291,7 @@ async function completeAndClose() {
         );
     }
     toast.showSuccess('Workout completed');
-    emit('logged', true);
+    emit('logged', true, workoutLogId.value ?? 0);
     visible.value = false;
 }
 

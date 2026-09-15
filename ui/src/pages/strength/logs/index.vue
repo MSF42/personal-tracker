@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
-import WorkoutLogDetailDialog from '@/components/WorkoutLogDetailDialog.vue';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
 import { useLoading } from '@/composables/useLoading';
@@ -17,6 +17,7 @@ const { getWorkoutLogs, deleteWorkoutLog } = useWorkoutLogApi();
 const { getWorkoutRoutines } = useWorkoutRoutineApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
+const router = useRouter();
 
 const logs = ref<WorkoutLog[]>([]);
 
@@ -94,13 +95,8 @@ const filteredLogs = computed(() => {
     });
 });
 
-// --- View/Edit Dialog ---
-const showViewDialog = ref(false);
-const viewingLogId = ref<number | null>(null);
-
 function openView(log: WorkoutLog) {
-    viewingLogId.value = log.id;
-    showViewDialog.value = true;
+    void router.push(`/strength/logs/${log.id}`);
 }
 
 // --- Log Workout dialog (resume an in-progress log, or perform a routine
@@ -171,7 +167,7 @@ onMounted(() => withLoading(loadData));
 </script>
 
 <template>
-    <div class="mx-auto max-w-6xl p-6">
+    <div>
         <h1 class="mb-6 text-2xl font-bold">Workout Logs</h1>
 
         <!-- Stats Cards -->
@@ -312,7 +308,7 @@ onMounted(() => withLoading(loadData));
                         Log workouts from the
                         <RouterLink
                             class="text-primary underline"
-                            to="/workout-routines"
+                            to="/strength/routines"
                             >Routines</RouterLink
                         >
                         page
@@ -407,7 +403,7 @@ onMounted(() => withLoading(loadData));
                 No routines yet.
                 <RouterLink
                     class="text-primary underline"
-                    to="/strength?tab=routines"
+                    to="/strength/routines"
                 >
                     Create one
                 </RouterLink>
@@ -439,13 +435,6 @@ onMounted(() => withLoading(loadData));
             :routine-id="activeRoutineId"
             :routine-name="activeRoutineName"
             @logged="loadData"
-        />
-
-        <!-- View/Edit Workout Log Dialog -->
-        <WorkoutLogDetailDialog
-            v-model:visible="showViewDialog"
-            :log-id="viewingLogId"
-            @updated="loadData"
         />
     </div>
 </template>

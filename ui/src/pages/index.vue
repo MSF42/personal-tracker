@@ -63,14 +63,28 @@ const {
     activeRoutineId,
     activeRoutineName,
     activeResumeLogId,
+    activeWorkoutDate,
     showRunDialog,
     runDefaultDate,
     openLinkedWorkout,
     openLinkedRun,
     openPlainRun,
-    onWorkoutLogged,
-    onRunSaved,
 } = useTaskLinks(refreshAfterTaskLink);
+
+// Logging from the dashboard follows through to the new thing's detail page
+// (the modal is a quick capture, not the place you'd review what you just
+// logged). Task completion already happened inside the dialog.
+function onRunAddedFromDashboard(runId: number) {
+    void router.push(`/running/${runId}`);
+}
+
+function onWorkoutLogged(completed: boolean, logId: number) {
+    if (completed && logId) {
+        void router.push(`/strength/logs/${logId}`);
+        return;
+    }
+    void refreshAfterTaskLink();
+}
 
 const showAddCountdown = ref(false);
 const editingCountdownId = ref<number | null>(null);
@@ -184,7 +198,10 @@ async function refreshTasks() {
  *  for a plain task — open it for editing (same as clicking a Countdown
  *  card above). */
 function onTaskEventClick(task: Task) {
-    if (task.link_type === 'workout_routine') void openLinkedWorkout(task);
+    // A done task just opens for editing — no point re-entering its
+    // workout/run flow.
+    if (task.completed) openEditTask(task);
+    else if (task.link_type === 'workout_routine') void openLinkedWorkout(task);
     else if (task.link_type === 'run') openLinkedRun(task);
     else openEditTask(task);
 }
@@ -394,7 +411,9 @@ function hasEventsOnDate(dateStr: string): {
     return {
         run: runs.value.some((r) => r.date === dateStr),
         workout: workoutLogs.value.some((w) => w.date === dateStr),
-        task: tasks.value.some((t) => t.due_date === dateStr),
+        // Only an *open* task earns a dot — a day whose tasks are all done
+        // shouldn't still look like it has something outstanding.
+        task: tasks.value.some((t) => t.due_date === dateStr && !t.completed),
     };
 }
 
@@ -550,7 +569,7 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                                 label="Log Workout"
                                 outlined
                                 size="small"
-                                @click="router.push('/workout-routines')"
+                                @click="router.push('/strength/routines')"
                             />
                         </div>
                     </template>
@@ -710,6 +729,8 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                                     {
                                         'hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer':
                                             event.task,
+                                        'text-surface-400 line-through':
+                                            event.task?.completed,
                                     },
                                 ]"
                                 @click="
@@ -827,12 +848,13 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
             v-model:visible="showRunDialog"
             :default-date="runDefaultDate"
             :run="null"
-            @saved="onRunSaved"
+            @saved="onRunAddedFromDashboard"
         />
 
         <!-- Log Workout Dialog — the "enter a linked workout" target -->
         <LogWorkoutDialog
             v-model:visible="showLogWorkoutDialog"
+            :default-date="activeWorkoutDate"
             :resume-log-id="activeResumeLogId"
             :routine-id="activeRoutineId"
             :routine-name="activeRoutineName"

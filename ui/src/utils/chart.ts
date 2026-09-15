@@ -1,4 +1,6 @@
 import {
+    BarController,
+    BarElement,
     CategoryScale,
     Chart,
     Filler,
@@ -13,11 +15,14 @@ import {
 
 let registered = false;
 
-/** Register the Chart.js pieces the app's line charts need. Safe to call repeatedly. */
+/** Register the Chart.js pieces the app's line and bar charts need. Safe to
+ *  call repeatedly. */
 export function registerCharts(): void {
     if (registered) return;
     registered = true;
     Chart.register(
+        BarController,
+        BarElement,
         CategoryScale,
         Filler,
         Legend,
