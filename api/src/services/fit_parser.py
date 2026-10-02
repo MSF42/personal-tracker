@@ -115,8 +115,12 @@ def _iso(value: Any) -> str | None:
 def _uuid(value: Any) -> str | None:
     if value is None:
         return None
-    if isinstance(value, (tuple, list, bytes, bytearray)):
-        raw: bytes = bytes(value)
+    if isinstance(value, (bytes, bytearray)):
+        value = list(value)
+    if isinstance(value, (tuple, list)):
+        # fitdecode reports a 0xFF byte (the FIT "invalid" sentinel) as None,
+        # but inside a UUID it is just a byte.
+        raw: bytes = bytes(0xFF if b is None else b for b in value)
         if len(raw) == 16:
             return str(uuid.UUID(bytes=raw))
         hex_value: str = raw.hex()

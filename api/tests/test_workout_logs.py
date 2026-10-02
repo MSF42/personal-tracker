@@ -228,3 +228,95 @@ async def test_completing_a_workout_log(client: AsyncClient) -> None:
 
     history = await client.get(f"/api/v1/workout-logs/routine/{routine_id}")
     assert history.json()[0]["completed"] is True
+
+
+async def test_log_set_for_exercise_outside_routine_leaves_routine_unchanged(
+    client: AsyncClient,
+) -> None:
+    """A one-off exercise added to a session is saved on the log only."""
+    routine_resp = await client.post(
+        "/api/v1/workout-routines",
+        json={"name": f"Workout A {uuid.uuid4().hex[:8]}"},
+    )
+    routine_id = routine_resp.json()["id"]
+    exercise_resp = await client.post(
+        "/api/v1/exercises",
+        json={"name": f"Face Pull {uuid.uuid4().hex[:8]}", "muscle_group": "shoulders"},
+    )
+    exercise_id = exercise_resp.json()["id"]
+
+    log_resp = await client.post(
+        "/api/v1/workout-logs",
+        json={"routine_id": routine_id, "date": "2026-09-28"},
+    )
+    log_id = log_resp.json()["id"]
+    for set_number in (1, 2, 3):
+        resp = await client.post(
+            f"/api/v1/workout-logs/{log_id}/sets",
+            json={"exercise_id": exercise_id, "set_number": set_number, "reps": 15},
+        )
+        assert resp.status_code == 201
+
+    detail = await client.get(f"/api/v1/workout-logs/{log_id}")
+    assert [s["exercise_id"] for s in detail.json()["sets"]] == [exercise_id] * 3
+
+    routine_exercises = await client.get(f"/api/v1/workout-routines/{routine_id}/exercises")
+    assert routine_exercises.json() == []
+
+
+async def test_delete_set(client: AsyncClient) -> None:
+    routine_resp = await client.post(
+        "/api/v1/workout-routines",
+        json={"name": f"Workout B {uuid.uuid4().hex[:8]}"},
+    )
+    exercise_resp = await client.post(
+        "/api/v1/exercises",
+        json={"name": f"Curl {uuid.uuid4().hex[:8]}", "muscle_group": "biceps"},
+    )
+    log_resp = await client.post(
+        "/api/v1/workout-logs",
+        json={"routine_id": routine_resp.json()["id"], "date": "2026-09-28"},
+    )
+    log_id = log_resp.json()["id"]
+    set_resp = await client.post(
+        f"/api/v1/workout-logs/{log_id}/sets",
+        json={"exercise_id": exercise_resp.json()["id"], "set_number": 1, "reps": 12},
+    )
+    set_id = set_resp.json()["id"]
+
+    deleted = await client.delete(f"/api/v1/workout-logs/{log_id}/sets/{set_id}")
+    assert deleted.status_code == 204
+    detail = await client.get(f"/api/v1/workout-logs/{log_id}")
+    assert detail.json()["sets"] == []
+
+    again = await client.delete(f"/api/v1/workout-logs/{log_id}/sets/{set_id}")
+    assert again.status_code == 404
+
+
+async def test_list_workout_logs_includes_set_and_volume_totals(client: AsyncClient) -> None:
+    routine = (await client.post("/api/v1/workout-routines", json={"name": "Volume A"})).json()
+    exercise = (
+        await client.post(
+            "/api/v1/exercises",
+            json={"name": f"Volume Squat {uuid.uuid4().hex[:8]}", "muscle_group": "legs"},
+        )
+    ).json()
+    log = (
+        await client.post(
+            "/api/v1/workout-logs", json={"routine_id": routine["id"], "date": "2026-03-01"}
+        )
+    ).json()
+    for set_number, reps, weight in ((1, 5, 100.0), (2, 5, 100.0), (3, 10, None)):
+        await client.post(
+            f"/api/v1/workout-logs/{log['id']}/sets",
+            json={
+                "exercise_id": exercise["id"],
+                "set_number": set_number,
+                "reps": reps,
+                "weight": weight,
+            },
+        )
+
+    listed = {entry["id"]: entry for entry in (await client.get("/api/v1/workout-logs")).json()}
+    assert listed[log["id"]]["total_sets"] == 3
+    assert listed[log["id"]]["total_volume"] == 1000.0  # bodyweight set adds nothing

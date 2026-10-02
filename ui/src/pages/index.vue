@@ -24,9 +24,9 @@ import { formatDate as formatIsoDate } from '@/utils/format';
 import {
     fromIsoDate,
     mondayIndex,
+    rollingRange,
     toIsoDate,
     WEEKDAY_LABELS,
-    weekRange,
 } from '@/utils/week';
 
 const { getActivities } = useRunningApi();
@@ -132,14 +132,20 @@ onMounted(() => {
 
 // --- Summary computations ---
 
+const overdueTasks = computed(() =>
+    tasks.value
+        .filter((t) => !t.completed && t.due_date && t.due_date < todayStr)
+        .sort((a, b) => a.due_date!.localeCompare(b.due_date!)),
+);
+
 const tasksDueToday = computed(() => {
     const dueToday = tasks.value.filter(
         (t) => !t.completed && t.due_date === todayStr,
     );
-    const overdue = tasks.value.filter(
-        (t) => !t.completed && t.due_date && t.due_date < todayStr,
-    );
-    return { dueCount: dueToday.length, overdueCount: overdue.length };
+    return {
+        dueCount: dueToday.length,
+        overdueCount: overdueTasks.value.length,
+    };
 });
 
 const habitsToday = computed(() => ({
@@ -148,10 +154,8 @@ const habitsToday = computed(() => ({
 }));
 
 const weeklyRunning = computed(() => {
-    const { start: monStr, end: sunStr } = weekRange(today);
-    const weekRuns = runs.value.filter(
-        (r) => r.date >= monStr && r.date <= sunStr,
-    );
+    const { start, end } = rollingRange(7, today);
+    const weekRuns = runs.value.filter((r) => r.date >= start && r.date <= end);
     return {
         distance: weekRuns.reduce((s, r) => s + r.distance_km, 0).toFixed(1),
         count: weekRuns.length,
@@ -447,6 +451,35 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
         <LoadingState v-if="loading" label="Loading dashboard…" />
 
         <template v-else>
+            <!-- Overdue Tasks -->
+            <div
+                v-if="overdueTasks.length > 0"
+                class="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/40"
+            >
+                <div class="mb-2 flex items-center gap-2">
+                    <i class="pi pi-exclamation-triangle text-red-500"></i>
+                    <h2 class="font-semibold text-red-700 dark:text-red-400">
+                        {{ overdueTasks.length }}
+                        {{ overdueTasks.length === 1 ? 'task' : 'tasks' }}
+                        overdue
+                    </h2>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <button
+                        v-for="t in overdueTasks"
+                        :key="t.id"
+                        class="flex items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-red-100 dark:hover:bg-red-900/40"
+                        type="button"
+                        @click="onTaskEventClick(t)"
+                    >
+                        <span class="truncate">{{ t.title }}</span>
+                        <span class="shrink-0 text-xs font-medium text-red-500">
+                            {{ formatIsoDate(t.due_date!) }}
+                        </span>
+                    </button>
+                </div>
+            </div>
+
             <!-- Summary Cards -->
             <div
                 class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
@@ -500,12 +533,12 @@ function eventBorderClass(type: 'run' | 'workout' | 'task'): string {
                     </template>
                 </AppCard>
 
-                <!-- Running This Week -->
+                <!-- Running Past 7 Days -->
                 <AppCard>
                     <template #title>
                         <div class="flex items-center gap-2">
                             <i class="pi pi-bolt text-blue-500"></i>
-                            <span>Running This Week</span>
+                            <span>Running Past 7 Days</span>
                         </div>
                     </template>
                     <template #content>

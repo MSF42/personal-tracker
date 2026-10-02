@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
+import ExerciseFormDialog from '@/components/ExerciseFormDialog.vue';
 import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
 import LoadingState from '@/components/LoadingState.vue';
 import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
@@ -153,7 +154,9 @@ const addExerciseForm = reactive({
 
 const availableExercises = computed(() => {
     const usedIds = new Set(exercises.value.map((re) => re.id));
-    return allExercises.value.filter((e) => !usedIds.has(e.id));
+    return allExercises.value
+        .filter((e) => !usedIds.has(e.id))
+        .sort((a, b) => a.name.localeCompare(b.name));
 });
 
 async function refreshExercises() {
@@ -179,6 +182,25 @@ async function handleAddExercise() {
     } else {
         toast.showError(res.error?.message ?? 'Failed to add exercise');
     }
+}
+
+// Typing in the picker's filter carries over as the name when the exercise
+// isn't in the list and the user creates it inline.
+const exerciseSelect = ref<{ hide: () => void } | null>(null);
+const exerciseFilter = ref('');
+const showNewExerciseDialog = ref(false);
+const newExerciseName = ref('');
+
+function openNewExerciseDialog() {
+    // Capture before hide() — hiding the overlay clears the filter text.
+    newExerciseName.value = exerciseFilter.value;
+    exerciseSelect.value?.hide();
+    showNewExerciseDialog.value = true;
+}
+
+function handleExerciseCreated(exercise: Exercise) {
+    allExercises.value = [...allExercises.value, exercise];
+    addExerciseForm.exerciseId = exercise.id;
 }
 
 const showRemoveExerciseConfirm = ref(false);
@@ -372,13 +394,59 @@ function openLogDetail(logId: number) {
                     <div class="flex flex-wrap items-end gap-2">
                         <div class="min-w-48 flex-1">
                             <AppSelect
+                                ref="exerciseSelect"
                                 v-model="addExerciseForm.exerciseId"
+                                auto-filter-focus
                                 class="w-full"
+                                filter
+                                filter-placeholder="Search exercises..."
                                 option-label="name"
                                 option-value="id"
                                 :options="availableExercises"
                                 placeholder="Select exercise..."
-                            />
+                                reset-filter-on-hide
+                                @filter="exerciseFilter = $event.value"
+                                @hide="exerciseFilter = ''"
+                            >
+                                <template #option="{ option }">
+                                    <div
+                                        class="flex w-full items-center justify-between gap-2"
+                                    >
+                                        <span>{{
+                                            (option as Exercise).name
+                                        }}</span>
+                                        <span
+                                            class="text-surface-500 text-xs capitalize"
+                                        >
+                                            {{
+                                                (option as Exercise)
+                                                    .muscle_group
+                                            }}
+                                        </span>
+                                    </div>
+                                </template>
+                                <template #emptyfilter>
+                                    No exercises match "{{ exerciseFilter }}"
+                                </template>
+                                <template #footer>
+                                    <div
+                                        class="border-surface-200 dark:border-surface-700 border-t p-1"
+                                    >
+                                        <AppButton
+                                            class="w-full justify-start"
+                                            icon="pi pi-plus"
+                                            :label="
+                                                exerciseFilter.trim()
+                                                    ? `Create &quot;${exerciseFilter.trim()}&quot;`
+                                                    : 'New exercise...'
+                                            "
+                                            size="small"
+                                            text
+                                            @click="openNewExerciseDialog"
+                                        />
+                                    </div>
+                                </template>
+                            </AppSelect>
                         </div>
                         <div class="w-20">
                             <label class="mb-1 block text-xs">Sets</label>
@@ -466,6 +534,11 @@ function openLogDetail(logId: number) {
             :routine-id="routine?.id ?? null"
             :routine-name="routine?.name ?? ''"
             @logged="refreshHistory"
+        />
+        <ExerciseFormDialog
+            v-model:visible="showNewExerciseDialog"
+            :initial-name="newExerciseName"
+            @saved="handleExerciseCreated"
         />
         <ExerciseHistoryDialog
             v-model:visible="showHistory"

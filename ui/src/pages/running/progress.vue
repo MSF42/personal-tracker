@@ -1,47 +1,58 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
+import AddEditRunDialog from '@/components/AddEditRunDialog.vue';
+import RunBadges from '@/components/RunBadges.vue';
+import RunningCalendar from '@/components/RunningCalendar.vue';
+import WeeklyProgressList from '@/components/WeeklyProgressList.vue';
 import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useSettingsApi } from '@/composables/api/useSettingsApi';
+import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
-import type { RunningActivity } from '@/types/Running';
-import { registerCharts } from '@/utils/chart';
-import { detailTableClass } from '@/utils/detailTable';
-import { formatDate, formatDuration } from '@/utils/format';
-import {
-    fromIsoDate,
-    startOfWeek,
-    toIsoDate,
-    weekDays,
-    weekRange,
-} from '@/utils/week';
+import type { BestEffort, RunBadgeSet, RunningActivity } from '@/types/Running';
+import type { Task } from '@/types/Task';
+import { formatDate, formatDateRange, formatDuration } from '@/utils/format';
+import { planByWeek, plannedDays, weeklyGoal } from '@/utils/plan';
+import { bestWindow } from '@/utils/running';
+import { rollingRange, weekRange } from '@/utils/week';
 
-registerCharts();
-
-const { getActivities } = useRunningApi();
+const { getActivities, getBadges, getBestEfforts } = useRunningApi();
 const { getSetting, setSetting } = useSettingsApi();
+const { getTasks } = useTaskApi();
 const toast = useToast();
 const { distanceUnit, fmtDistance, fmtPace, toKm, fromKm } = useUnits();
 
 const activities = ref<RunningActivity[]>([]);
-
-const today = new Date();
-const currentYear = today.getFullYear();
+// Fastest time ever at each standard distance (1K … Marathon), counting the
+// fastest stretch inside longer runs — computed by the API from the tracks.
+const bestEfforts = ref<BestEffort[]>([]);
+// Runs from the past 30 days that earned badges, newest first.
+const recentBadges = ref<RunBadgeSet[]>([]);
+// Every Running task, done or not: the training plan (see utils/plan.ts).
+const runningTasks = ref<Task[]>([]);
+const plan = computed(() => plannedDays(runningTasks.value));
+const weekPlan = computed(() => planByWeek(plan.value));
 
 // --- Weekly Goal ---
+// This Mon–Sun week against the plan's distance for it; the manual goal only
+// applies to weeks with nothing planned.
 const weeklyGoalKm = ref<number | null>(null);
 const showGoalDialog = ref(false);
 const goalFormValue = ref<number>(0);
 
 const weeklyGoalProgress = computed(() => {
-    if (!weeklyGoalKm.value || weeklyGoalKm.value <= 0) return null;
-    const current = weekStats.value.distance;
-    const pct = Math.min((current / weeklyGoalKm.value) * 100, 100);
+    const { start, end } = weekRange();
+    const goal = weeklyGoal(start, weekPlan.value, weeklyGoalKm.value);
+    if (!goal) return null;
+    const current = activities.value
+        .filter((r) => r.date >= start && r.date <= end)
+        .reduce((s, r) => s + r.distance_km, 0);
     return {
-        percentage: Math.round(pct),
+        percentage: Math.round(Math.min((current / goal.km) * 100, 100)),
         currentKm: current,
-        goalKm: weeklyGoalKm.value,
+        goalKm: goal.km,
+        source: goal.source,
     };
 });
 
@@ -69,11 +80,31 @@ async function saveGoal() {
 // filters are for finding specific runs in the list, not for narrowing what
 // the trend/summary views below show.
 async function loadData() {
-    const runsRes = await getActivities();
+    const [runsRes, effortsRes, badgesRes] = await Promise.all([
+        getActivities(),
+        getBestEfforts(),
+        getBadges({ date_from: rollingRange(30).start }),
+    ]);
+    if (effortsRes.success && effortsRes.data) {
+        bestEfforts.value = effortsRes.data;
+    }
+    if (badgesRes.success && badgesRes.data) {
+        recentBadges.value = badgesRes.data;
+    }
     if (runsRes.success && runsRes.data) {
         activities.value = runsRes.data;
     } else if (!runsRes.success) {
         toast.showError('Failed to load running activities');
+    }
+}
+
+// The whole plan, completed tasks included: a completed task (usually
+// auto-completed by logging that day's run) is what that week planned, which
+// planned-vs-actual and the calendar both compare against.
+async function loadRunningTasks() {
+    const res = await getTasks({ category: 'Running' });
+    if (res.success && res.data) {
+        runningTasks.value = res.data;
     }
 }
 
@@ -87,40 +118,52 @@ async function loadGoal() {
 
 onMounted(() => {
     void loadData();
+    void loadRunningTasks();
     void loadGoal();
 });
 
 // --- Computed stats ---
+// These are trailing windows (past 7/30/365 days ending today), not calendar
+// periods — so "This Month" on the 3rd doesn't reset to almost nothing.
+// Weekly Progress below is the calendar-week breakdown; this is unrelated.
 const weekStats = computed(() => {
-    const { start: monStr, end: sunStr } = weekRange();
-    const weekRuns = activities.value.filter(
-        (r) => r.date >= monStr && r.date <= sunStr,
+    const { start, end } = rollingRange(7);
+    const runs = activities.value.filter(
+        (r) => r.date >= start && r.date <= end,
     );
     return {
-        distance: weekRuns.reduce((s, r) => s + r.distance_km, 0),
-        count: weekRuns.length,
+        distance: runs.reduce((s, r) => s + r.distance_km, 0),
+        count: runs.length,
     };
 });
 
 const monthStats = computed(() => {
-    const prefix = `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-    const monthRuns = activities.value.filter((r) => r.date.startsWith(prefix));
+    const { start, end } = rollingRange(30);
+    const runs = activities.value.filter(
+        (r) => r.date >= start && r.date <= end,
+    );
     return {
-        distance: monthRuns.reduce((s, r) => s + r.distance_km, 0),
-        count: monthRuns.length,
+        distance: runs.reduce((s, r) => s + r.distance_km, 0),
+        count: runs.length,
     };
 });
 
 const yearStats = computed(() => {
-    const yearPrefix = `${currentYear}-`;
-    const yearRuns = activities.value.filter((r) =>
-        r.date.startsWith(yearPrefix),
+    const { start, end } = rollingRange(365);
+    const runs = activities.value.filter(
+        (r) => r.date >= start && r.date <= end,
     );
     return {
-        distance: yearRuns.reduce((s, r) => s + r.distance_km, 0),
-        count: yearRuns.length,
+        distance: runs.reduce((s, r) => s + r.distance_km, 0),
+        count: runs.length,
     };
 });
+
+// Best-ever 7/30/365-day stretch (any start date), shown under each trailing
+// window card so "now" reads against "my best".
+const bestWeek = computed(() => bestWindow(activities.value, 7));
+const bestMonth = computed(() => bestWindow(activities.value, 30));
+const bestYear = computed(() => bestWindow(activities.value, 365));
 
 const allTimeBests = computed(() => {
     const runs = activities.value;
@@ -134,471 +177,27 @@ const allTimeBests = computed(() => {
     return { longest, totalDistanceKm };
 });
 
-// --- Distance-Bracket Personal Bests ---
-const distanceBrackets = [
-    { label: '1 km+', min: 1 },
-    { label: '3 km+', min: 3 },
-    { label: '5 km+', min: 5 },
-    { label: '10 km+', min: 10 },
-    { label: '15 km+', min: 15 },
-    { label: 'Half', min: 21.1 },
-];
-
-const bracketPBs = computed(() =>
-    distanceBrackets
-        .map((bracket) => {
-            const qualifying = activities.value.filter(
-                (r) => r.distance_km >= bracket.min && r.pace > 0,
-            );
-            if (!qualifying.length) return null;
-            const best = qualifying.reduce((a, c) => (a.pace < c.pace ? a : c));
-            return { ...bracket, run: best };
-        })
-        .filter(
-            (
-                b,
-            ): b is {
-                label: string;
-                min: number;
-                run: RunningActivity;
-            } => b !== null,
-        ),
-);
-
-// --- Pace & Distance Over Time Chart ---
-// Points sit on a numeric (real-time) x-axis rather than a category axis of
-// formatted date labels — a category axis spaces entries evenly by count,
-// which is wrong whenever runs aren't evenly spaced in time.
-const chartData = computed(() => {
-    const sorted = [...activities.value]
-        .filter((r) => r.pace > 0)
-        .sort((a, b) => a.date.localeCompare(b.date));
-    const paceMultiplier = distanceUnit.value === 'mi' ? 1.60934 : 1;
-    return {
-        datasets: [
-            {
-                label: `Pace (min:sec/${distanceUnit.value})`,
-                data: sorted.map((r) => ({
-                    x: fromIsoDate(r.date).getTime(),
-                    y: r.pace * paceMultiplier,
-                })),
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                fill: true,
-                tension: 0.3,
-                yAxisID: 'y',
-            },
-            {
-                label: `Distance (${distanceUnit.value})`,
-                data: sorted.map((r) => ({
-                    x: fromIsoDate(r.date).getTime(),
-                    y: fromKm(r.distance_km),
-                })),
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                fill: false,
-                tension: 0.3,
-                yAxisID: 'y1',
-            },
-        ],
-    };
-});
-
-// Pace is stored/plotted as decimal minutes; show it as m:ss on the axis and
-// in tooltips (5.75 → "5:45") — a decimal pace reads oddly for runners.
-const fmtPaceValue = (minutes: number) => formatDuration(minutes * 60);
-
-const chartOptions = computed(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: { display: true },
-        tooltip: {
-            callbacks: {
-                label: (ctx: {
-                    dataset: { label?: string; yAxisID?: string };
-                    parsed: { y: number };
-                }) => {
-                    const label = ctx.dataset.label ?? '';
-                    const value =
-                        ctx.dataset.yAxisID === 'y'
-                            ? fmtPaceValue(ctx.parsed.y)
-                            : String(Math.round(ctx.parsed.y * 100) / 100);
-                    return `${label}: ${value}`;
-                },
-            },
-        },
-    },
-    scales: {
-        x: {
-            type: 'linear' as const,
-            ticks: {
-                callback: (value: number) =>
-                    formatDate(toIsoDate(new Date(value))),
-            },
-        },
-        y: {
-            reverse: true,
-            position: 'left',
-            title: {
-                display: true,
-                text: `Pace (min:sec/${distanceUnit.value})`,
-            },
-            ticks: {
-                callback: (value: number) => fmtPaceValue(value),
-            },
-        },
-        y1: {
-            position: 'right',
-            grid: { drawOnChartArea: false },
-            title: { display: true, text: `Distance (${distanceUnit.value})` },
-        },
-    },
-}));
-
-// --- Pace × Distance (average pace bucketed into 1-unit distance bands) ---
-type PaceViewMode = 'time' | 'distance';
-const paceViewMode = ref<PaceViewMode>('time');
-const paceViewOptions: { label: string; value: PaceViewMode }[] = [
-    { label: 'Over Time', value: 'time' },
-    { label: 'By Distance', value: 'distance' },
-];
-
-const paceChartTitle = computed(() =>
-    paceViewMode.value === 'time'
-        ? 'Pace & Distance Over Time'
-        : 'Average Pace by Distance',
-);
-
-interface PaceDistanceBucket {
-    label: string;
-    bucketStart: number;
-    avgPace: number;
-    runs: number;
-}
-
-// Buckets are 1-unit wide in whatever unit is currently displayed (1-2 km,
-// 2-3 km, … or 1-2 mi, 2-3 mi, …), keyed by the floor of each run's display
-// distance — so switching units re-buckets rather than relabeling the same
-// km-wide bands as miles. Only bands with at least one run are shown.
-const paceByDistance = computed<PaceDistanceBucket[]>(() => {
-    const buckets = new Map<number, RunningActivity[]>();
-    for (const r of activities.value) {
-        if (r.pace <= 0) continue;
-        const bucketStart = Math.floor(fromKm(r.distance_km));
-        const bucket = buckets.get(bucketStart);
-        if (bucket) bucket.push(r);
-        else buckets.set(bucketStart, [r]);
-    }
-    return [...buckets.entries()]
-        .sort(([a], [b]) => a - b)
-        .map(([bucketStart, runs]) => ({
-            label: `${bucketStart}-${bucketStart + 1} ${distanceUnit.value}`,
-            bucketStart,
-            avgPace: runs.reduce((s, r) => s + r.pace, 0) / runs.length,
-            runs: runs.length,
-        }));
-});
-
-const distanceChartData = computed(() => {
-    const paceMultiplier = distanceUnit.value === 'mi' ? 1.60934 : 1;
-    const buckets = paceByDistance.value;
-    return {
-        labels: buckets.map((b) => b.label),
-        datasets: [
-            {
-                label: `Avg pace (min:sec/${distanceUnit.value})`,
-                data: buckets.map((b) => b.avgPace * paceMultiplier),
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-            },
-        ],
-    };
-});
-
-const distanceChartOptions = computed(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: { display: false },
-        tooltip: {
-            callbacks: {
-                label: (ctx: { parsed: { y: number }; dataIndex: number }) => {
-                    const bucket = paceByDistance.value[ctx.dataIndex];
-                    const runsLabel = bucket
-                        ? `${bucket.runs} run${bucket.runs === 1 ? '' : 's'}`
-                        : '';
-                    return ` ${fmtPaceValue(ctx.parsed.y)} avg · ${runsLabel}`;
-                },
-            },
-        },
-    },
-    scales: {
-        x: {
-            grid: { display: false },
-            title: {
-                display: true,
-                text: `Distance (${distanceUnit.value})`,
-            },
-        },
-        y: {
-            // Pace never approaches 0 min/km, so starting the axis there
-            // would squeeze the whole line into a sliver at the top — zoom
-            // to the data's actual range instead (with a little breathing
-            // room) so real differences between bands are visible.
-            beginAtZero: false,
-            grace: '10%',
-            title: {
-                display: true,
-                text: `Avg Pace (min:sec/${distanceUnit.value})`,
-            },
-            ticks: { callback: (value: number) => fmtPaceValue(value) },
-        },
-    },
-}));
-
-const activeChartData = computed(() =>
-    paceViewMode.value === 'time' ? chartData.value : distanceChartData.value,
-);
-const activeChartOptions = computed(() =>
-    paceViewMode.value === 'time'
-        ? chartOptions.value
-        : distanceChartOptions.value,
-);
-
-// --- Weekly Progress -------------------------------------------------------
-// Runs bucketed into Mon–Sun weeks. Interior weeks with no runs are kept as
-// zero rows (a week off should show as a dip), and the current week is always
-// included even before its first run.
-interface WeekAgg {
-    weekStart: string;
-    label: string;
-    totalKm: number;
-    runs: number;
-    longestKm: number;
-    durationSec: number;
-    cumulativeKm: number;
-}
-
-const round1 = (n: number) => Math.round(n * 10) / 10;
-
-function weekLabel(iso: string): string {
-    const d = fromIsoDate(iso);
-    return `${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
-}
-
-const weeklyAgg = computed<WeekAgg[]>(() => {
-    const runs = activities.value;
-    if (runs.length === 0) return [];
-
-    const byWeek = new Map<string, RunningActivity[]>();
-    for (const r of runs) {
-        const ws = toIsoDate(startOfWeek(fromIsoDate(r.date)));
-        const bucket = byWeek.get(ws);
-        if (bucket) bucket.push(r);
-        else byWeek.set(ws, [r]);
-    }
-
-    const starts = [...byWeek.keys()].sort();
-    const cursor = fromIsoDate(starts[0]!);
-    const lastRunWeek = fromIsoDate(starts[starts.length - 1]!);
-    const thisWeek = startOfWeek(new Date());
-    const end = lastRunWeek > thisWeek ? lastRunWeek : thisWeek;
-
-    const weeks: WeekAgg[] = [];
-    let cumulativeKm = 0;
-    while (cursor <= end) {
-        const iso = toIsoDate(cursor);
-        const wr = byWeek.get(iso) ?? [];
-        const totalKm = wr.reduce((s, r) => s + r.distance_km, 0);
-        cumulativeKm += totalKm;
-        weeks.push({
-            weekStart: iso,
-            label: weekLabel(iso),
-            totalKm,
-            runs: wr.length,
-            longestKm: wr.reduce((m, r) => Math.max(m, r.distance_km), 0),
-            durationSec: wr.reduce((s, r) => s + r.duration_seconds, 0),
-            cumulativeKm,
-        });
-        cursor.setDate(cursor.getDate() + 7);
-    }
-    return weeks;
-});
-
-const weeklyRows = computed(() => [...weeklyAgg.value].reverse());
-
-function weekAvgPace(w: WeekAgg): string {
-    if (w.totalKm <= 0 || w.durationSec <= 0) return '—';
-    return fmtPace(w.durationSec / 60 / w.totalKm);
-}
-
-// Toggle between the aggregate list above and a spreadsheet-style grid —
-// one row per week, one column per day, total at the end of the row —
-// which is the layout the Steve2026 training sheet used.
-type WeeklyTableView = 'list' | 'calendar';
-const weeklyTableView = ref<WeeklyTableView>('list');
-const weeklyTableViewOptions: { label: string; value: WeeklyTableView }[] = [
+// --- Weekly Progress ---------------------------------------------------------
+// List (planned vs actual per week) or month calendar; the plan feeds both.
+type WeeklyView = 'list' | 'calendar';
+const weeklyView = ref<WeeklyView>('list');
+const weeklyViewOptions: { label: string; value: WeeklyView }[] = [
     { label: 'List', value: 'list' },
     { label: 'Calendar', value: 'calendar' },
 ];
 
-const WEEKDAY_SHORT_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const todayIso = toIsoDate(today);
+// Logging a planned-but-not-yet-run calendar day opens Add Run pre-dated.
+const showAddRunDialog = ref(false);
+const addRunDefaultDate = ref<string | null>(null);
 
-interface WeekGridDay {
-    date: string;
-    distanceKm: number;
-    runs: number;
+function openAddRun(date: string) {
+    addRunDefaultDate.value = date;
+    showAddRunDialog.value = true;
 }
 
-interface WeekGridRow {
-    weekStart: string;
-    label: string;
-    days: WeekGridDay[];
-    totalKm: number;
+async function onAddRunSaved() {
+    await Promise.all([loadData(), loadRunningTasks()]);
 }
-
-const weeklyGridRows = computed<WeekGridRow[]>(() => {
-    const byDate = new Map<string, RunningActivity[]>();
-    for (const r of activities.value) {
-        const bucket = byDate.get(r.date);
-        if (bucket) bucket.push(r);
-        else byDate.set(r.date, [r]);
-    }
-    return [...weeklyAgg.value].reverse().map((week) => ({
-        weekStart: week.weekStart,
-        label: week.label,
-        totalKm: week.totalKm,
-        days: weekDays(fromIsoDate(week.weekStart)).map((date) => {
-            const dayRuns = byDate.get(date) ?? [];
-            return {
-                date,
-                distanceKm: dayRuns.reduce((s, r) => s + r.distance_km, 0),
-                runs: dayRuns.length,
-            };
-        }),
-    }));
-});
-
-type WeeklyView = 'volume' | 'cumulative' | 'longRun';
-const weeklyView = ref<WeeklyView>('volume');
-const weeklyViewOptions: { label: string; value: WeeklyView }[] = [
-    { label: 'Weekly', value: 'volume' },
-    { label: 'Cumulative', value: 'cumulative' },
-    { label: 'Long run', value: 'longRun' },
-];
-
-const weeklyGoalDisplay = computed(() =>
-    weeklyGoalKm.value ? round1(fromKm(weeklyGoalKm.value)) : null,
-);
-
-const weeklyChartData = computed(() => {
-    const weeks = weeklyAgg.value;
-    const labels = weeks.map((w) => w.label);
-
-    if (weeklyView.value === 'cumulative') {
-        return {
-            labels,
-            datasets: [
-                {
-                    type: 'line',
-                    label: `Cumulative (${distanceUnit.value})`,
-                    data: weeks.map((w) => round1(fromKm(w.cumulativeKm))),
-                    borderColor: '#22c55e',
-                    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-                    fill: true,
-                    tension: 0.25,
-                },
-            ],
-        };
-    }
-
-    if (weeklyView.value === 'longRun') {
-        return {
-            labels,
-            datasets: [
-                {
-                    type: 'line',
-                    label: `Longest run (${distanceUnit.value})`,
-                    data: weeks.map((w) =>
-                        w.longestKm > 0 ? round1(fromKm(w.longestKm)) : null,
-                    ),
-                    borderColor: '#6366f1',
-                    backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                    fill: true,
-                    tension: 0.3,
-                    spanGaps: true,
-                },
-            ],
-        };
-    }
-
-    const datasets: Record<string, unknown>[] = [
-        {
-            type: 'bar',
-            label: `Distance (${distanceUnit.value})`,
-            data: weeks.map((w) => round1(fromKm(w.totalKm))),
-            backgroundColor: 'rgba(34, 197, 94, 0.55)',
-            borderColor: '#22c55e',
-            borderWidth: 1,
-            borderRadius: 3,
-        },
-    ];
-    const goal = weeklyGoalDisplay.value;
-    if (goal != null) {
-        datasets.push({
-            type: 'line',
-            label: `Goal (${goal} ${distanceUnit.value})`,
-            data: labels.map(() => goal),
-            borderColor: '#9ca3af',
-            borderDash: [5, 4],
-            borderWidth: 1.5,
-            pointRadius: 0,
-            fill: false,
-        });
-    }
-    return { labels, datasets };
-});
-
-const weeklyChartOptions = computed(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: {
-            display:
-                weeklyView.value === 'volume' &&
-                weeklyGoalDisplay.value != null,
-        },
-        tooltip: {
-            callbacks: {
-                label: (ctx: {
-                    dataset: { label?: string };
-                    parsed: { y: number | null };
-                }) =>
-                    `${ctx.dataset.label}: ${
-                        ctx.parsed.y == null
-                            ? '—'
-                            : `${ctx.parsed.y} ${distanceUnit.value}`
-                    }`,
-            },
-        },
-    },
-    scales: {
-        x: { grid: { display: false } },
-        y: {
-            beginAtZero: weeklyView.value !== 'longRun',
-            title: { display: true, text: `Distance (${distanceUnit.value})` },
-            ticks: {
-                callback: (value: number) => `${value} ${distanceUnit.value}`,
-            },
-        },
-    },
-}));
 </script>
 
 <template>
@@ -610,7 +209,7 @@ const weeklyChartOptions = computed(() => ({
             <AppCard>
                 <template #title>
                     <div class="flex items-center justify-between">
-                        <span>This Week</span>
+                        <span>Past 7 Days</span>
                         <AppButton
                             aria-label="Set weekly goal"
                             icon="pi pi-cog"
@@ -633,8 +232,14 @@ const weeklyChartOptions = computed(() => ({
                     </div>
                     <div v-if="weeklyGoalProgress" class="mt-2">
                         <div class="text-surface-500 mb-1 text-xs">
+                            This week:
                             {{ fmtDistance(weeklyGoalProgress.currentKm) }} /
                             {{ fmtDistance(weeklyGoalProgress.goalKm) }}
+                            {{
+                                weeklyGoalProgress.source === 'plan'
+                                    ? '(plan)'
+                                    : '(goal)'
+                            }}
                         </div>
                         <div
                             class="bg-surface-200 dark:bg-surface-700 h-2 w-full overflow-hidden rounded-full"
@@ -652,11 +257,23 @@ const weeklyChartOptions = computed(() => ({
                             ></div>
                         </div>
                     </div>
+                    <div
+                        v-if="bestWeek"
+                        class="border-surface-200 dark:border-surface-700 mt-3 border-t pt-2"
+                    >
+                        <div class="text-surface-500 text-xs">Best 7 days</div>
+                        <div class="font-semibold">
+                            {{ fmtDistance(bestWeek.distanceKm) }}
+                        </div>
+                        <div class="text-surface-400 text-xs">
+                            {{ formatDateRange(bestWeek.start, bestWeek.end) }}
+                        </div>
+                    </div>
                 </template>
             </AppCard>
 
             <AppCard>
-                <template #title>This Month</template>
+                <template #title>Past 30 Days</template>
                 <template #content>
                     <div class="text-2xl font-bold">
                         {{ fmtDistance(monthStats.distance) }}
@@ -665,11 +282,25 @@ const weeklyChartOptions = computed(() => ({
                         {{ monthStats.count }}
                         {{ monthStats.count === 1 ? 'run' : 'runs' }}
                     </div>
+                    <div
+                        v-if="bestMonth"
+                        class="border-surface-200 dark:border-surface-700 mt-3 border-t pt-2"
+                    >
+                        <div class="text-surface-500 text-xs">Best 30 days</div>
+                        <div class="font-semibold">
+                            {{ fmtDistance(bestMonth.distanceKm) }}
+                        </div>
+                        <div class="text-surface-400 text-xs">
+                            {{
+                                formatDateRange(bestMonth.start, bestMonth.end)
+                            }}
+                        </div>
+                    </div>
                 </template>
             </AppCard>
 
             <AppCard>
-                <template #title>This Year</template>
+                <template #title>Past 365 Days</template>
                 <template #content>
                     <div class="text-2xl font-bold">
                         {{ fmtDistance(yearStats.distance) }}
@@ -677,6 +308,20 @@ const weeklyChartOptions = computed(() => ({
                     <div class="text-surface-500 text-sm">
                         {{ yearStats.count }}
                         {{ yearStats.count === 1 ? 'run' : 'runs' }}
+                    </div>
+                    <div
+                        v-if="bestYear"
+                        class="border-surface-200 dark:border-surface-700 mt-3 border-t pt-2"
+                    >
+                        <div class="text-surface-500 text-xs">
+                            Best 365 days
+                        </div>
+                        <div class="font-semibold">
+                            {{ fmtDistance(bestYear.distanceKm) }}
+                        </div>
+                        <div class="text-surface-400 text-xs">
+                            {{ formatDateRange(bestYear.start, bestYear.end) }}
+                        </div>
                     </div>
                 </template>
             </AppCard>
@@ -712,53 +357,57 @@ const weeklyChartOptions = computed(() => ({
             </AppCard>
         </div>
 
-        <!-- Distance-Bracket Personal Bests -->
-        <div v-if="bracketPBs.length" class="mb-6">
-            <h2 class="mb-3 text-xl font-semibold">Fastest Pace by Distance</h2>
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                <div
-                    v-for="pb in bracketPBs"
-                    :key="pb.label"
-                    class="border-surface-200 dark:border-surface-700 rounded-lg border p-3 text-center"
+        <!-- Recent Achievements: badges earned in the past 30 days -->
+        <div class="mb-6">
+            <h2 class="mb-3 text-xl font-semibold">Recent Achievements</h2>
+            <div
+                v-if="recentBadges.length"
+                class="border-surface-200 dark:border-surface-700 divide-surface-200 dark:divide-surface-700 divide-y rounded-lg border"
+            >
+                <RouterLink
+                    v-for="entry in recentBadges"
+                    :key="entry.run_id"
+                    class="hover:bg-surface-50 dark:hover:bg-surface-800 flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
+                    :to="`/running/${entry.run_id}`"
                 >
-                    <div class="text-surface-500 mb-1 text-sm font-medium">
-                        {{ pb.label }}
-                    </div>
-                    <div class="text-xl font-bold">
-                        {{ fmtPace(pb.run.pace) }}
-                    </div>
-                    <div class="text-surface-400 mt-1 text-xs">
-                        {{ fmtDistance(pb.run.distance_km) }} &middot;
-                        {{ formatDate(pb.run.date) }}
-                    </div>
-                </div>
+                    <span class="text-surface-500 w-28 shrink-0 text-sm">
+                        {{ formatDate(entry.date) }}
+                    </span>
+                    <RunBadges :badges="entry.badges" />
+                </RouterLink>
             </div>
+            <p v-else class="text-surface-500 text-sm">
+                No badges earned in the past 30 days.
+            </p>
         </div>
 
-        <!-- Pace & Distance Chart -->
-        <div v-if="activities.length > 1" class="mb-6">
-            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 class="text-xl font-semibold">{{ paceChartTitle }}</h2>
-                <AppSelectButton
-                    v-model="paceViewMode"
-                    :allow-empty="false"
-                    option-label="label"
-                    option-value="value"
-                    :options="paceViewOptions"
-                    size="small"
-                />
-            </div>
-            <div class="h-64">
-                <AppChart
-                    :data="activeChartData"
-                    :options="activeChartOptions"
-                    type="line"
-                />
+        <!-- Fastest time at each standard distance, including the fastest
+             stretch inside a longer run -->
+        <div v-if="bestEfforts.length" class="mb-6">
+            <h2 class="mb-3 text-xl font-semibold">Fastest by Distance</h2>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+                <RouterLink
+                    v-for="effort in bestEfforts"
+                    :key="effort.name"
+                    class="border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 rounded-lg border p-3 text-center"
+                    :to="`/running/${effort.run_id}`"
+                >
+                    <div class="text-surface-500 mb-1 text-sm font-medium">
+                        {{ effort.name }}
+                    </div>
+                    <div class="text-xl font-bold">
+                        {{ formatDuration(effort.duration_seconds) }}
+                    </div>
+                    <div class="text-surface-400 mt-1 text-xs">
+                        {{ fmtPace(effort.pace) }} &middot;
+                        {{ formatDate(effort.date) }}
+                    </div>
+                </RouterLink>
             </div>
         </div>
 
         <!-- Weekly Progress -->
-        <div v-if="weeklyAgg.length > 0" class="mb-8">
+        <div v-if="activities.length > 0 || weekPlan.size > 0" class="mb-8">
             <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-xl font-semibold">Weekly Progress</h2>
                 <AppSelectButton
@@ -770,124 +419,17 @@ const weeklyChartOptions = computed(() => ({
                     size="small"
                 />
             </div>
-            <div class="h-64">
-                <AppChart
-                    :data="weeklyChartData"
-                    :options="weeklyChartOptions"
-                    type="bar"
-                />
-            </div>
-
-            <div class="mt-4 mb-2 flex justify-end">
-                <AppSelectButton
-                    v-model="weeklyTableView"
-                    :allow-empty="false"
-                    option-label="label"
-                    option-value="value"
-                    :options="weeklyTableViewOptions"
-                    size="small"
-                />
-            </div>
-
-            <div
-                v-if="weeklyTableView === 'list'"
-                class="max-h-80 overflow-auto"
-            >
-                <table :class="detailTableClass">
-                    <thead>
-                        <tr>
-                            <th>Week of</th>
-                            <th>Distance</th>
-                            <th>Runs</th>
-                            <th>Longest</th>
-                            <th>Time</th>
-                            <th>Avg pace</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="w in weeklyRows" :key="w.weekStart">
-                            <td>{{ w.label }}</td>
-                            <td>
-                                {{ round1(fromKm(w.totalKm)) }}
-                                {{ distanceUnit }}
-                            </td>
-                            <td>{{ w.runs }}</td>
-                            <td>
-                                {{
-                                    w.longestKm > 0
-                                        ? `${round1(fromKm(w.longestKm))} ${distanceUnit}`
-                                        : '—'
-                                }}
-                            </td>
-                            <td>
-                                {{
-                                    w.durationSec > 0
-                                        ? formatDuration(w.durationSec)
-                                        : '—'
-                                }}
-                            </td>
-                            <td>{{ weekAvgPace(w) }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Calendar view: one row per week, one column per day, weekly
-                 total at the end of the row — the shape of the old training
-                 spreadsheet. -->
-            <div v-else class="max-h-96 overflow-auto">
-                <table :class="detailTableClass">
-                    <thead>
-                        <tr>
-                            <th>Week of</th>
-                            <th
-                                v-for="d in WEEKDAY_SHORT_LABELS"
-                                :key="d"
-                                class="text-center"
-                            >
-                                {{ d }}
-                            </th>
-                            <th class="text-right">
-                                Total ({{ distanceUnit }})
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="week in weeklyGridRows"
-                            :key="week.weekStart"
-                        >
-                            <td>{{ week.label }}</td>
-                            <td
-                                v-for="day in week.days"
-                                :key="day.date"
-                                class="text-center"
-                                :class="{
-                                    'bg-primary-50 dark:bg-primary-950':
-                                        day.date === todayIso,
-                                }"
-                            >
-                                <template v-if="day.distanceKm > 0">
-                                    {{ round1(fromKm(day.distanceKm)) }}
-                                    <span
-                                        v-if="day.runs > 1"
-                                        class="text-surface-400 text-xs"
-                                        >×{{ day.runs }}</span
-                                    >
-                                </template>
-                                <span v-else class="text-surface-400">—</span>
-                            </td>
-                            <td class="text-right font-semibold">
-                                {{
-                                    week.totalKm > 0
-                                        ? round1(fromKm(week.totalKm))
-                                        : '—'
-                                }}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+            <WeeklyProgressList
+                v-if="weeklyView === 'list'"
+                :activities="activities"
+                :week-plan="weekPlan"
+            />
+            <RunningCalendar
+                v-else
+                :activities="activities"
+                :plan="plan"
+                @add-run="openAddRun"
+            />
         </div>
 
         <!-- Weekly Goal Dialog -->
@@ -898,6 +440,10 @@ const weeklyChartOptions = computed(() => ({
             :style="{ width: '24rem', maxWidth: '92vw' }"
         >
             <div class="flex flex-col gap-4">
+                <p class="text-surface-500 text-sm">
+                    Weeks with planned runs use the plan's distance; this goal
+                    covers the weeks without one.
+                </p>
                 <div>
                     <label class="mb-1 block text-sm font-medium">
                         Goal ({{ distanceUnit }} per week)
@@ -921,5 +467,13 @@ const weeklyChartOptions = computed(() => ({
                 </div>
             </div>
         </AppDialog>
+
+        <!-- Add Run, opened by clicking a planned-but-not-yet-run Calendar day -->
+        <AddEditRunDialog
+            v-model:visible="showAddRunDialog"
+            :default-date="addRunDefaultDate"
+            :run="null"
+            @saved="onAddRunSaved"
+        />
     </div>
 </template>

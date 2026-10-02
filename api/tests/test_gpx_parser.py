@@ -109,6 +109,17 @@ def test_parse_gpx_title_from_trk_name() -> None:
     assert result.title == "Morning Run"
 
 
+def test_parse_gpx_replaces_app_generated_timestamp_names() -> None:
+    gpx = _build_gpx(
+        [
+            (51.5074, -0.1278, "2024-01-01T10:00:00Z"),
+            (51.5074, -0.1268, "2024-01-01T10:05:00Z"),
+        ],
+        title="runtastic_20240101_1000",
+    )
+    assert parse_gpx(gpx).title == "Run"
+
+
 def test_parse_gpx_no_title_is_none() -> None:
     gpx = _build_gpx(
         [

@@ -1,7 +1,8 @@
 import hashlib
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
 from dataclasses import asdict
-from typing import Any
+from datetime import date
 
 from aiosqlite import Connection
 from fastapi import APIRouter, Depends, File, Query, UploadFile
@@ -9,8 +10,11 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile
 from src.db.database import get_db
 from src.errors import AppValidationError, ConflictError, NotFoundError
 from src.models.running import (
+    BestEffortResponse,
     CreateRunningActivityRequest,
     GpxSegmentResponse,
+    RunBadge,
+    RunBadgesResponse,
     RunImportResponse,
     RunLapResponse,
     RunningActivityResponse,
@@ -18,9 +22,10 @@ from src.models.running import (
     UpdateRunningActivityRequest,
 )
 from src.repositories.running_repository import SQLiteRunningRepository
-from src.services.fit_parser import parse_fit
-from src.services.gpx_parser import parse_gpx
-from src.services.track_segments import SegmentResult
+from src.services.fit_parser import FitSample, parse_fit
+from src.services.gpx_parser import GpxSample, parse_gpx
+from src.services.run_badges import RunRecord, best_efforts, build_records, compute_badges
+from src.services.track_segments import SegmentResult, half_splits
 
 router = APIRouter(prefix="/api/v1/runs", tags=["Running"])
 
@@ -39,24 +44,66 @@ async def create_run(
 
 @router.get("", response_model=list[RunningActivityResponse])
 async def list_runs(
+    date_from: date | None = None,
+    date_to: date | None = None,
     repo: SQLiteRunningRepository = Depends(get_running_repository),
 ) -> list[RunningActivityResponse]:
-    return await repo.find_all()
+    return await repo.find_all(
+        date_from=date_from.isoformat() if date_from else None,
+        date_to=date_to.isoformat() if date_to else None,
+    )
 
 
-@router.get("/stats/{year}")
-async def get_yearly_stats(
-    year: int,
+async def _all_badges(
+    repo: SQLiteRunningRepository,
+) -> tuple[list[RunRecord], dict[int, list[RunBadge]]]:
+    history = await repo.get_history_for_badges()
+    records = build_records(history.runs, history.segments)
+    return records, compute_badges(records, history.planned_runs, history.weekly_goal_km)
+
+
+@router.get("/badges", response_model=list[RunBadgesResponse])
+async def list_badges(
+    date_from: date | None = None,
+    date_to: date | None = None,
     repo: SQLiteRunningRepository = Depends(get_running_repository),
-) -> list[dict[str, Any]]:
-    return await repo.get_stats_by_month(year)
+) -> list[RunBadgesResponse]:
+    """Badges for runs in a date range, newest first.
+
+    Badges always compare against the whole history; the filters only pick
+    which runs' badges come back. Runs without badges are omitted.
+    """
+    records, badges = await _all_badges(repo)
+    lo = date_from.isoformat() if date_from else None
+    hi = date_to.isoformat() if date_to else None
+    return [
+        RunBadgesResponse(run_id=r.id, date=r.date, badges=badges[r.id])
+        for r in sorted(records, key=lambda r: (r.date, r.start_time or "", r.id), reverse=True)
+        if r.id in badges and (lo is None or r.date >= lo) and (hi is None or r.date <= hi)
+    ]
 
 
-@router.get("/personal-bests")
-async def get_personal_bests(
+@router.get("/best-efforts", response_model=list[BestEffortResponse])
+async def get_best_efforts(
     repo: SQLiteRunningRepository = Depends(get_running_repository),
-) -> dict[str, Any]:
-    return await repo.get_personal_bests()
+) -> list[BestEffortResponse]:
+    """Fastest effort ever at each standard distance, including stretches
+    inside longer runs."""
+    history = await repo.get_history_for_badges()
+    records = build_records(history.runs, history.segments)
+    return [BestEffortResponse.model_validate(e) for e in best_efforts(records)]
+
+
+async def _save_half_splits(
+    repo: SQLiteRunningRepository,
+    activity_id: int,
+    samples: Sequence[GpxSample] | Sequence[FitSample],
+) -> None:
+    """Store the run's first/second-half moving times (negative-split badge)."""
+    track = [(s.t_seconds, s.distance_km) for s in samples if s.distance_km is not None]
+    splits = half_splits([d for _, d in track], [t for t, _ in track])
+    if splits is not None:
+        await repo.save_half_splits(activity_id, *splits)
 
 
 def _reject_duplicate(duplicate: RunningActivityResponse | None) -> None:
@@ -121,6 +168,7 @@ async def import_gpx(
     )
     saved_segments = await repo.save_segments(activity.id, _segment_dicts(result.segments))
     await repo.save_samples(activity.id, [asdict(s) for s in result.samples])
+    await _save_half_splits(repo, activity.id, result.samples)
     return RunImportResponse(
         activity=activity,
         segments=[GpxSegmentResponse.model_validate(seg) for seg in saved_segments],
@@ -199,6 +247,7 @@ async def import_fit(
         ],
     )
     await repo.save_samples(activity.id, [asdict(s) for s in result.samples])
+    await _save_half_splits(repo, activity.id, result.samples)
 
     return RunImportResponse(
         activity=activity,
@@ -237,6 +286,17 @@ async def get_segments(
     if run is None:
         raise NotFoundError("Running activity not found")
     return [GpxSegmentResponse(**seg) for seg in await repo.get_segments(run_id)]
+
+
+@router.get("/{run_id}/badges", response_model=list[RunBadge])
+async def get_run_badges(
+    run_id: int,
+    repo: SQLiteRunningRepository = Depends(get_running_repository),
+) -> list[RunBadge]:
+    if await repo.find_by_id(run_id) is None:
+        raise NotFoundError("Running activity not found")
+    _, badges = await _all_badges(repo)
+    return badges.get(run_id, [])
 
 
 @router.get("/{run_id}", response_model=RunningActivityResponse)

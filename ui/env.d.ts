@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-    readonly VITE_BACKEND?: 'local' | 'http';
+    /** API origin for packaged builds (Electron); dev uses the Vite proxy. */
+    readonly VITE_API_BASE_URL?: string;
 }
 
 interface ImportMeta {

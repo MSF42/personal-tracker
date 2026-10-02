@@ -4,39 +4,62 @@ import { useRouter } from 'vue-router';
 
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import LogWorkoutDialog from '@/components/LogWorkoutDialog.vue';
+import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
+import { useUnits } from '@/composables/useUnits';
+import type { Task } from '@/types/Task';
 import type { WorkoutLog } from '@/types/WorkoutLog';
 import type { WorkoutRoutine } from '@/types/WorkoutRoutine';
 import { formatDate } from '@/utils/format';
-import { fromIsoDate, toIsoDate } from '@/utils/week';
+import { strengthByWeek, strengthStreak } from '@/utils/strength';
+import { fromIsoDate, startOfWeek, toIsoDate } from '@/utils/week';
 
 const { getWorkoutLogs, deleteWorkoutLog } = useWorkoutLogApi();
 const { getWorkoutRoutines } = useWorkoutRoutineApi();
+const { getTasks } = useTaskApi();
+const { weightUnit, fromKg } = useUnits();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
 const router = useRouter();
 
 const logs = ref<WorkoutLog[]>([]);
-
-const todayStr = new Date().toISOString().split('T')[0] as string;
-const currentMonthPrefix = todayStr.slice(0, 7);
+// The strength plan: one Strength task per planned workout (done or not).
+const plannedWorkouts = ref<Task[]>([]);
 
 // --- Stats ---
+// This Mon–Sun week against the plan and last week, plus the run of weeks
+// on plan (see utils/strength.ts).
 const stats = computed(() => {
-    const thisMonth = logs.value.filter((l) =>
-        l.date.startsWith(currentMonthPrefix),
-    ).length;
+    const weeks = strengthByWeek(logs.value, plannedWorkouts.value);
+    const thisWeekStart = startOfWeek(new Date());
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const thisWeek = weeks.get(toIsoDate(thisWeekStart));
+    const lastWeek = weeks.get(toIsoDate(lastWeekStart));
+    const volume = thisWeek?.volumeKg ?? 0;
+    const lastVolume = lastWeek?.volumeKg ?? 0;
     const sorted = [...logs.value].sort((a, b) => b.date.localeCompare(a.date));
-    const lastWorkout = sorted.length > 0 ? sorted[0]!.date : null;
     return {
         total: logs.value.length,
-        thisMonth,
-        lastWorkout,
+        workouts: thisWeek?.workouts ?? 0,
+        planned: thisWeek?.planned ?? 0,
+        volumeKg: volume,
+        lastVolumeKg: lastVolume,
+        volumeChange:
+            lastVolume > 0
+                ? Math.round(((volume - lastVolume) / lastVolume) * 100)
+                : null,
+        streak: strengthStreak(weeks),
+        lastWorkout: sorted.length > 0 ? sorted[0]!.date : null,
     };
 });
+
+/** Volume (stored in kg) in the display unit, as a whole number. */
+const fmtVolume = (kg: number) =>
+    `${Math.round(fromKg(kg)).toLocaleString('en-US')} ${weightUnit.value}`;
 
 // --- Filters ---
 const showFilters = ref(false);
@@ -158,9 +181,13 @@ async function executeDelete() {
 
 // --- Data loading ---
 async function loadData() {
-    const res = await getWorkoutLogs();
+    const [res, planRes] = await Promise.all([
+        getWorkoutLogs(),
+        getTasks({ category: 'Strength' }),
+    ]);
     if (res.success && res.data) logs.value = res.data;
     else if (!res.success) toast.showError('Failed to load workout logs');
+    if (planRes.success && planRes.data) plannedWorkouts.value = planRes.data;
 }
 
 onMounted(() => withLoading(loadData));
@@ -171,24 +198,64 @@ onMounted(() => withLoading(loadData));
         <h1 class="mb-6 text-2xl font-bold">Workout Logs</h1>
 
         <!-- Stats Cards -->
-        <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <AppCard>
-                <template #title>Total Workouts</template>
+                <template #title>This Week</template>
                 <template #content>
-                    <div class="text-2xl font-bold">{{ stats.total }}</div>
-                    <div class="text-surface-500 text-sm">all time</div>
+                    <div class="text-2xl font-bold">
+                        {{ stats.workouts }}
+                        <span
+                            v-if="stats.planned > 0"
+                            class="text-surface-500 text-base font-normal"
+                        >
+                            / {{ stats.planned }}
+                        </span>
+                    </div>
+                    <div class="text-surface-500 text-sm">
+                        {{
+                            stats.planned > 0
+                                ? 'planned workouts done'
+                                : stats.workouts === 1
+                                  ? 'workout'
+                                  : 'workouts'
+                        }}
+                    </div>
                 </template>
             </AppCard>
 
             <AppCard>
-                <template #title>This Month</template>
+                <template #title>Volume This Week</template>
                 <template #content>
                     <div class="text-2xl font-bold">
-                        {{ stats.thisMonth }}
+                        {{ fmtVolume(stats.volumeKg) }}
                     </div>
                     <div class="text-surface-500 text-sm">
-                        {{ stats.thisMonth === 1 ? 'workout' : 'workouts' }}
+                        <template v-if="stats.volumeChange != null">
+                            <span
+                                :class="
+                                    stats.volumeChange >= 0
+                                        ? 'text-green-600 dark:text-green-400'
+                                        : ''
+                                "
+                            >
+                                {{ stats.volumeChange >= 0 ? '+' : ''
+                                }}{{ stats.volumeChange }}%
+                            </span>
+                            vs last week ({{ fmtVolume(stats.lastVolumeKg) }})
+                        </template>
+                        <template v-else>reps × weight</template>
                     </div>
+                </template>
+            </AppCard>
+
+            <AppCard>
+                <template #title>Streak</template>
+                <template #content>
+                    <div class="text-2xl font-bold">
+                        {{ stats.streak }}
+                        {{ stats.streak === 1 ? 'week' : 'weeks' }}
+                    </div>
+                    <div class="text-surface-500 text-sm">in a row on plan</div>
                 </template>
             </AppCard>
 
@@ -202,7 +269,11 @@ onMounted(() => withLoading(loadData));
                                 : '—'
                         }}
                     </div>
-                    <div class="text-surface-500 text-sm">most recent</div>
+                    <div class="text-surface-500 text-sm">
+                        {{ stats.total }}
+                        {{ stats.total === 1 ? 'workout' : 'workouts' }} all
+                        time
+                    </div>
                 </template>
             </AppCard>
         </div>
@@ -315,21 +386,19 @@ onMounted(() => withLoading(loadData));
                     </p>
                 </div>
             </template>
-            <AppColumn field="date" header="Date" sortable>
+            <AppColumn field="date" header="Date" sortable style="width: 11rem">
                 <template #body="{ data }">
                     {{ formatDate((data as WorkoutLog).date) }}
                 </template>
             </AppColumn>
             <AppColumn field="routine_name" header="Routine" sortable />
-            <AppColumn field="notes" header="Notes">
+            <AppColumn field="total_volume" header="Volume" sortable>
                 <template #body="{ data }">
-                    <span
-                        v-if="(data as WorkoutLog).notes"
-                        class="line-clamp-1"
-                    >
-                        {{ (data as WorkoutLog).notes }}
-                    </span>
-                    <span v-else class="text-surface-400">&mdash;</span>
+                    {{
+                        (data as WorkoutLog).total_volume
+                            ? fmtVolume((data as WorkoutLog).total_volume!)
+                            : '—'
+                    }}
                 </template>
             </AppColumn>
             <AppColumn header="Status" style="width: 8rem">

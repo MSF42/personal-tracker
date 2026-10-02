@@ -49,9 +49,7 @@ async def test_create_task_missing_fields_returns_422(client: AsyncClient) -> No
 
 @pytest.mark.asyncio
 async def test_create_task_linked_to_workout_routine(client: AsyncClient) -> None:
-    routine_resp = await client.post(
-        "/api/v1/workout-routines", json={"name": "Workout A"}
-    )
+    routine_resp = await client.post("/api/v1/workout-routines", json={"name": "Workout A"})
     routine_id = routine_resp.json()["id"]
 
     response = await client.post(
@@ -104,9 +102,7 @@ async def test_create_task_routine_id_without_link_type_returns_422(
 
 @pytest.mark.asyncio
 async def test_update_task_can_change_and_clear_link(client: AsyncClient) -> None:
-    routine_resp = await client.post(
-        "/api/v1/workout-routines", json={"name": "Workout A"}
-    )
+    routine_resp = await client.post("/api/v1/workout-routines", json={"name": "Workout A"})
     routine_id = routine_resp.json()["id"]
     create_resp = await client.post(
         "/api/v1/tasks",
@@ -128,7 +124,5 @@ async def test_update_task_can_change_and_clear_link(client: AsyncClient) -> Non
 
     # A partial update that never touches the link fields at all (the app's
     # own "mark complete" call is exactly this shape) must not be rejected.
-    completed = await client.put(
-        f"/api/v1/tasks/{task_id}", json={"completed": True}
-    )
+    completed = await client.put(f"/api/v1/tasks/{task_id}", json={"completed": True})
     assert completed.status_code == 200

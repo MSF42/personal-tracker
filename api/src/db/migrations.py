@@ -403,6 +403,18 @@ MIGRATIONS = [
                ALTER TABLE tasks ADD COLUMN link_routine_id INTEGER;
                """,
     },
+    {
+        "version": 32,
+        "name": "add_half_splits_to_running_activities",
+        # Moving time for each half of a recorded run (negative-split badge).
+        # Intrinsic to the run, so stored rather than recomputed from the
+        # samples table on every request; filled at import and by
+        # backfill_half_splits() for older runs. NULL = no usable track.
+        "sql": """
+               ALTER TABLE running_activities ADD COLUMN first_half_seconds REAL;
+               ALTER TABLE running_activities ADD COLUMN second_half_seconds REAL;
+               """,
+    },
 ]
 
 
@@ -439,6 +451,7 @@ async def run_migrations(db_path: str) -> None:
         # Post-migration: idempotent seed steps that need Python logic
         await _backfill_search_index(db)
         await backfill_segment_bounds(db)
+        await backfill_half_splits(db)
 
         print("Migrations complete")
 
@@ -560,3 +573,48 @@ async def backfill_segment_bounds(db: aiosqlite.Connection) -> int:
     if activity_ids:
         await db.commit()
     return len(activity_ids)
+
+
+async def backfill_half_splits(db: aiosqlite.Connection) -> int:
+    """Fill first/second-half split times for recorded runs that predate them.
+
+    Only runs with distance samples are considered; one whose track can't be
+    split stays NULL and is simply retried (cheaply) on a later startup.
+    Returns the number of runs updated.
+    """
+    from src.services.track_segments import half_splits
+
+    cursor = await db.execute(
+        """
+        SELECT r.id FROM running_activities r
+        WHERE r.first_half_seconds IS NULL
+          AND EXISTS (SELECT 1 FROM run_samples s
+                      WHERE s.running_activity_id = r.id AND s.distance_km IS NOT NULL)
+        """
+    )
+    activity_ids = [row["id"] for row in await cursor.fetchall()]
+    updated = 0
+    for activity_id in activity_ids:
+        cursor = await db.execute(
+            """
+            SELECT t_seconds, distance_km FROM run_samples
+            WHERE running_activity_id = ? AND distance_km IS NOT NULL
+            ORDER BY t_seconds ASC
+            """,
+            (activity_id,),
+        )
+        rows = await cursor.fetchall()
+        splits = half_splits(
+            [float(r["distance_km"]) for r in rows], [float(r["t_seconds"]) for r in rows]
+        )
+        if splits is None:
+            continue
+        await db.execute(
+            "UPDATE running_activities SET first_half_seconds = ?, second_half_seconds = ? "
+            "WHERE id = ?",
+            (*splits, activity_id),
+        )
+        updated += 1
+    if updated:
+        await db.commit()
+    return updated

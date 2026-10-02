@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from src.config.settings import get_settings
 from src.db.database import get_db
 from src.db.migrations import run_migrations
+from src.errors import ConflictError
 from src.models.settings import UpdateSettingRequest
 from src.repositories.settings_repository import SQLiteSettingsRepository
 from src.seeder import seed_sample_data
@@ -26,8 +27,24 @@ async def get_settings_repository(db: Connection = Depends(get_db)) -> SQLiteSet
 
 # Literal routes must be registered BEFORE /{key} — otherwise Starlette
 # matches the parameterized path first and returns 405 for POST requests.
+@router.get("/data-status")
+async def data_status(
+    repo: SQLiteSettingsRepository = Depends(get_settings_repository),
+) -> dict[str, bool]:
+    """`empty` is true when nothing has been entered yet (sample data is only
+    offered then)."""
+    return {"empty": not await repo.has_user_data()}
+
+
 @router.post("/seed")
-async def seed_data(db: Connection = Depends(get_db)) -> dict[str, str]:
+async def seed_data(
+    db: Connection = Depends(get_db),
+    repo: SQLiteSettingsRepository = Depends(get_settings_repository),
+) -> dict[str, str]:
+    # Sample data mixed into real history would pollute records and badges,
+    # so it's only allowed into an empty database.
+    if await repo.has_user_data():
+        raise ConflictError("Sample data can only be added to an empty database")
     await seed_sample_data(db)
     return {"message": "Sample data generated"}
 
@@ -178,4 +195,13 @@ async def reset_all_data(
     repo: SQLiteSettingsRepository = Depends(get_settings_repository),
 ) -> dict[str, str]:
     await repo.delete_all_data()
+    # Uploaded files (profile picture, images) go too — their settings rows
+    # were just deleted, so they'd only be orphans.
+    uploads_path = Path(get_settings().uploads_path)
+    if uploads_path.exists():
+        for entry in uploads_path.iterdir():
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
     return {"message": "All data has been deleted"}

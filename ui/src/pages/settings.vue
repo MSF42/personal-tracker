@@ -12,8 +12,17 @@ import { useUnits } from '@/composables/useUnits';
 import { useUserProfile } from '@/composables/useUserProfile';
 import { resolveUploadsUrl } from '@/utils/uploads';
 
-const { getSetting, setSetting, deleteSetting, resetAllData, seedSampleData } =
-    useSettingsApi();
+const {
+    getSetting,
+    setSetting,
+    deleteSetting,
+    resetAllData,
+    seedSampleData,
+    getDataStatus,
+} = useSettingsApi();
+// Sample data is only offered on an empty database, so it can never be mixed
+// into real history (which would distort records and badges).
+const databaseEmpty = ref(false);
 const { uploadImage } = useImageApi();
 const toast = useToast();
 const { loading, withLoading } = useLoading();
@@ -59,10 +68,12 @@ const temperatureOptions = [
 
 onMounted(() =>
     withLoading(async () => {
-        const [profileRes, nameRes] = await Promise.all([
+        const [profileRes, nameRes, statusRes] = await Promise.all([
             getSetting('profile_picture'),
             getSetting('user_name'),
+            getDataStatus(),
         ]);
+        databaseEmpty.value = statusRes.data?.empty ?? false;
         if (profileRes.success && profileRes.data?.value) {
             const raw = profileRes.data.value;
             // NOTE: Prior to 2026-03-19, profile pictures were stored as base64 data URLs.
@@ -291,8 +302,9 @@ async function confirmReset() {
                 </div>
             </section>
 
-            <!-- Sample Data -->
+            <!-- Sample Data: only on an empty database -->
             <section
+                v-if="databaseEmpty"
                 class="border-surface-200 dark:border-surface-700 mb-8 rounded-lg border p-6"
             >
                 <h2
@@ -376,9 +388,9 @@ async function confirmReset() {
                     Danger Zone
                 </h2>
                 <p class="text-surface-600 dark:text-surface-400 mb-4 text-sm">
-                    Permanently delete all data including tasks, running
+                    Permanently delete everything: tasks, habits, running
                     activities, exercises, routines, workout logs, measurements,
-                    countdowns, and settings. Habits are not affected.
+                    countdowns, settings, and uploaded images.
                 </p>
                 <AppButton
                     icon="pi pi-trash"

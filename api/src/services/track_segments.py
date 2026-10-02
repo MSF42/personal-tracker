@@ -93,3 +93,38 @@ def compute_best_segments(
             )
 
     return results
+
+
+# A gap between samples longer than this is a pause (auto-pause, a stop at a
+# crossing), not running, and is left out of split times.
+PAUSE_GAP_SECONDS = 60.0
+
+
+def half_splits(cum_dist: list[float], cum_time: list[float]) -> tuple[float, float] | None:
+    """Moving time (s) for the first and second half of the distance.
+
+    Intervals where no distance was covered, or with a gap over
+    PAUSE_GAP_SECONDS, don't count, so stopping doesn't fake a negative split.
+    The halfway point is interpolated within the interval that crosses it.
+    Returns None for tracks too short to split.
+    """
+    if len(cum_dist) < 2 or cum_dist[-1] - cum_dist[0] <= 0:
+        return None
+    half = cum_dist[0] + (cum_dist[-1] - cum_dist[0]) / 2
+    first = second = 0.0
+    for i in range(1, len(cum_dist)):
+        dd = cum_dist[i] - cum_dist[i - 1]
+        dt = cum_time[i] - cum_time[i - 1]
+        if dd <= 0 or dt <= 0 or dt > PAUSE_GAP_SECONDS:
+            continue
+        if cum_dist[i] <= half:
+            first += dt
+        elif cum_dist[i - 1] >= half:
+            second += dt
+        else:
+            share = (half - cum_dist[i - 1]) / dd
+            first += dt * share
+            second += dt * (1 - share)
+    if first <= 0 or second <= 0:
+        return None
+    return first, second

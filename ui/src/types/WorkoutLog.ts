@@ -6,6 +6,10 @@ export interface WorkoutLog {
     notes: string | null;
     created_at: string;
     completed: boolean;
+    /** List view only: number of sets and reps × weight volume in kg
+     *  (bodyweight sets add nothing). */
+    total_sets?: number;
+    total_volume?: number;
 }
 
 export interface SetLog {

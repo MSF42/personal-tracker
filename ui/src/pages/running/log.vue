@@ -1,22 +1,26 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import AddEditRunDialog from '@/components/AddEditRunDialog.vue';
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 import NumberRangeFilter from '@/components/NumberRangeFilter.vue';
+import RunBadges from '@/components/RunBadges.vue';
 import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useTaskApi } from '@/composables/api/useTaskApi';
+import { useBadgeAnnouncer } from '@/composables/useBadgeAnnouncer';
 import { useFileDrop } from '@/composables/useFileDrop';
 import { useLoading } from '@/composables/useLoading';
 import { completeTasksLinkedToRun } from '@/composables/useTaskLinks';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
-import type { RunningActivity } from '@/types/Running';
+import type { RunBadge, RunningActivity } from '@/types/Running';
 import { formatDate, formatDuration } from '@/utils/format';
-import { fromIsoDate, toIsoDate } from '@/utils/week';
+import { fromIsoDate, rollingRange, toIsoDate } from '@/utils/week';
 
-const { getActivities, deleteActivity, importGpx, importFit } = useRunningApi();
+const { getActivities, getBadges, deleteActivity, importGpx, importFit } =
+    useRunningApi();
+const { announceBadges } = useBadgeAnnouncer();
 const { getTasks, updateTask } = useTaskApi();
 const { loading, withLoading } = useLoading();
 const toast = useToast();
@@ -24,6 +28,9 @@ const router = useRouter();
 const { distanceUnit, fmtDistance, fmtPace, toKm, fromKm } = useUnits();
 
 const activities = ref<RunningActivity[]>([]);
+// Earned badges for the loaded range, by run id (computed by the API against
+// the whole history, so a run's badges don't depend on the range shown).
+const badgesByRun = ref(new Map<number, RunBadge[]>());
 
 // --- Filters ---
 const filters = reactive({
@@ -54,16 +61,51 @@ const dateToModel = computed<Date | null>({
     },
 });
 
-// Seeded once from the full activity list so opening the filter panel shows
-// the actual range of data rather than empty boxes — "clear filters" resets
-// back to this full range, not to nothing.
-type RunningFilters = typeof filters;
-const filterDefaults = ref<RunningFilters | null>(null);
+// The date range is fetched server-side (so the page doesn't pull the whole
+// history on every visit) and defaults to the past 30 days. Presets set both
+// ends; "All" clears them, which leaves the query open-ended.
+const datePresets = [
+    { label: '30 days', value: 30 },
+    { label: '90 days', value: 90 },
+    { label: '1 year', value: 365 },
+    { label: 'All', value: 0 },
+];
 
-function computeFilterDefaults(): RunningFilters | null {
+function applyDatePreset(days: number) {
+    if (days === 0) {
+        filters.dateFrom = '';
+        filters.dateTo = '';
+        return;
+    }
+    const { start, end } = rollingRange(days);
+    filters.dateFrom = start;
+    filters.dateTo = end;
+}
+
+// Highlights the matching preset; a hand-picked range highlights none.
+const activeDatePreset = computed<number | null>({
+    get: () =>
+        datePresets.find((p) => {
+            if (p.value === 0) return !filters.dateFrom && !filters.dateTo;
+            const { start, end } = rollingRange(p.value);
+            return filters.dateFrom === start && filters.dateTo === end;
+        })?.value ?? null,
+    set: (value) => {
+        if (value !== null) applyDatePreset(value);
+    },
+});
+
+applyDatePreset(30);
+
+// The distance/duration/pace filters run client-side over the loaded range.
+// They're seeded from that range's actual min/max so the panel shows real
+// bounds rather than empty boxes, and "clear filters" resets back to them.
+type NumericFilters = Omit<typeof filters, 'dateFrom' | 'dateTo'>;
+const filterDefaults = ref<NumericFilters | null>(null);
+
+function computeFilterDefaults(): NumericFilters | null {
     if (activities.value.length === 0) return null;
     const paceMultiplier = distanceUnit.value === 'mi' ? 1.60934 : 1;
-    const dates = activities.value.map((r) => r.date);
     const distancesKm = activities.value.map((r) => r.distance_km);
     const durationsSec = activities.value.map((r) => r.duration_seconds);
     const paces = activities.value
@@ -71,8 +113,6 @@ function computeFilterDefaults(): RunningFilters | null {
         .map((r) => r.pace * paceMultiplier);
 
     return {
-        dateFrom: dates.reduce((a, b) => (a < b ? a : b)),
-        dateTo: dates.reduce((a, b) => (a > b ? a : b)),
         distanceMin: Math.floor(fromKm(Math.min(...distancesKm)) * 10) / 10,
         distanceMax: Math.ceil(fromKm(Math.max(...distancesKm)) * 10) / 10,
         // Duration filters work in whole seconds directly (matching
@@ -88,8 +128,6 @@ const hasActiveFilters = computed(() => {
     const d = filterDefaults.value;
     if (!d) return false;
     return (
-        filters.dateFrom !== d.dateFrom ||
-        filters.dateTo !== d.dateTo ||
         filters.distanceMin !== d.distanceMin ||
         filters.distanceMax !== d.distanceMax ||
         filters.durationMin !== d.durationMin ||
@@ -141,8 +179,6 @@ const filteredActivities = computed(() => {
                 : filters.paceMax
             : null;
     return activities.value.filter((r) => {
-        if (filters.dateFrom && r.date < filters.dateFrom) return false;
-        if (filters.dateTo && r.date > filters.dateTo) return false;
         if (distMinKm !== null && r.distance_km < distMinKm) return false;
         if (distMaxKm !== null && r.distance_km > distMaxKm) return false;
         if (
@@ -209,16 +245,14 @@ async function importFiles(files: Iterable<File>) {
 
     let imported = 0;
     let duplicates = 0;
-    let lastActivity: RunningActivity | null = null;
-    const importedDates: string[] = [];
+    const importedRuns: RunningActivity[] = [];
 
     for (const file of fileList) {
         const isFit = file.name.toLowerCase().endsWith('.fit');
         const res = isFit ? await importFit(file) : await importGpx(file);
         if (res.success && res.data) {
             imported++;
-            lastActivity = res.data.activity;
-            importedDates.push(res.data.activity.date);
+            importedRuns.push(res.data.activity);
         } else if (res.error?.code === 'CONFLICT') {
             // The API already holds this activity; skip quietly and summarise.
             duplicates++;
@@ -241,13 +275,14 @@ async function importFiles(files: Iterable<File>) {
         );
         // Each imported run completes any "run" task due on its date.
         await Promise.all(
-            [...new Set(importedDates)].map((date) =>
+            [...new Set(importedRuns.map((r) => r.date))].map((date) =>
                 completeTasksLinkedToRun(getTasks, updateTask, date),
             ),
         );
+        void announceBadges(importedRuns);
         await loadData();
-        if (imported === 1 && lastActivity) {
-            await router.push(`/running/${lastActivity.id}`);
+        if (imported === 1 && importedRuns[0]) {
+            await router.push(`/running/${importedRuns[0].id}`);
         }
     }
 }
@@ -271,16 +306,26 @@ const {
 
 // --- Data loading ---
 async function loadData() {
-    const runsRes = await getActivities();
+    const range = {
+        date_from: filters.dateFrom || undefined,
+        date_to: filters.dateTo || undefined,
+    };
+    const [runsRes, badgesRes] = await Promise.all([
+        getActivities(range),
+        getBadges(range),
+    ]);
+    badgesByRun.value = new Map(
+        (badgesRes.data ?? []).map((r) => [r.run_id, r.badges]),
+    );
     if (runsRes.success && runsRes.data) {
+        // Re-seed the numeric bounds for the newly loaded set, unless the
+        // user has narrowed them — their own choices survive reloads (after
+        // add/edit/delete/import or a date-range change).
+        const untouched = !hasActiveFilters.value;
         activities.value = runsRes.data;
-        // Seed the filter range once, from the first load — later reloads
-        // (after add/edit/delete/import) leave the user's own filter
-        // choices alone rather than resetting them.
-        if (!filterDefaults.value) {
-            filterDefaults.value = computeFilterDefaults();
-            if (filterDefaults.value)
-                Object.assign(filters, filterDefaults.value);
+        filterDefaults.value = computeFilterDefaults();
+        if (untouched && filterDefaults.value) {
+            Object.assign(filters, filterDefaults.value);
         }
     } else if (!runsRes.success) {
         toast.showError('Failed to load running activities');
@@ -288,6 +333,10 @@ async function loadData() {
 }
 
 onMounted(() => withLoading(loadData));
+watch(
+    () => [filters.dateFrom, filters.dateTo],
+    () => withLoading(loadData),
+);
 </script>
 
 <template>
@@ -309,9 +358,9 @@ onMounted(() => withLoading(loadData));
         </div>
 
         <!-- Table Header -->
-        <div class="mb-4 flex items-center justify-between">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-bold">Running Log</h1>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <AppButton
                     :icon="showFilters ? 'pi pi-filter-slash' : 'pi pi-filter'"
                     :label="showFilters ? 'Hide Filters' : 'Filters'"
@@ -342,42 +391,58 @@ onMounted(() => withLoading(loadData));
             </div>
         </div>
 
+        <!-- Date Range: fetched server-side, always visible -->
+        <div class="mb-4 flex flex-wrap items-end gap-x-4 gap-y-3">
+            <AppSelectButton
+                v-model="activeDatePreset"
+                aria-label="Date range preset"
+                option-label="label"
+                option-value="value"
+                :options="datePresets"
+                size="small"
+            />
+            <div class="flex items-center gap-2">
+                <div class="w-40">
+                    <AppDatePicker
+                        v-model="dateFromModel"
+                        aria-label="Date from"
+                        date-format="yy M dd"
+                        fluid
+                        icon-display="input"
+                        placeholder="Earliest"
+                        show-icon
+                        size="small"
+                    />
+                </div>
+                <span class="text-surface-500 text-sm">to</span>
+                <div class="w-40">
+                    <AppDatePicker
+                        v-model="dateToModel"
+                        aria-label="Date to"
+                        date-format="yy M dd"
+                        fluid
+                        icon-display="input"
+                        placeholder="Latest"
+                        show-icon
+                        size="small"
+                    />
+                </div>
+            </div>
+            <span class="text-surface-500 ml-auto text-sm">
+                {{ filteredActivities.length }}
+                {{ filteredActivities.length === 1 ? 'run' : 'runs' }}
+                <template v-if="hasActiveFilters">
+                    (of {{ activities.length }})
+                </template>
+            </span>
+        </div>
+
         <!-- Filters Panel -->
         <div
             v-if="showFilters"
             class="border-surface-200 dark:border-surface-700 mb-4 rounded-lg border p-4"
         >
             <div class="flex flex-wrap gap-x-6 gap-y-4">
-                <!-- Date Range -->
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Date From
-                    </label>
-                    <div class="w-44 shrink-0">
-                        <AppDatePicker
-                            v-model="dateFromModel"
-                            date-format="yy M dd"
-                            fluid
-                            icon-display="input"
-                            show-icon
-                        />
-                    </div>
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Date To
-                    </label>
-                    <div class="w-44 shrink-0">
-                        <AppDatePicker
-                            v-model="dateToModel"
-                            date-format="yy M dd"
-                            fluid
-                            icon-display="input"
-                            show-icon
-                        />
-                    </div>
-                </div>
-
                 <!-- Distance Range -->
                 <NumberRangeFilter
                     v-model:max="filters.distanceMax"
@@ -401,11 +466,7 @@ onMounted(() => withLoading(loadData));
                     :unit="`min/${distanceUnit}`"
                 />
             </div>
-            <div class="mt-3 flex items-center justify-between">
-                <span class="text-surface-500 text-sm">
-                    {{ filteredActivities.length }} of
-                    {{ activities.length }} runs
-                </span>
+            <div class="mt-3 flex items-center justify-end">
                 <AppButton
                     v-if="hasActiveFilters"
                     icon="pi pi-times"
@@ -425,109 +486,146 @@ onMounted(() => withLoading(loadData));
             </p>
         </div>
 
-        <!-- Data Table -->
-        <AppDataTable
-            :loading="loading"
-            :row-class="() => 'group'"
-            sort-field="date"
-            :sort-order="-1"
-            striped-rows
-            :value="filteredActivities"
-        >
-            <template #empty>
-                <div class="flex flex-col items-center py-10 text-center">
-                    <i
-                        class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"
-                    ></i>
-                    <p class="text-surface-500 mb-3">No runs logged yet</p>
-                    <AppButton
-                        icon="pi pi-plus"
-                        label="Add your first run"
-                        size="small"
-                        @click="openAddDialog"
-                    />
-                </div>
-            </template>
-            <AppColumn field="date" header="Date" sortable>
-                <template #body="{ data }">
-                    {{ formatDate((data as RunningActivity).date) }}
-                </template>
-            </AppColumn>
-            <AppColumn field="title" header="Title">
-                <template #body="{ data }">
-                    <span v-if="(data as RunningActivity).title">
-                        {{ (data as RunningActivity).title }}
-                    </span>
-                    <span v-else class="text-surface-400">&mdash;</span>
-                </template>
-            </AppColumn>
-            <AppColumn field="distance_km" header="Distance" sortable>
-                <template #body="{ data }">
-                    {{ fmtDistance((data as RunningActivity).distance_km) }}
-                </template>
-            </AppColumn>
-            <AppColumn field="duration_seconds" header="Duration" sortable>
-                <template #body="{ data }">
-                    {{
-                        formatDuration(
-                            (data as RunningActivity).duration_seconds,
-                        )
-                    }}
-                </template>
-            </AppColumn>
-            <AppColumn field="pace_formatted" header="Pace">
-                <template #body="{ data }">
-                    {{ fmtPace((data as RunningActivity).pace) }}
-                </template>
-            </AppColumn>
-            <AppColumn field="avg_hr" header="Avg HR" sortable>
-                <template #body="{ data }">
-                    <span v-if="(data as RunningActivity).avg_hr">
-                        {{ (data as RunningActivity).avg_hr }}
-                    </span>
-                    <span v-else class="text-surface-400">&mdash;</span>
-                </template>
-            </AppColumn>
-            <AppColumn field="notes" header="Notes" />
-            <AppColumn header="Actions" style="width: 8rem">
-                <template #body="{ data }">
-                    <div
-                        class="flex justify-end gap-2 opacity-20 transition-opacity group-hover:opacity-100"
-                    >
-                        <AppButton
-                            v-if="(data as RunningActivity).has_gpx"
-                            aria-label="Run details"
-                            icon="pi pi-chart-bar"
-                            rounded
-                            severity="secondary"
-                            text
-                            title="Run details"
-                            @click="
-                                router.push(
-                                    `/running/${(data as RunningActivity).id}`,
-                                )
+        <!-- Data Table: scrolls sideways on narrow screens rather than
+             pushing the page wider -->
+        <div class="overflow-x-auto">
+            <AppDataTable
+                :loading="loading"
+                :row-class="() => 'group'"
+                sort-field="date"
+                :sort-order="-1"
+                striped-rows
+                :value="filteredActivities"
+            >
+                <template #empty>
+                    <div class="flex flex-col items-center py-10 text-center">
+                        <i
+                            class="pi pi-inbox text-surface-300 dark:text-surface-600 mb-3 text-4xl"
+                        ></i>
+                        <template
+                            v-if="
+                                filters.dateFrom ||
+                                filters.dateTo ||
+                                activities.length > 0
                             "
-                        />
-                        <AppButton
-                            aria-label="Edit run"
-                            icon="pi pi-pencil"
-                            rounded
-                            severity="info"
-                            text
-                            @click="openEditDialog(data as RunningActivity)"
-                        />
-                        <AppButton
-                            aria-label="Delete run"
-                            icon="pi pi-trash"
-                            rounded
-                            severity="danger"
-                            text
-                            @click="confirmDelete((data as RunningActivity).id)"
-                        />
+                        >
+                            <p class="text-surface-500 mb-3">
+                                No runs match this date range or filters
+                            </p>
+                            <AppButton
+                                label="Show all runs"
+                                size="small"
+                                text
+                                @click="activeDatePreset = 0"
+                            />
+                        </template>
+                        <template v-else>
+                            <p class="text-surface-500 mb-3">
+                                No runs logged yet
+                            </p>
+                            <AppButton
+                                icon="pi pi-plus"
+                                label="Add your first run"
+                                size="small"
+                                @click="openAddDialog"
+                            />
+                        </template>
                     </div>
                 </template>
-            </AppColumn>
-        </AppDataTable>
+                <AppColumn field="date" header="Date" sortable>
+                    <template #body="{ data }">
+                        {{ formatDate((data as RunningActivity).date) }}
+                    </template>
+                </AppColumn>
+                <AppColumn field="title" header="Title">
+                    <template #body="{ data }">
+                        <span v-if="(data as RunningActivity).title">
+                            {{ (data as RunningActivity).title }}
+                        </span>
+                        <span v-else class="text-surface-400">&mdash;</span>
+                    </template>
+                </AppColumn>
+                <AppColumn field="distance_km" header="Distance" sortable>
+                    <template #body="{ data }">
+                        {{ fmtDistance((data as RunningActivity).distance_km) }}
+                    </template>
+                </AppColumn>
+                <AppColumn field="duration_seconds" header="Duration" sortable>
+                    <template #body="{ data }">
+                        {{
+                            formatDuration(
+                                (data as RunningActivity).duration_seconds,
+                            )
+                        }}
+                    </template>
+                </AppColumn>
+                <AppColumn field="pace_formatted" header="Pace">
+                    <template #body="{ data }">
+                        {{ fmtPace((data as RunningActivity).pace) }}
+                    </template>
+                </AppColumn>
+                <AppColumn field="avg_hr" header="Avg HR" sortable>
+                    <template #body="{ data }">
+                        <span v-if="(data as RunningActivity).avg_hr">
+                            {{ (data as RunningActivity).avg_hr }}
+                        </span>
+                        <span v-else class="text-surface-400">&mdash;</span>
+                    </template>
+                </AppColumn>
+                <AppColumn header="Badges">
+                    <template #body="{ data }">
+                        <RunBadges
+                            v-if="badgesByRun.get((data as RunningActivity).id)"
+                            :badges="
+                                badgesByRun.get((data as RunningActivity).id)!
+                            "
+                            compact
+                        />
+                    </template>
+                </AppColumn>
+                <AppColumn field="notes" header="Notes" />
+                <AppColumn header="Actions" style="width: 8rem">
+                    <template #body="{ data }">
+                        <div
+                            class="flex justify-end gap-2 opacity-20 transition-opacity group-hover:opacity-100"
+                        >
+                            <AppButton
+                                v-if="(data as RunningActivity).has_gpx"
+                                aria-label="Run details"
+                                icon="pi pi-chart-bar"
+                                rounded
+                                severity="secondary"
+                                text
+                                title="Run details"
+                                @click="
+                                    router.push(
+                                        `/running/${(data as RunningActivity).id}`,
+                                    )
+                                "
+                            />
+                            <AppButton
+                                aria-label="Edit run"
+                                icon="pi pi-pencil"
+                                rounded
+                                severity="info"
+                                text
+                                @click="openEditDialog(data as RunningActivity)"
+                            />
+                            <AppButton
+                                aria-label="Delete run"
+                                icon="pi pi-trash"
+                                rounded
+                                severity="danger"
+                                text
+                                @click="
+                                    confirmDelete((data as RunningActivity).id)
+                                "
+                            />
+                        </div>
+                    </template>
+                </AppColumn>
+            </AppDataTable>
+        </div>
 
         <!-- Add/Edit Dialog -->
         <AddEditRunDialog

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -11,6 +12,16 @@ from src.models.running import (
     running_from_db,
 )
 from src.repositories.utils import execute_update, require_found, require_row_id
+
+
+@dataclass
+class BadgeHistory:
+    """Raw inputs for services.run_badges (see get_history_for_badges)."""
+
+    runs: list[dict[str, Any]]
+    segments: list[dict[str, Any]]
+    planned_runs: list[tuple[str, str]]  # Running tasks as (due date, title)
+    weekly_goal_km: float | None
 
 
 class SQLiteRunningRepository:
@@ -55,9 +66,17 @@ class SQLiteRunningRepository:
         activity_in_db = RunningActivityInDB(**dict(row))
         return running_from_db(activity_in_db)
 
-    async def find_all(self) -> list[RunningActivityResponse]:
+    async def find_all(
+        self, date_from: str | None = None, date_to: str | None = None
+    ) -> list[RunningActivityResponse]:
+        """All runs, newest first, optionally limited to an inclusive date range."""
         cursor = await self.db.execute(
-            "SELECT * FROM running_activities ORDER BY date DESC"  # Order by date, not created_at
+            """
+            SELECT * FROM running_activities
+            WHERE (? IS NULL OR date >= ?) AND (? IS NULL OR date <= ?)
+            ORDER BY date DESC
+            """,  # Order by date, not created_at
+            (date_from, date_from, date_to, date_to),
         )
         rows = await cursor.fetchall()
 
@@ -86,25 +105,6 @@ class SQLiteRunningRepository:
 
         await execute_update(self.db, "running_activities", update_data, activity_id)
         return await self.find_by_id(activity_id)
-
-    async def get_stats_by_month(self, year: int) -> list[dict[str, Any]]:
-        """Get monthly running statistics for a given year."""
-        cursor = await self.db.execute(
-            """
-            SELECT strftime('%Y-%m', date) as month,
-                   COUNT(*)                as total_runs,
-                   SUM(distance_km)        as total_distance,
-                   SUM(duration_seconds)   as total_duration,
-                   AVG(distance_km)        as avg_distance,
-                   MAX(distance_km)        as longest_run
-            FROM running_activities
-            WHERE strftime('%Y', date) = ?
-            GROUP BY month
-            ORDER BY month DESC
-            """,
-            (str(year),),
-        )
-        return [dict(row) for row in await cursor.fetchall()]
 
     async def find_import_duplicate(
         self,
@@ -353,29 +353,43 @@ class SQLiteRunningRepository:
         )
         return [dict(row) for row in await cursor.fetchall()]
 
-    async def get_personal_bests(self) -> dict[str, Any]:
-        """Get personal best records."""
-        # Longest run
-        longest = await self.db.execute(
-            "SELECT * FROM running_activities ORDER BY distance_km DESC LIMIT 1"
+    async def save_half_splits(
+        self, activity_id: int, first_half_seconds: float, second_half_seconds: float
+    ) -> None:
+        await self.db.execute(
+            "UPDATE running_activities SET first_half_seconds = ?, second_half_seconds = ? "
+            "WHERE id = ?",
+            (first_half_seconds, second_half_seconds, activity_id),
         )
-        longest_row = await longest.fetchone()
+        await self.db.commit()
 
-        # Fastest pace (best time per km)
-        fastest = await self.db.execute(
-            """SELECT *
-               FROM running_activities
-               WHERE distance_km > 0
-               ORDER BY (CAST(duration_seconds AS REAL) / distance_km) ASC
-               LIMIT 1"""
+    async def get_history_for_badges(self) -> BadgeHistory:
+        """Everything badges compare against — the whole history, since each
+        run is judged against all earlier ones."""
+        runs = await self.db.execute(
+            """
+            SELECT id, date, start_time, distance_km, duration_seconds, total_ascent_m,
+                   first_half_seconds, second_half_seconds
+            FROM running_activities
+            """
         )
-        fastest_row = await fastest.fetchone()
-
-        return {
-            "longest_run": running_from_db(RunningActivityInDB(**dict(longest_row)))
-            if longest_row
-            else None,
-            "fastest_pace": running_from_db(RunningActivityInDB(**dict(fastest_row)))
-            if fastest_row
-            else None,
-        }
+        segments = await self.db.execute(
+            "SELECT running_activity_id, segment_name, duration_seconds FROM gpx_segments"
+        )
+        planned = await self.db.execute(
+            "SELECT due_date, title FROM tasks WHERE category = 'Running' AND due_date IS NOT NULL"
+        )
+        goal = await self.db.execute(
+            "SELECT value FROM user_settings WHERE key = 'running_weekly_goal_km'"
+        )
+        goal_row = await goal.fetchone()
+        try:
+            goal_km = float(goal_row["value"]) if goal_row else None
+        except ValueError:
+            goal_km = None
+        return BadgeHistory(
+            runs=[dict(row) for row in await runs.fetchall()],
+            segments=[dict(row) for row in await segments.fetchall()],
+            planned_runs=[(row["due_date"], row["title"]) for row in await planned.fetchall()],
+            weekly_goal_km=goal_km if goal_km and goal_km > 0 else None,
+        )

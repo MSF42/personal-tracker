@@ -22,6 +22,19 @@ export function formatDate(isoDate: string): string {
 }
 
 /**
+ * Format an inclusive ISO date range compactly: "12 Apr – 18 Apr 2011" within
+ * one year, "20 Dec 2010 – 18 Dec 2011" across years.
+ */
+export function formatDateRange(startIso: string, endIso: string): string {
+    const start = formatDate(startIso);
+    const end = formatDate(endIso);
+    if (startIso.slice(0, 4) === endIso.slice(0, 4)) {
+        return `${start.slice(0, -5)} – ${end}`;
+    }
+    return `${start} – ${end}`;
+}
+
+/**
  * Format a duration in seconds as "H:MM:SS", or "M:SS" under an hour.
  */
 export function formatDuration(seconds: number): string {

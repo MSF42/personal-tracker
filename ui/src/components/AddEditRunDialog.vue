@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue';
 
 import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useTaskApi } from '@/composables/api/useTaskApi';
+import { useBadgeAnnouncer } from '@/composables/useBadgeAnnouncer';
 import { useFileDrop } from '@/composables/useFileDrop';
 import { completeTasksLinkedToRun } from '@/composables/useTaskLinks';
 import { useToast } from '@/composables/useToast';
@@ -22,11 +23,8 @@ const { createActivity, updateActivity, importGpx, importFit } =
     useRunningApi();
 const { getTasks, updateTask } = useTaskApi();
 const toast = useToast();
+const { announceBadges } = useBadgeAnnouncer();
 const { distanceUnit, toKm, fromKm } = useUnits();
-
-// The local/offline backend has no Python GPX/FIT parser to import with —
-// hide the button there rather than show one that can only fail.
-const importSupported = import.meta.env.VITE_BACKEND !== 'local';
 
 const formError = ref('');
 const isFormValid = computed(() => form.date.trim() !== '');
@@ -92,6 +90,7 @@ async function save() {
         // A brand-new run on a given day satisfies any "run" task due that day.
         if (!props.run) {
             await completeTasksLinkedToRun(getTasks, updateTask, res.data.date);
+            void announceBadges([res.data]);
         }
         visible.value = false;
         emit('saved', res.data.id);
@@ -121,6 +120,7 @@ async function importOneFile(file: File) {
             updateTask,
             res.data.activity.date,
         );
+        void announceBadges([res.data.activity]);
         visible.value = false;
         emit('saved', res.data.activity.id);
     } else if (res.error?.code === 'CONFLICT') {
@@ -144,7 +144,7 @@ async function handleImportFile(event: Event) {
 // only one file is used (this dialog adds a single run), matching how it
 // only ever imports one file via the button too. Only live in add mode with
 // import support, same gate as the button/input above.
-const canImportViaDrop = computed(() => !props.run && importSupported);
+const canImportViaDrop = computed(() => !props.run);
 const {
     isOver: isFileDragOver,
     onDragEnter,
@@ -188,7 +188,7 @@ function onDialogDrop(e: DragEvent) {
                 <i class="pi pi-upload text-primary-500 text-2xl"></i>
                 <p class="text-sm font-medium">Drop to import</p>
             </div>
-            <div v-if="!run && importSupported" class="flex flex-col gap-3">
+            <div v-if="!run" class="flex flex-col gap-3">
                 <AppButton
                     icon="pi pi-upload"
                     label="Import GPX / FIT"

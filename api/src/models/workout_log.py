@@ -54,6 +54,10 @@ class WorkoutLogResponse(BaseModel):
     created_at: str | None = None
     completed: bool
     sets: list[SetLogResponse] = []
+    # Filled in the list view (where `sets` is empty): set count and
+    # reps x weight volume in kg, as in RoutineLogSummaryResponse.
+    total_sets: int | None = None
+    total_volume: float | None = None
 
 
 class RoutineLogSummaryResponse(BaseModel):

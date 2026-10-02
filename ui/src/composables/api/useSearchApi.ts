@@ -1,6 +1,6 @@
 import type { SearchResponse, TodayResponse } from '@/types/Search';
 
-import { useApi } from './backends/http/useApi';
+import { useApi } from './useApi';
 
 // Bespoke http-backend API client for the unified search / today endpoints.
 // These features don't (yet) have a local-backend implementation — local-mode

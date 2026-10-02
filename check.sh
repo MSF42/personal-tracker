@@ -3,7 +3,7 @@
 # Run every check the project has, backend then frontend.
 #
 #   ./check.sh          everything
-#   ./check.sh api      ruff + mypy + pytest
+#   ./check.sh api      ruff (lint + format) + mypy + pytest
 #   ./check.sh ui       prettier + eslint + vue-tsc + vitest
 #
 set -uo pipefail
@@ -45,6 +45,7 @@ if [ "$DO_API" -eq 1 ]; then
     step "api"
     cd "$ROOT/api" || exit 1
     run "ruff check" uv run ruff check .
+    run "ruff format" uv run ruff format --check .
     run "mypy (strict)" uv run mypy src tests
     run "pytest" uv run pytest -q
 fi

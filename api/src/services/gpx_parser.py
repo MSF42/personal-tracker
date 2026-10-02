@@ -1,3 +1,4 @@
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -11,6 +12,11 @@ from src.services.track_segments import (  # noqa: F401 (re-exported)
 )
 
 GPX_NS = "{http://www.topografix.com/GPX/1/1}"
+
+# Track names an app generated from the timestamp ("runtastic_20100917_1105")
+# say nothing the date doesn't; such runs are titled like FIT imports.
+_GENERATED_NAME = re.compile(r"^runtastic_\d{8}_\d{4}$", re.IGNORECASE)
+DEFAULT_TITLE = "Run"
 
 
 @dataclass
@@ -58,6 +64,9 @@ def parse_gpx(xml_bytes: bytes) -> GpxParseResult:
             name_el = metadata_el.find(f"{GPX_NS}name")
             if name_el is not None and name_el.text:
                 title = name_el.text.strip()
+
+    if title and _GENERATED_NAME.match(title):
+        title = DEFAULT_TITLE
 
     trackpoints: list[tuple[float, float, datetime]] = []
     elevations: list[float | None] = []

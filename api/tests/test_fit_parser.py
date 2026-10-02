@@ -28,6 +28,13 @@ def test_parses_totals_and_summary() -> None:
     assert result.source_uuid == "00010203-0405-0607-0809-0a0b0c0d0e0f"
 
 
+def test_uuid_containing_ff_byte_parses() -> None:
+    # fitdecode reports 0xFF inside a byte array as None; it must round-trip.
+    uuid_bytes = bytes([*range(11), 0xFF, *range(12, 16)])
+    result = parse_fit(simple_run(uuid_bytes=uuid_bytes))
+    assert result.source_uuid == "00010203-0405-0607-0809-0aff0c0d0e0f"
+
+
 def test_local_date_comes_from_activity_local_timestamp() -> None:
     # 01:30 UTC with a -4 h local offset is still the previous evening locally.
     start = datetime(2026, 3, 2, 1, 30, tzinfo=UTC)

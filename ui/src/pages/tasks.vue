@@ -179,6 +179,8 @@ const priorityOptions = [
     { label: 'Low', value: 'low' },
 ];
 
+// The "All" options carry an empty value, which the Select shows as unselected
+// — the matching placeholders keep the box from looking blank.
 const filterPriorityOptions = [
     { label: 'All priorities', value: '' },
     ...priorityOptions,
@@ -264,6 +266,7 @@ const filterCategoryOptions = computed(() => [
                     option-label="label"
                     option-value="value"
                     :options="filterCategoryOptions"
+                    placeholder="All categories"
                     size="small"
                 />
                 <AppSelect
@@ -272,6 +275,7 @@ const filterCategoryOptions = computed(() => [
                     option-label="label"
                     option-value="value"
                     :options="filterPriorityOptions"
+                    placeholder="All priorities"
                     size="small"
                 />
                 <label

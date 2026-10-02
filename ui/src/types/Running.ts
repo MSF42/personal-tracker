@@ -88,16 +88,54 @@ export interface RunningActivityUpdate {
     title?: string | null;
 }
 
-export interface MonthlyRunStats {
-    month: string;
-    total_runs: number;
-    total_distance: number;
-    total_duration: number;
-    avg_distance: number;
-    longest_run: number;
+/** Inclusive YYYY-MM-DD bounds for listing runs; either side may be omitted. */
+export interface RunningDateRange {
+    date_from?: string;
+    date_to?: string;
 }
 
-export interface PersonalBests {
-    longest_run: RunningActivity | null;
-    fastest_pace: RunningActivity | null;
+/** One achievement earned by a run (see api/src/services/run_badges.py). */
+export type RunBadgeKind =
+    | 'longest'
+    | 'fastest'
+    | 'longest_time'
+    | 'first_distance'
+    | 'biggest_week'
+    | 'biggest_month'
+    | 'comeback'
+    | 'most_climb'
+    | 'negative_split'
+    | 'weekly_streak'
+    | 'weekly_goal'
+    | 'plan_complete'
+    | 'distance_milestone'
+    | 'run_milestone'
+    | 'beat_last_year';
+
+export interface RunBadge {
+    kind: RunBadgeKind;
+    /** ISO date of the last run/week/month at least as good; null when `ever`. */
+    since: string | null;
+    ever: boolean;
+    /** Standard distance name ("5K") for fastest / first_distance. */
+    effort: string | null;
+    /** km for distances, seconds for times, metres for climb, days for a
+     *  comeback, weeks for a streak, runs for a plan/run milestone. */
+    value: number | null;
+}
+
+export interface RunBadgeSet {
+    run_id: number;
+    date: string;
+    badges: RunBadge[];
+}
+
+/** Fastest effort ever at a standard distance, possibly inside a longer run. */
+export interface BestEffort {
+    name: string;
+    distance_km: number;
+    duration_seconds: number;
+    pace: number;
+    run_id: number;
+    date: string;
 }

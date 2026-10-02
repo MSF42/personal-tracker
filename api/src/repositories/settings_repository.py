@@ -1,5 +1,18 @@
 from aiosqlite import Connection
 
+# Tables holding things the user created; settings rows (units, theme) don't
+# count, since a brand-new install already has some.
+USER_DATA_TABLES = (
+    "tasks",
+    "habits",
+    "running_activities",
+    "exercises",
+    "workout_routines",
+    "workout_logs",
+    "measurements",
+    "countdowns",
+)
+
 
 class SQLiteSettingsRepository:
     def __init__(self, db: Connection):
@@ -21,8 +34,19 @@ class SQLiteSettingsRepository:
         await self.db.execute("DELETE FROM user_settings WHERE key = ?", (key,))
         await self.db.commit()
 
+    async def has_user_data(self) -> bool:
+        """Whether any user-entered records exist (unit preferences aside)."""
+        for table in USER_DATA_TABLES:
+            cursor = await self.db.execute(f"SELECT 1 FROM {table} LIMIT 1")  # noqa: S608
+            if await cursor.fetchone():
+                return True
+        return False
+
     async def delete_all_data(self) -> None:
         tables = [
+            "habit_completions",
+            "habits",
+            "search_index",
             "set_logs",
             "workout_logs",
             "run_samples",

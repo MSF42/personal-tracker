@@ -68,13 +68,4 @@ app.component('AppToggleSwitch', ToggleSwitch);
 
 app.directive('tooltip', Tooltip);
 
-async function bootstrap() {
-    if (import.meta.env.VITE_BACKEND === 'local') {
-        const { initializeDb } =
-            await import('./composables/api/backends/local/useDb');
-        await initializeDb();
-    }
-    app.mount('#app');
-}
-
-bootstrap();
+app.mount('#app');

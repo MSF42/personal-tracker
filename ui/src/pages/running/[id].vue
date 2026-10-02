@@ -5,12 +5,14 @@ import { useRoute } from 'vue-router';
 import LoadingState from '@/components/LoadingState.vue';
 import NotFoundState from '@/components/NotFoundState.vue';
 import RouteMap from '@/components/RouteMap.vue';
+import RunBadges from '@/components/RunBadges.vue';
 import StatTileGrid from '@/components/StatTileGrid.vue';
 import { useRunningApi } from '@/composables/api/useRunningApi';
 import { useSmartBack } from '@/composables/useSmartBack';
 import { useUnits } from '@/composables/useUnits';
 import type {
     GpxSegment,
+    RunBadge,
     RunLap,
     RunningActivity,
     RunSample,
@@ -27,7 +29,8 @@ registerCharts();
 
 const route = useRoute<'/running/[id]'>();
 const { back } = useSmartBack('/running/log');
-const { getActivity, getSegments, getLaps, getSamples } = useRunningApi();
+const { getActivity, getSegments, getLaps, getSamples, getRunBadges } =
+    useRunningApi();
 const { distanceUnit, fmtDistance, fmtPace, fmtTemperature, fromKm } =
     useUnits();
 
@@ -35,6 +38,7 @@ const run = ref<RunningActivity | null>(null);
 const segments = ref<GpxSegment[]>([]);
 const laps = ref<RunLap[]>([]);
 const samples = ref<RunSample[]>([]);
+const badges = ref<RunBadge[]>([]);
 const loading = ref(true);
 const notFound = ref(false);
 
@@ -45,6 +49,7 @@ async function load(id: number) {
     segments.value = [];
     laps.value = [];
     samples.value = [];
+    badges.value = [];
 
     // Load the activity first: an unknown id should show one "not found" state,
     // not four separate 404 toasts from also probing its (nonexistent) tracks.
@@ -56,11 +61,13 @@ async function load(id: number) {
     }
     run.value = runRes.data;
 
-    const [segRes, lapRes, sampleRes] = await Promise.all([
+    const [segRes, lapRes, sampleRes, badgeRes] = await Promise.all([
         getSegments(id),
         getLaps(id),
         getSamples(id, 1500),
+        getRunBadges(id),
     ]);
+    if (badgeRes.success && badgeRes.data) badges.value = badgeRes.data;
     if (segRes.success && segRes.data) segments.value = segRes.data;
     if (lapRes.success && lapRes.data) laps.value = lapRes.data;
     if (sampleRes.success && sampleRes.data) samples.value = sampleRes.data;
@@ -147,6 +154,10 @@ const routePoints = computed(() => toRoutePoints(samples.value));
 const showMap = computed(
     () => !run.value?.is_indoor && routePoints.value.length >= 2,
 );
+
+// Watch runs without GPS can still carry laps, but with no distance (a single
+// "0.00 km" lap with no pace) — nothing worth a table.
+const showLaps = computed(() => laps.value.some((l) => l.distance_km > 0));
 
 // --- Hover highlight (laps / best efforts) -----------------------------------
 const highlight = ref<TimeRange | null>(null);
@@ -363,7 +374,10 @@ const elevationUnit = computed(() =>
         />
 
         <div v-else-if="run" class="flex flex-col gap-6">
-            <h1 class="text-2xl font-bold">{{ header }}</h1>
+            <div class="flex flex-col gap-3">
+                <h1 class="text-2xl font-bold">{{ header }}</h1>
+                <RunBadges v-if="badges.length" :badges="badges" />
+            </div>
 
             <div
                 class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_29rem]"
@@ -445,7 +459,7 @@ const elevationUnit = computed(() =>
                         v-if="
                             !showMap &&
                             samples.length === 0 &&
-                            laps.length === 0 &&
+                            !showLaps &&
                             segments.length === 0
                         "
                         class="text-surface-500 text-sm"
@@ -457,7 +471,7 @@ const elevationUnit = computed(() =>
                 <!-- Right column: laps and best efforts, scrolls independently
                      of the sticky map/charts column. -->
                 <div class="flex min-w-0 flex-col gap-6">
-                    <div v-if="laps.length > 0">
+                    <div v-if="showLaps">
                         <h3 class="mb-2 text-sm font-medium">Laps</h3>
                         <p class="text-surface-500 mb-2 text-xs">
                             Hover a row to see it on the map and charts.

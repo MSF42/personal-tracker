@@ -8,6 +8,7 @@ import NotFoundState from '@/components/NotFoundState.vue';
 import StatTileGrid from '@/components/StatTileGrid.vue';
 import { useTaskApi } from '@/composables/api/useTaskApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
+import { useWorkoutRoutineApi } from '@/composables/api/useWorkoutRoutineApi';
 import { useSmartBack } from '@/composables/useSmartBack';
 import { completeTasksLinkedToWorkout } from '@/composables/useTaskLinks';
 import { useToast } from '@/composables/useToast';
@@ -24,6 +25,7 @@ const route = useRoute<'/strength/logs/[id]'>();
 const { back } = useSmartBack('/strength/logs');
 const { getWorkoutLog, updateSet, updateWorkoutLog, getExerciseHistory } =
     useWorkoutLogApi();
+const { getRoutineExercises } = useWorkoutRoutineApi();
 const { getTasks, updateTask } = useTaskApi();
 const { fmtWeight, weightUnit, toKg, fromKg, roundWeight } = useUnits();
 const toast = useToast();
@@ -31,15 +33,32 @@ const toast = useToast();
 const detail = ref<WorkoutLogDetail | null>(null);
 const loading = ref(true);
 const notFound = ref(false);
+// Exercise ids the routine prescribes; anything else in the log was added for
+// that session only. Null until loaded, so nothing is flagged prematurely.
+const routineExerciseIds = ref<Set<number> | null>(null);
 
 async function load(id: number) {
     loading.value = true;
     notFound.value = false;
     detail.value = null;
+    routineExerciseIds.value = null;
     const res = await getWorkoutLog(id);
     if (res.success && res.data) detail.value = res.data;
     else notFound.value = true;
     loading.value = false;
+    if (res.success && res.data) {
+        const exRes = await getRoutineExercises(res.data.routine_id);
+        if (exRes.success && exRes.data) {
+            routineExerciseIds.value = new Set(exRes.data.map((e) => e.id));
+        }
+    }
+}
+
+function isAddedExercise(exerciseId: number): boolean {
+    return (
+        routineExerciseIds.value !== null &&
+        !routineExerciseIds.value.has(exerciseId)
+    );
 }
 
 // Vue Router reuses this component instance across param changes, so fetch off
@@ -285,17 +304,25 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
                     :key="group.exerciseName"
                     class="border-surface-200 dark:border-surface-700 rounded-lg border p-4"
                 >
-                    <button
-                        class="text-primary mb-2 cursor-pointer font-medium hover:underline"
-                        @click="
-                            openExerciseHistory(
-                                group.exerciseId,
-                                group.exerciseName,
-                            )
-                        "
-                    >
-                        {{ group.exerciseName }}
-                    </button>
+                    <div class="mb-2 flex items-center gap-2">
+                        <button
+                            class="text-primary cursor-pointer font-medium hover:underline"
+                            @click="
+                                openExerciseHistory(
+                                    group.exerciseId,
+                                    group.exerciseName,
+                                )
+                            "
+                        >
+                            {{ group.exerciseName }}
+                        </button>
+                        <AppTag
+                            v-if="isAddedExercise(group.exerciseId)"
+                            severity="secondary"
+                            title="Added for this session only — not part of the routine"
+                            value="Added"
+                        />
+                    </div>
                     <div class="flex flex-col gap-1">
                         <div
                             v-for="set in group.sets"
@@ -323,22 +350,26 @@ async function openExerciseHistory(exerciseId: number, exerciseName: string) {
                                 </button>
                             </template>
                             <template v-else>
-                                <AppInputNumber
-                                    v-model="editSetReps"
-                                    :max="999"
-                                    :min="1"
-                                    size="small"
-                                    style="width: 5rem"
-                                />
+                                <div class="w-16 shrink-0">
+                                    <AppInputNumber
+                                        v-model="editSetReps"
+                                        fluid
+                                        :max="999"
+                                        :min="1"
+                                        size="small"
+                                    />
+                                </div>
                                 <span class="text-surface-500">reps ×</span>
-                                <AppInputNumber
-                                    v-model="editSetWeight"
-                                    :max="9999"
-                                    :max-fraction-digits="2"
-                                    :min="0"
-                                    size="small"
-                                    style="width: 6rem"
-                                />
+                                <div class="w-20 shrink-0">
+                                    <AppInputNumber
+                                        v-model="editSetWeight"
+                                        fluid
+                                        :max="9999"
+                                        :max-fraction-digits="2"
+                                        :min="0"
+                                        size="small"
+                                    />
+                                </div>
                                 <span class="text-surface-500">{{
                                     weightUnit
                                 }}</span>

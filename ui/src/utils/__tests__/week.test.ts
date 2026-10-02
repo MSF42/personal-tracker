@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     fromIsoDate,
     mondayIndex,
+    rollingRange,
     toIsoDate,
     weekDays,
     weekRange,
@@ -45,5 +46,20 @@ describe('week helpers (Monday start)', () => {
 
     it('formats local dates without a UTC shift', () => {
         expect(toIsoDate(new Date(2026, 0, 1, 23, 30))).toBe('2026-01-01');
+    });
+
+    it('builds a trailing N-day window that includes the end date', () => {
+        expect(rollingRange(7, fromIsoDate('2026-09-13'))).toEqual({
+            start: '2026-09-07',
+            end: '2026-09-13',
+        });
+        expect(rollingRange(1, fromIsoDate('2026-09-13'))).toEqual({
+            start: '2026-09-13',
+            end: '2026-09-13',
+        });
+        expect(rollingRange(30, fromIsoDate('2026-01-15'))).toEqual({
+            start: '2025-12-17',
+            end: '2026-01-15',
+        });
     });
 });

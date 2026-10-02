@@ -294,7 +294,9 @@ const chartData = computed(() => {
                 borderColor: '#6366f1',
                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
                 fill: true,
-                tension: 0.3,
+                // Straight segments: entries are sparse, and a smoothed curve
+                // would imply values (and overshoots) between them.
+                tension: 0,
             },
         ],
     };

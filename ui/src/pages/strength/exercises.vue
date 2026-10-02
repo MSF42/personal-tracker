@@ -3,22 +3,18 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
+import ExerciseFormDialog from '@/components/ExerciseFormDialog.vue';
 import ExerciseHistoryDialog from '@/components/ExerciseHistoryDialog.vue';
 import { useExerciseApi } from '@/composables/api/useExerciseApi';
 import { useWorkoutLogApi } from '@/composables/api/useWorkoutLogApi';
 import { useLoading } from '@/composables/useLoading';
 import { useToast } from '@/composables/useToast';
 import { useUnits } from '@/composables/useUnits';
-import type {
-    Exercise,
-    ExerciseCreate,
-    ExerciseUpdate,
-} from '@/types/Exercise';
+import type { Exercise } from '@/types/Exercise';
 import type { ExerciseHistoryEntry } from '@/types/WorkoutLog';
 import { formatDate } from '@/utils/format';
 
-const { getExercises, createExercise, updateExercise, deleteExercise } =
-    useExerciseApi();
+const { getExercises, deleteExercise } = useExerciseApi();
 const { getExerciseHistory, getExerciseLastPerformed, getExercisePRs } =
     useWorkoutLogApi();
 const { loading, withLoading } = useLoading();
@@ -40,19 +36,6 @@ const muscleGroupOptions = [
     { label: 'Shoulders', value: 'shoulders' },
     { label: 'Legs', value: 'legs' },
     { label: 'Core', value: 'core' },
-];
-
-const muscleGroupFormOptions = muscleGroupOptions.filter((o) => o.value !== '');
-
-const EQUIPMENT_OPTIONS = [
-    'Barbell',
-    'Dumbbell',
-    'Kettlebell',
-    'Machine',
-    'Cable',
-    'Resistance Band',
-    'Bodyweight',
-    'Other',
 ];
 
 // --- Filters ---
@@ -120,95 +103,18 @@ const stats = computed(() => {
 
 // --- Dialog state ---
 const showDialog = ref(false);
-const editingId = ref<number | null>(null);
+const editingExercise = ref<Exercise | null>(null);
 const showDeleteConfirm = ref(false);
 const deletingId = ref<number | null>(null);
-const formError = ref('');
-
-const isFormValid = computed(
-    () =>
-        form.name.trim().length >= 3 &&
-        form.name.trim().length <= 50 &&
-        form.muscle_group !== '',
-);
-const saveTooltip = computed(() => {
-    if (form.name.trim().length < 3)
-        return 'Name must be at least 3 characters';
-    if (form.name.trim().length > 50)
-        return 'Name must be 50 characters or fewer';
-    if (form.muscle_group === '') return 'Muscle group is required';
-    return undefined;
-});
-
-const form = reactive({
-    name: '',
-    muscle_group: '',
-    equipment: '',
-    description: '',
-    instructions: '',
-});
-
-function resetForm() {
-    form.name = '';
-    form.muscle_group = '';
-    form.equipment = '';
-    form.description = '';
-    form.instructions = '';
-    editingId.value = null;
-    formError.value = '';
-}
 
 function openAddDialog() {
-    resetForm();
+    editingExercise.value = null;
     showDialog.value = true;
 }
 
 function openEditDialog(exercise: Exercise) {
-    editingId.value = exercise.id;
-    form.name = exercise.name;
-    form.muscle_group = exercise.muscle_group;
-    form.equipment = exercise.equipment ?? '';
-    form.description = exercise.description ?? '';
-    form.instructions = exercise.instructions ?? '';
-    formError.value = '';
+    editingExercise.value = exercise;
     showDialog.value = true;
-}
-
-async function saveExercise() {
-    formError.value = '';
-    if (editingId.value) {
-        const payload: ExerciseUpdate = {
-            name: form.name,
-            muscle_group: form.muscle_group,
-            equipment: form.equipment || null,
-            description: form.description || null,
-            instructions: form.instructions || null,
-        };
-        const res = await updateExercise(editingId.value, payload);
-        if (res.success) {
-            toast.showSuccess('Exercise updated');
-            showDialog.value = false;
-            await loadData();
-        } else {
-            formError.value = res.error?.message ?? 'Something went wrong';
-        }
-    } else {
-        const payload: ExerciseCreate = {
-            name: form.name,
-            muscle_group: form.muscle_group,
-            equipment: form.equipment || null,
-            description: form.description || null,
-            instructions: form.instructions || null,
-        };
-        const res = await createExercise(payload);
-        if (res.success) {
-            toast.showSuccess('Exercise added');
-            showDialog.value = false;
-            await loadData();
-        } else {
-            formError.value = res.error?.message ?? 'Something went wrong';
-        }
-    }
 }
 
 function confirmDelete(id: number) {
@@ -271,10 +177,6 @@ async function openFromSearch() {
 }
 
 onMounted(() => withLoading(loadData).then(openFromSearch));
-
-const dialogHeader = computed(() =>
-    editingId.value ? 'Edit Exercise' : 'Add Exercise',
-);
 </script>
 
 <template>
@@ -499,87 +401,11 @@ const dialogHeader = computed(() =>
         </AppDataTable>
 
         <!-- Add/Edit Dialog -->
-        <AppDialog
+        <ExerciseFormDialog
             v-model:visible="showDialog"
-            :header="dialogHeader"
-            modal
-            :style="{ width: '28rem', maxWidth: '92vw' }"
-        >
-            <div class="flex flex-col gap-4">
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Name <span class="text-red-500">*</span>
-                    </label>
-                    <AppInputText
-                        v-model="form.name"
-                        class="w-full"
-                        maxlength="50"
-                    />
-                    <p v-if="formError" class="mt-1 text-sm text-red-500">
-                        {{ formError }}
-                    </p>
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Muscle Group <span class="text-red-500">*</span>
-                    </label>
-                    <AppSelect
-                        v-model="form.muscle_group"
-                        class="w-full"
-                        option-label="label"
-                        option-value="value"
-                        :options="muscleGroupFormOptions"
-                        placeholder="Select a muscle group"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Equipment
-                    </label>
-                    <AppSelect
-                        v-model="form.equipment"
-                        class="w-full"
-                        editable
-                        :options="EQUIPMENT_OPTIONS"
-                        placeholder="Select or type equipment"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Description
-                    </label>
-                    <AppTextarea
-                        v-model="form.description"
-                        class="w-full"
-                        rows="2"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Instructions
-                    </label>
-                    <AppTextarea
-                        v-model="form.instructions"
-                        class="w-full"
-                        rows="3"
-                    />
-                </div>
-                <div class="flex justify-end gap-2">
-                    <AppButton
-                        label="Cancel"
-                        text
-                        @click="showDialog = false"
-                    />
-                    <span v-tooltip.top="saveTooltip">
-                        <AppButton
-                            :disabled="!isFormValid"
-                            label="Save"
-                            @click="saveExercise"
-                        />
-                    </span>
-                </div>
-            </div>
-        </AppDialog>
+            :exercise="editingExercise"
+            @saved="loadData"
+        />
 
         <!-- Exercise History Dialog -->
         <ExerciseHistoryDialog

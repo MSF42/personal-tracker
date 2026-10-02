@@ -1,8 +1,11 @@
 import io
 import zipfile
+from pathlib import Path
 
 import pytest
 from httpx import AsyncClient
+
+from src.config.settings import get_settings
 
 
 def make_zip(entries: dict[str, bytes]) -> bytes:
@@ -66,6 +69,9 @@ async def test_restore_rejects_tracker_db_path_traversal(client: AsyncClient) ->
 @pytest.mark.asyncio
 async def test_seed_populates_every_domain(client: AsyncClient) -> None:
     """Seeding should leave data behind in every domain it touches."""
+    # Seeding is only allowed into an empty database (the test DB is shared).
+    assert (await client.post("/api/v1/settings/reset")).status_code == 200
+    assert (await client.get("/api/v1/settings/data-status")).json() == {"empty": True}
     response = await client.post("/api/v1/settings/seed")
     assert response.status_code == 200
 
@@ -84,3 +90,28 @@ async def test_seed_populates_every_domain(client: AsyncClient) -> None:
     logs_res = await client.get("/api/v1/workout-logs")
     assert logs_res.status_code == 200
     assert len(logs_res.json()) >= 7
+
+    # Now there's data: no second helping of samples.
+    assert (await client.get("/api/v1/settings/data-status")).json() == {"empty": False}
+    refused = await client.post("/api/v1/settings/seed")
+    assert refused.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_reset_deletes_habits_search_index_and_uploads(client: AsyncClient) -> None:
+    habit = await client.post("/api/v1/habits", json={"name": "Reset Me"})
+    assert habit.status_code == 201
+    done = await client.post(
+        f"/api/v1/habits/{habit.json()['id']}/complete", json={"date": "2026-01-01"}
+    )
+    assert done.status_code == 200
+    uploads = Path(get_settings().uploads_path)
+    uploads.mkdir(parents=True, exist_ok=True)
+    (uploads / "orphan.jpg").write_bytes(b"x")
+
+    assert (await client.post("/api/v1/settings/reset")).status_code == 200
+
+    assert (await client.get("/api/v1/habits")).json() == []
+    search = await client.get("/api/v1/search", params={"q": "Reset Me"})
+    assert search.json() == {"hits": []}
+    assert list(uploads.iterdir()) == []

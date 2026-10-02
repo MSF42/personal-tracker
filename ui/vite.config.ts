@@ -8,11 +8,6 @@ import { defineConfig } from 'vite';
 import vueDevTools from 'vite-plugin-vue-devtools';
 import VueRouter from 'vue-router/vite';
 
-const backendDir =
-    process.env.VITE_BACKEND === 'local'
-        ? './src/composables/api/backends/local'
-        : './src/composables/api/backends/http';
-
 export default defineConfig(({ mode }) => ({
     base: mode === 'production' ? './' : '/',
     plugins: [
@@ -27,9 +22,6 @@ export default defineConfig(({ mode }) => ({
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url)),
-            '@api-backend': fileURLToPath(
-                new URL(backendDir, import.meta.url),
-            ),
         },
     },
     server: {

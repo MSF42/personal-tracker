@@ -16,6 +16,7 @@ declare module 'vue' {
     CommandPalette: typeof import('./src/components/CommandPalette.vue')['default']
     ConfirmDeleteDialog: typeof import('./src/components/ConfirmDeleteDialog.vue')['default']
     DurationRangeFilter: typeof import('./src/components/DurationRangeFilter.vue')['default']
+    ExerciseFormDialog: typeof import('./src/components/ExerciseFormDialog.vue')['default']
     ExerciseHistoryDialog: typeof import('./src/components/ExerciseHistoryDialog.vue')['default']
     LoadingState: typeof import('./src/components/LoadingState.vue')['default']
     LogWorkoutDialog: typeof import('./src/components/LogWorkoutDialog.vue')['default']
@@ -26,8 +27,11 @@ declare module 'vue' {
     RouteOutline: typeof import('./src/components/RouteOutline.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    RunBadges: typeof import('./src/components/RunBadges.vue')['default']
+    RunningCalendar: typeof import('./src/components/RunningCalendar.vue')['default']
+    SectionLayout: typeof import('./src/components/SectionLayout.vue')['default']
     StatTileGrid: typeof import('./src/components/StatTileGrid.vue')['default']
-    WorkoutLogDetailDialog: typeof import('./src/components/WorkoutLogDetailDialog.vue')['default']
+    WeeklyProgressList: typeof import('./src/components/WeeklyProgressList.vue')['default']
   }
   export interface GlobalDirectives {
     Tooltip: typeof import('primevue/tooltip')['default']

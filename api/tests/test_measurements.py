@@ -9,9 +9,7 @@ def _unique_name(prefix: str) -> str:
 
 async def test_create_and_list_measurement(client: AsyncClient) -> None:
     name = _unique_name("Waist")
-    response = await client.post(
-        "/api/v1/measurements", json={"name": name, "unit": "in"}
-    )
+    response = await client.post("/api/v1/measurements", json={"name": name, "unit": "in"})
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == name
@@ -23,16 +21,8 @@ async def test_create_and_list_measurement(client: AsyncClient) -> None:
 
 
 async def test_update_measurement_sort_order(client: AsyncClient) -> None:
-    first = (
-        await client.post(
-            "/api/v1/measurements", json={"name": _unique_name("Waist")}
-        )
-    ).json()
-    second = (
-        await client.post(
-            "/api/v1/measurements", json={"name": _unique_name("Neck")}
-        )
-    ).json()
+    first = (await client.post("/api/v1/measurements", json={"name": _unique_name("Waist")})).json()
+    second = (await client.post("/api/v1/measurements", json={"name": _unique_name("Neck")})).json()
     assert first["sort_order"] < second["sort_order"]
 
     # Swap their sort_order to move "Neck" ahead of "Waist".
@@ -55,9 +45,7 @@ async def test_update_measurement_sort_order(client: AsyncClient) -> None:
 
 async def test_delete_measurement(client: AsyncClient) -> None:
     created = (
-        await client.post(
-            "/api/v1/measurements", json={"name": _unique_name("Chest")}
-        )
+        await client.post("/api/v1/measurements", json={"name": _unique_name("Chest")})
     ).json()
     response = await client.delete(f"/api/v1/measurements/{created['id']}")
     assert response.status_code == 204

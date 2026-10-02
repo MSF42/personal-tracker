@@ -50,5 +50,23 @@ export function useToast() {
         });
     };
 
-    return { showSuccess, showError, showApiError, showWarning, showInfo };
+    // Earned run badges: lingers longer than a plain success, since there may
+    // be several lines worth reading.
+    const showBadges = (summary: string, detail: string) => {
+        toast.add({
+            severity: 'success',
+            summary,
+            detail,
+            life: 8000,
+        });
+    };
+
+    return {
+        showSuccess,
+        showError,
+        showApiError,
+        showWarning,
+        showInfo,
+        showBadges,
+    };
 }

@@ -35,7 +35,9 @@ build = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-exclude = ["build", "venv", ".venv"]
+# docs/ holds plan write-ups whose code snippets quote the code as it was at
+# the time; the formatter would otherwise rewrite them.
+exclude = ["build", "venv", ".venv", "docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

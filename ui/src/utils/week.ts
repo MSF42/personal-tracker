@@ -47,6 +47,19 @@ export function endOfWeek(d: Date): Date {
     return end;
 }
 
+/** Inclusive ISO date range for the trailing `days`-day window ending on `d`
+ *  (today by default) — e.g. `rollingRange(7)` covers `d` and the 6 days
+ *  before it, for "past week/month/year" totals as opposed to a calendar
+ *  period. */
+export function rollingRange(
+    days: number,
+    d: Date = new Date(),
+): { start: string; end: string } {
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    start.setDate(start.getDate() - (days - 1));
+    return { start: toIsoDate(start), end: toIsoDate(d) };
+}
+
 /** Inclusive Monday..Sunday ISO date range for the week containing `d`. */
 export function weekRange(d: Date = new Date()): {
     start: string;

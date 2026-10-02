@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -144,3 +146,55 @@ class RunImportResponse(BaseModel):
     activity: RunningActivityResponse
     segments: list[GpxSegmentResponse]
     laps: list[RunLapResponse] = []
+
+
+BadgeKind = Literal[
+    "longest",
+    "fastest",
+    "longest_time",
+    "first_distance",
+    "biggest_week",
+    "biggest_month",
+    "comeback",
+    "most_climb",
+    "negative_split",
+    "weekly_streak",
+    "weekly_goal",
+    "plan_complete",
+    "distance_milestone",
+    "run_milestone",
+    "beat_last_year",
+]
+
+
+class RunBadge(BaseModel):
+    """One achievement earned by a run; the UI turns it into words.
+
+    `since` is the ISO date of the last run (or week/month start) that was at
+    least as good — absent when `ever` is true or the badge has no comparison.
+    `value` is km for distances (incl. goal, milestone, last year's total),
+    seconds for times/efforts and a negative split's margin, metres for climb,
+    days for a comeback, weeks for a streak, runs for a plan or run milestone.
+    `effort` names the standard distance ("5K").
+    """
+
+    kind: BadgeKind
+    since: str | None = None
+    ever: bool = False
+    effort: str | None = None
+    value: float | None = None
+
+
+class RunBadgesResponse(BaseModel):
+    run_id: int
+    date: str
+    badges: list[RunBadge]
+
+
+class BestEffortResponse(BaseModel):
+    name: str
+    distance_km: float
+    duration_seconds: int
+    pace: float
+    run_id: int
+    date: str

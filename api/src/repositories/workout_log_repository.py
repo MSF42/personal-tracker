@@ -80,9 +80,14 @@ class SQLiteWorkoutLogRepository:
         return {**dict(workout), "sets": sets}
 
     async def find_all(self) -> list[dict[str, Any]]:
-        """Get all workout logs."""
+        """Get all workout logs, with per-session set/volume totals (same
+        definition as find_by_routine: reps x weight, bodyweight sets add 0)."""
         cursor = await self.db.execute(
-            """SELECT wl.*, wr.name as routine_name
+            """SELECT wl.*, wr.name as routine_name,
+                      (SELECT COUNT(*) FROM set_logs sl
+                       WHERE sl.workout_log_id = wl.id) AS total_sets,
+                      (SELECT COALESCE(SUM(sl.reps * COALESCE(sl.weight, 0)), 0)
+                       FROM set_logs sl WHERE sl.workout_log_id = wl.id) AS total_volume
                FROM workout_logs wl
                JOIN workout_routines wr ON wl.routine_id = wr.id
                ORDER BY wl.date DESC"""
@@ -175,6 +180,14 @@ class SQLiteWorkoutLogRepository:
             )
             await self.db.commit()
         return await self._find_set_with_exercise_name(set_id)
+
+    async def delete_set(self, workout_log_id: int, set_id: int) -> bool:
+        cursor = await self.db.execute(
+            "DELETE FROM set_logs WHERE id = ? AND workout_log_id = ?",
+            (set_id, workout_log_id),
+        )
+        await self.db.commit()
+        return cursor.rowcount > 0
 
     async def delete(self, workout_log_id: int) -> bool:
         cursor = await self.db.execute("DELETE FROM workout_logs WHERE id = ?", (workout_log_id,))

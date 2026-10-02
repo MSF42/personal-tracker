@@ -106,6 +106,17 @@ async def update_set(
     return result
 
 
+@router.delete("/{workout_log_id}/sets/{set_id}", status_code=204)
+async def delete_set(
+    workout_log_id: int,
+    set_id: int,
+    repo: SQLiteWorkoutLogRepository = Depends(get_workout_log_repository),
+) -> None:
+    deleted = await repo.delete_set(workout_log_id, set_id)
+    if not deleted:
+        raise NotFoundError("Set not found")
+
+
 @router.put("/{workout_log_id}", response_model=WorkoutLogResponse)
 async def update_workout_log(
     workout_log_id: int,
